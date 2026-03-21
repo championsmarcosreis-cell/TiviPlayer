@@ -396,10 +396,7 @@ Future<void> openAccountAndVerifyByTap(
 
   final state = await pumpUntilAnyFound(
     tester,
-    [
-      find.text('Status'),
-      find.text('Falha ao carregar'),
-    ],
+    [find.text('Status'), find.text('Falha ao carregar')],
     timeout: const Duration(seconds: 20),
     description: 'abertura da conta',
   );
@@ -413,11 +410,7 @@ Future<void> openAccountAndVerifyByTap(
   }
 
   expect(find.text('Status'), findsOneWidget);
-  expectNoTechnicalProviderUi(
-    tester,
-    config,
-    stage: 'tela de conta',
-  );
+  expectNoTechnicalProviderUi(tester, config, stage: 'tela de conta');
 
   await tester.binding.handlePopRoute();
   await tester.pumpAndSettle(const Duration(seconds: 1));
@@ -474,10 +467,7 @@ void expectNoTechnicalProviderUi(
   }
 }
 
-void expectArtworkBound(
-  WidgetTester tester, {
-  required String stage,
-}) {
+void expectArtworkBound(WidgetTester tester, {required String stage}) {
   final artworks = tester.widgetList<BrandedArtwork>(
     find.byType(BrandedArtwork).hitTestable(),
   );
@@ -557,11 +547,7 @@ Future<void> pumpUntilFound(
     }
   }
 
-  _failWithDiagnostics(
-    tester,
-    description,
-    'Elemento esperado não apareceu.',
-  );
+  _failWithDiagnostics(tester, description, 'Elemento esperado não apareceu.');
 }
 
 Future<int> pumpUntilAnyFound(
@@ -589,11 +575,7 @@ Future<int> pumpUntilAnyFound(
   );
 }
 
-Never _failWithDiagnostics(
-  WidgetTester tester,
-  String stage,
-  String reason,
-) {
+Never _failWithDiagnostics(WidgetTester tester, String stage, String reason) {
   final texts = _visibleTexts(tester).take(18).join(' | ');
   throw TestFailure('$stage: $reason Textos visíveis: $texts');
 }
