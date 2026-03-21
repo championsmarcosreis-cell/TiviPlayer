@@ -1,0 +1,68 @@
+import '../../../auth/domain/entities/xtream_session.dart';
+import '../../domain/entities/series_category.dart';
+import '../../domain/entities/series_info.dart';
+import '../../domain/entities/series_item.dart';
+import '../../domain/repositories/series_repository.dart';
+import '../datasources/series_remote_data_source.dart';
+
+class SeriesRepositoryImpl implements SeriesRepository {
+  const SeriesRepositoryImpl(this._remoteDataSource);
+
+  final SeriesRemoteDataSource _remoteDataSource;
+
+  @override
+  Future<List<SeriesCategory>> getCategories(XtreamSession session) async {
+    final items = await _remoteDataSource.getCategories(session);
+
+    return items
+        .where((item) => item.categoryId.isNotEmpty)
+        .map(
+          (item) => SeriesCategory(
+            id: item.categoryId,
+            name: item.categoryName,
+            parentId: item.parentId,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<SeriesInfo> getInfo(XtreamSession session, String seriesId) async {
+    final item = await _remoteDataSource.getInfo(session, seriesId);
+
+    return SeriesInfo(
+      id: item.seriesId,
+      name: item.name,
+      plot: item.plot,
+      genre: item.genre,
+      cast: item.cast,
+      coverUrl: item.cover,
+      seasonCount: item.seasonCount,
+      episodeCount: item.episodeCount,
+    );
+  }
+
+  @override
+  Future<List<SeriesItem>> getSeries(
+    XtreamSession session, {
+    String? categoryId,
+  }) async {
+    final items = await _remoteDataSource.getSeries(
+      session,
+      categoryId: categoryId,
+    );
+
+    return items
+        .where((item) => item.seriesId.isNotEmpty)
+        .map(
+          (item) => SeriesItem(
+            id: item.seriesId,
+            name: item.name,
+            categoryId: item.categoryId,
+            coverUrl: item.cover,
+            plot: item.plot,
+          ),
+        )
+        .toList();
+  }
+}

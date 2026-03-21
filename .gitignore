@@ -1,0 +1,64 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Editors
+#.vscode/
+
+# Flutter / Dart / Pub
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+/dist/
+
+# Local secrets and provider exports
+api.txt
+.env
+.env.*
+/secrets/
+*.m3u
+xmltv*.xml
+/provider-exports/*.xml
+
+# Local dumps and scratch files
+/dumps/
+/dump/
+/tmp/
+/temp/
+*.dump
+*.bak
+*.tmp
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+
+# Symbolication related
+app.*.symbols
+app.*.map.json
+
+# Android Studio build outputs
+/android/app/debug
+/android/app/profile
+/android/app/release
