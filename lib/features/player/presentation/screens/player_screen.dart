@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/errors/failure.dart';
+import '../../../../shared/testing/app_test_keys.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/playback_context.dart';
 import '../../domain/entities/resolved_playback.dart';
@@ -60,6 +61,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   PlayerControlButton(
+                    interactiveKey: const ValueKey<String>(
+                      'player.header.back',
+                    ),
                     icon: Icons.arrow_back_rounded,
                     label: 'Voltar',
                     autofocus: true,
@@ -98,7 +102,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           fit: StackFit.expand,
                           children: [
                             if (playerValue?.isInitialized == true)
-                              VideoPlayer(controller!)
+                              Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  VideoPlayer(controller!),
+                                  const Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    child: SizedBox(
+                                      key: AppTestKeys.playerLoadedState,
+                                      width: 1,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ],
+                              )
                             else
                               const SizedBox.shrink(),
                             if (_isInitializing)
@@ -108,6 +126,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                             if (!_isInitializing && _errorMessage != null)
                               _CenteredMessage(
                                 child: _ErrorPanel(
+                                  key: AppTestKeys.playerErrorState,
                                   message: _errorMessage!,
                                   onRetry: _initializePlayer,
                                 ),
@@ -326,8 +345,10 @@ class _PlayerControls extends StatelessWidget {
           runSpacing: 12,
           children: [
             PlayerControlButton(
+              interactiveKey: AppTestKeys.playerCloseButton,
               icon: Icons.arrow_back_rounded,
               label: 'Sair',
+              testId: AppTestKeys.playerCloseButtonId,
               onPressed: onBack,
             ),
             PlayerControlButton(
@@ -403,7 +424,7 @@ class _PlayerTag extends StatelessWidget {
 }
 
 class _ErrorPanel extends StatelessWidget {
-  const _ErrorPanel({required this.message, required this.onRetry});
+  const _ErrorPanel({super.key, required this.message, required this.onRetry});
 
   final String message;
   final Future<void> Function() onRetry;
@@ -435,6 +456,7 @@ class _ErrorPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 PlayerControlButton(
+                  interactiveKey: AppTestKeys.playerRetryButton,
                   icon: Icons.refresh_rounded,
                   label: 'Tentar novamente',
                   onPressed: () {

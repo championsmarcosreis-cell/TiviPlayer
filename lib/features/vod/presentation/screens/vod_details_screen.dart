@@ -6,6 +6,7 @@ import '../../../../features/favorites/domain/entities/favorite_item.dart';
 import '../../../../features/favorites/presentation/controllers/favorites_controller.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
+import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../providers/vod_providers.dart';
@@ -79,6 +80,8 @@ class VodDetailsScreen extends ConsumerWidget {
                       runSpacing: 12,
                       children: [
                         FilledButton.tonalIcon(
+                          key: AppTestKeys.vodPlayButton,
+                          autofocus: true,
                           onPressed: () => context.push(
                             PlayerScreen.routePath,
                             extra: PlaybackContext(

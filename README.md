@@ -80,6 +80,27 @@ flutter analyze
 flutter test
 ```
 
+## Smokes de integração
+
+Existem três smokes separados:
+
+- `integration_test/playback_smoke_tolerant_test.dart`: smoke tolerante de playback. Passa se o player abrir com sucesso real ou se entrar em erro explícito tratado.
+- `integration_test/playback_smoke_strict_test.dart`: smoke strict de playback. Só passa se o player entrar em estado carregado/reproduzível; falha em erro explícito ou retry.
+- `integration_test/android_tv_smoke_test.dart`: smoke dedicado de Android TV com foco em D-pad, foco e back. A validação mobile não substitui esse teste.
+
+Para rodar os smokes, use um arquivo local ignorado com `XTREAM_BASE_URL`, `XTREAM_USERNAME`, `XTREAM_PASSWORD` e, opcionalmente no strict, `XTREAM_STRICT_VOD_ID` para apontar um VOD conhecido e estável:
+
+```bash
+flutter test integration_test/playback_smoke_tolerant_test.dart -d <android_device> --dart-define-from-file=<arquivo_local_ignorado>.json
+flutter test integration_test/playback_smoke_strict_test.dart -d <android_device> --dart-define-from-file=<arquivo_local_ignorado>.json
+flutter test integration_test/android_tv_smoke_test.dart -d <tv_device_suportado_pelo_flutter> --dart-define-from-file=<arquivo_local_ignorado>.json
+```
+
+Observações:
+
+- Se `XTREAM_STRICT_VOD_ID` não for informado, o smoke strict cai no primeiro VOD disponível; isso é útil, mas menos determinístico.
+- O smoke TV depende de um target Android TV que o Flutter reconheça como suportado. Alguns AVDs TV sobem via `adb`, mas aparecem como `unsupported` no `flutter devices`, o que bloqueia a execução instrumentada.
+
 ## Compatibilidade TV
 
 - Tema escuro com foco visível.
@@ -92,6 +113,8 @@ flutter test
 
 - O player cobre Live, VOD e episódio de série com controles básicos; não há ainda telemetria, retry avançado ou resume persistente.
 - Live não força seek artificial; seek básico existe apenas em VOD e episódios.
+- O smoke tolerante valida robustez de abertura/erro explícito; ele não substitui o smoke strict.
+- O smoke mobile não substitui a validação em Android TV.
 - Favoritos entraram no detalhe de VOD e Séries, mas ainda não existe tela dedicada de favoritos.
 - Persistência de credenciais usa `shared_preferences`; endurecimento de segurança pode entrar depois.
 - Não há ingestão de XMLTV no boot.

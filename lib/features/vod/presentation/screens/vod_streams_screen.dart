@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
+import '../../../../shared/testing/app_test_keys.dart';
 import '../providers/vod_providers.dart';
 import 'vod_details_screen.dart';
 
@@ -46,7 +47,9 @@ class VodStreamsScreen extends ConsumerWidget {
               ];
 
               return ContentListTile(
+                interactiveKey: AppTestKeys.vodItem(item.id),
                 autofocus: index == 0,
+                testId: AppTestKeys.vodItemId(item.id),
                 title: item.name,
                 subtitle: subtitleParts.isEmpty
                     ? 'Filme VOD'

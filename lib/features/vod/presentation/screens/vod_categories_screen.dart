@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/screens/home_screen.dart';
+import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/section_card.dart';
@@ -60,7 +61,13 @@ class VodCategoriesScreen extends ConsumerWidget {
                       SizedBox(
                         width: width,
                         child: SectionCard(
+                          interactiveKey: entries[index].id == 'all'
+                              ? AppTestKeys.vodCategoryAll
+                              : null,
                           autofocus: index == 0,
+                          testId: entries[index].id == 'all'
+                              ? AppTestKeys.vodCategoryAllId
+                              : null,
                           title: entries[index].title,
                           description: entries[index].description,
                           icon: Icons.video_library_outlined,

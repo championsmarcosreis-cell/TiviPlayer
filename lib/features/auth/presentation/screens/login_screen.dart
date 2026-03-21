@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../domain/entities/xtream_credentials.dart';
 import '../controllers/auth_controller.dart';
@@ -78,6 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     TextFormField(
+                      key: AppTestKeys.loginBaseUrlField,
                       controller: _baseUrlController,
                       keyboardType: TextInputType.url,
                       textInputAction: TextInputAction.next,
@@ -90,6 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      key: AppTestKeys.loginUsernameField,
                       controller: _usernameController,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.username],
@@ -98,6 +101,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      key: AppTestKeys.loginPasswordField,
                       controller: _passwordController,
                       obscureText: true,
                       autofillHints: const [AutofillHints.password],
@@ -107,6 +111,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
+                      key: AppTestKeys.loginSubmitButton,
                       onPressed: isSubmitting ? null : _submit,
                       child: isSubmitting
                           ? const SizedBox(

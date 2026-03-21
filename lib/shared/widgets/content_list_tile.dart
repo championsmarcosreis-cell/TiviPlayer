@@ -10,6 +10,8 @@ class ContentListTile extends StatelessWidget {
     required this.onPressed,
     this.subtitle,
     this.autofocus = false,
+    this.testId,
+    this.interactiveKey,
   });
 
   final String title;
@@ -17,6 +19,8 @@ class ContentListTile extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final bool autofocus;
+  final String? testId;
+  final Key? interactiveKey;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +28,9 @@ class ContentListTile extends StatelessWidget {
 
     return TvFocusable(
       autofocus: autofocus,
+      interactiveKey: interactiveKey,
       onPressed: onPressed,
+      testId: testId,
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),

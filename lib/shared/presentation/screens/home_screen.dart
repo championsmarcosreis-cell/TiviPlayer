@@ -6,6 +6,7 @@ import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../../features/live/presentation/screens/live_categories_screen.dart';
 import '../../../features/series/presentation/screens/series_categories_screen.dart';
 import '../../../features/vod/presentation/screens/vod_categories_screen.dart';
+import '../../testing/app_test_keys.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/section_card.dart';
 
@@ -44,6 +45,7 @@ class HomeScreen extends ConsumerWidget {
           '${session.credentials.username} conectado em ${session.displayServer}',
       actions: [
         FilledButton.tonalIcon(
+          key: AppTestKeys.homeLogoutButton,
           onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           icon: const Icon(Icons.logout_rounded),
           label: const Text('Sair'),
@@ -69,7 +71,17 @@ class HomeScreen extends ConsumerWidget {
                   SizedBox(
                     width: width,
                     child: SectionCard(
+                      interactiveKey: switch (cards[index].title) {
+                        'Live' => AppTestKeys.homeLiveCard,
+                        'Filmes' => AppTestKeys.homeMoviesCard,
+                        _ => AppTestKeys.homeSeriesCard,
+                      },
                       autofocus: index == 0,
+                      testId: switch (cards[index].title) {
+                        'Live' => AppTestKeys.homeLiveCardId,
+                        'Filmes' => AppTestKeys.homeMoviesCardId,
+                        _ => AppTestKeys.homeSeriesCardId,
+                      },
                       title: cards[index].title,
                       description: cards[index].description,
                       icon: cards[index].icon,

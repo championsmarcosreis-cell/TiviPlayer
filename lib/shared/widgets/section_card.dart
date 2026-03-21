@@ -10,6 +10,8 @@ class SectionCard extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.autofocus = false,
+    this.testId,
+    this.interactiveKey,
   });
 
   final String title;
@@ -17,6 +19,8 @@ class SectionCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final bool autofocus;
+  final String? testId;
+  final Key? interactiveKey;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +28,9 @@ class SectionCard extends StatelessWidget {
 
     return TvFocusable(
       autofocus: autofocus,
+      interactiveKey: interactiveKey,
       onPressed: onPressed,
+      testId: testId,
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),

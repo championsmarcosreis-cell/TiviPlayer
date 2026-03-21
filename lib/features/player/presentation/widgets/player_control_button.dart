@@ -9,12 +9,16 @@ class PlayerControlButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.autofocus = false,
+    this.testId,
+    this.interactiveKey,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
   final bool autofocus;
+  final String? testId;
+  final Key? interactiveKey;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +26,9 @@ class PlayerControlButton extends StatelessWidget {
 
     return TvFocusable(
       autofocus: autofocus,
+      interactiveKey: interactiveKey,
       onPressed: onPressed,
+      testId: testId,
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
