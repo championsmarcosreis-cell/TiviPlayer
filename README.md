@@ -84,7 +84,7 @@ flutter test
 
 - Tema escuro com foco visível.
 - Navegação preparada para D-pad com `FocusableActionDetector`.
-- `AndroidManifest.xml` principal com `android.permission.INTERNET`, `LEANBACK_LAUNCHER` e touchscreen opcional.
+- `AndroidManifest.xml` principal com `android.permission.INTERNET`, `android:usesCleartextTraffic="true"` para provedores Xtream via HTTP, `LEANBACK_LAUNCHER` e touchscreen opcional.
 - Player com controles focáveis para D-pad, play/pause e seek apenas onde o conteúdo suporta.
 - Layout responsivo para telas menores e TVs largas.
 

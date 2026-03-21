@@ -420,27 +420,29 @@ class _ErrorPanel extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline_rounded, size: 42),
-              const SizedBox(height: 16),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: 16),
-              PlayerControlButton(
-                icon: Icons.refresh_rounded,
-                label: 'Tentar novamente',
-                onPressed: () {
-                  onRetry();
-                },
-              ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 42),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.white),
+                ),
+                const SizedBox(height: 16),
+                PlayerControlButton(
+                  icon: Icons.refresh_rounded,
+                  label: 'Tentar novamente',
+                  onPressed: () {
+                    onRetry();
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
