@@ -10,6 +10,7 @@ class VodInfo {
     this.releaseDate,
     this.coverUrl,
     this.rating,
+    this.containerExtension,
   });
 
   final String id;
@@ -22,4 +23,5 @@ class VodInfo {
   final String? releaseDate;
   final String? coverUrl;
   final String? rating;
+  final String? containerExtension;
 }

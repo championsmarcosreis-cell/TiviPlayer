@@ -7,7 +7,7 @@ import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/live/presentation/screens/live_categories_screen.dart';
 import '../../features/live/presentation/screens/live_streams_screen.dart';
 import '../../features/player/domain/entities/playback_context.dart';
-import '../../features/player/presentation/screens/player_placeholder_screen.dart';
+import '../../features/player/presentation/screens/player_screen.dart';
 import '../../features/series/presentation/screens/series_categories_screen.dart';
 import '../../features/series/presentation/screens/series_details_screen.dart';
 import '../../features/series/presentation/screens/series_items_screen.dart';
@@ -74,10 +74,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             SeriesDetailsScreen(seriesId: state.pathParameters['seriesId']!),
       ),
       GoRoute(
-        path: PlayerPlaceholderScreen.routePath,
-        builder: (context, state) => PlayerPlaceholderScreen(
-          playbackContext: state.extra as PlaybackContext?,
-        ),
+        path: PlayerScreen.routePath,
+        builder: (context, state) =>
+            PlayerScreen(playbackContext: state.extra as PlaybackContext?),
       ),
     ],
     redirect: (context, state) {

@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$LiveStreamDto {
 
- String get streamId; String get name; String? get categoryId; String? get streamIcon; String? get epgChannelId; bool get tvArchive; bool get isAdult;
+ String get streamId; String get name; String? get categoryId; String? get streamIcon; String? get containerExtension; String? get epgChannelId; bool get tvArchive; bool get isAdult;
 /// Create a copy of LiveStreamDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $LiveStreamDtoCopyWith<LiveStreamDto> get copyWith => _$LiveStreamDtoCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LiveStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.epgChannelId, epgChannelId) || other.epgChannelId == epgChannelId)&&(identical(other.tvArchive, tvArchive) || other.tvArchive == tvArchive)&&(identical(other.isAdult, isAdult) || other.isAdult == isAdult));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LiveStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension)&&(identical(other.epgChannelId, epgChannelId) || other.epgChannelId == epgChannelId)&&(identical(other.tvArchive, tvArchive) || other.tvArchive == tvArchive)&&(identical(other.isAdult, isAdult) || other.isAdult == isAdult));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,epgChannelId,tvArchive,isAdult);
+int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,containerExtension,epgChannelId,tvArchive,isAdult);
 
 @override
 String toString() {
-  return 'LiveStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, epgChannelId: $epgChannelId, tvArchive: $tvArchive, isAdult: $isAdult)';
+  return 'LiveStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, containerExtension: $containerExtension, epgChannelId: $epgChannelId, tvArchive: $tvArchive, isAdult: $isAdult)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $LiveStreamDtoCopyWith<$Res>  {
   factory $LiveStreamDtoCopyWith(LiveStreamDto value, $Res Function(LiveStreamDto) _then) = _$LiveStreamDtoCopyWithImpl;
 @useResult
 $Res call({
- String streamId, String name, String? categoryId, String? streamIcon, String? epgChannelId, bool tvArchive, bool isAdult
+ String streamId, String name, String? categoryId, String? streamIcon, String? containerExtension, String? epgChannelId, bool tvArchive, bool isAdult
 });
 
 
@@ -65,12 +65,13 @@ class _$LiveStreamDtoCopyWithImpl<$Res>
 
 /// Create a copy of LiveStreamDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? epgChannelId = freezed,Object? tvArchive = null,Object? isAdult = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? containerExtension = freezed,Object? epgChannelId = freezed,Object? tvArchive = null,Object? isAdult = null,}) {
   return _then(_self.copyWith(
 streamId: null == streamId ? _self.streamId : streamId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String?,streamIcon: freezed == streamIcon ? _self.streamIcon : streamIcon // ignore: cast_nullable_to_non_nullable
+as String?,containerExtension: freezed == containerExtension ? _self.containerExtension : containerExtension // ignore: cast_nullable_to_non_nullable
 as String?,epgChannelId: freezed == epgChannelId ? _self.epgChannelId : epgChannelId // ignore: cast_nullable_to_non_nullable
 as String?,tvArchive: null == tvArchive ? _self.tvArchive : tvArchive // ignore: cast_nullable_to_non_nullable
 as bool,isAdult: null == isAdult ? _self.isAdult : isAdult // ignore: cast_nullable_to_non_nullable
@@ -159,10 +160,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? epgChannelId,  bool tvArchive,  bool isAdult)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? epgChannelId,  bool tvArchive,  bool isAdult)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LiveStreamDto() when $default != null:
-return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.epgChannelId,_that.tvArchive,_that.isAdult);case _:
+return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.epgChannelId,_that.tvArchive,_that.isAdult);case _:
   return orElse();
 
 }
@@ -180,10 +181,10 @@ return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? epgChannelId,  bool tvArchive,  bool isAdult)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? epgChannelId,  bool tvArchive,  bool isAdult)  $default,) {final _that = this;
 switch (_that) {
 case _LiveStreamDto():
-return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.epgChannelId,_that.tvArchive,_that.isAdult);case _:
+return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.epgChannelId,_that.tvArchive,_that.isAdult);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +201,10 @@ return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? epgChannelId,  bool tvArchive,  bool isAdult)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? epgChannelId,  bool tvArchive,  bool isAdult)?  $default,) {final _that = this;
 switch (_that) {
 case _LiveStreamDto() when $default != null:
-return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.epgChannelId,_that.tvArchive,_that.isAdult);case _:
+return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.epgChannelId,_that.tvArchive,_that.isAdult);case _:
   return null;
 
 }
@@ -215,13 +216,14 @@ return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_tha
 @JsonSerializable()
 
 class _LiveStreamDto implements LiveStreamDto {
-  const _LiveStreamDto({required this.streamId, required this.name, this.categoryId, this.streamIcon, this.epgChannelId, required this.tvArchive, required this.isAdult});
+  const _LiveStreamDto({required this.streamId, required this.name, this.categoryId, this.streamIcon, this.containerExtension, this.epgChannelId, required this.tvArchive, required this.isAdult});
   factory _LiveStreamDto.fromJson(Map<String, dynamic> json) => _$LiveStreamDtoFromJson(json);
 
 @override final  String streamId;
 @override final  String name;
 @override final  String? categoryId;
 @override final  String? streamIcon;
+@override final  String? containerExtension;
 @override final  String? epgChannelId;
 @override final  bool tvArchive;
 @override final  bool isAdult;
@@ -239,16 +241,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LiveStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.epgChannelId, epgChannelId) || other.epgChannelId == epgChannelId)&&(identical(other.tvArchive, tvArchive) || other.tvArchive == tvArchive)&&(identical(other.isAdult, isAdult) || other.isAdult == isAdult));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LiveStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension)&&(identical(other.epgChannelId, epgChannelId) || other.epgChannelId == epgChannelId)&&(identical(other.tvArchive, tvArchive) || other.tvArchive == tvArchive)&&(identical(other.isAdult, isAdult) || other.isAdult == isAdult));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,epgChannelId,tvArchive,isAdult);
+int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,containerExtension,epgChannelId,tvArchive,isAdult);
 
 @override
 String toString() {
-  return 'LiveStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, epgChannelId: $epgChannelId, tvArchive: $tvArchive, isAdult: $isAdult)';
+  return 'LiveStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, containerExtension: $containerExtension, epgChannelId: $epgChannelId, tvArchive: $tvArchive, isAdult: $isAdult)';
 }
 
 
@@ -259,7 +261,7 @@ abstract mixin class _$LiveStreamDtoCopyWith<$Res> implements $LiveStreamDtoCopy
   factory _$LiveStreamDtoCopyWith(_LiveStreamDto value, $Res Function(_LiveStreamDto) _then) = __$LiveStreamDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String streamId, String name, String? categoryId, String? streamIcon, String? epgChannelId, bool tvArchive, bool isAdult
+ String streamId, String name, String? categoryId, String? streamIcon, String? containerExtension, String? epgChannelId, bool tvArchive, bool isAdult
 });
 
 
@@ -276,12 +278,13 @@ class __$LiveStreamDtoCopyWithImpl<$Res>
 
 /// Create a copy of LiveStreamDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? epgChannelId = freezed,Object? tvArchive = null,Object? isAdult = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? containerExtension = freezed,Object? epgChannelId = freezed,Object? tvArchive = null,Object? isAdult = null,}) {
   return _then(_LiveStreamDto(
 streamId: null == streamId ? _self.streamId : streamId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String?,streamIcon: freezed == streamIcon ? _self.streamIcon : streamIcon // ignore: cast_nullable_to_non_nullable
+as String?,containerExtension: freezed == containerExtension ? _self.containerExtension : containerExtension // ignore: cast_nullable_to_non_nullable
 as String?,epgChannelId: freezed == epgChannelId ? _self.epgChannelId : epgChannelId // ignore: cast_nullable_to_non_nullable
 as String?,tvArchive: null == tvArchive ? _self.tvArchive : tvArchive // ignore: cast_nullable_to_non_nullable
 as bool,isAdult: null == isAdult ? _self.isAdult : isAdult // ignore: cast_nullable_to_non_nullable

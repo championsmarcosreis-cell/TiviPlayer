@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$VodInfoDto {
 
- String get streamId; String get name; String? get plot; String? get genre; String? get cast; String? get director; String? get duration; String? get releaseDate; String? get coverBig; String? get rating;
+ String get streamId; String get name; String? get plot; String? get genre; String? get cast; String? get director; String? get duration; String? get releaseDate; String? get coverBig; String? get rating; String? get containerExtension;
 /// Create a copy of VodInfoDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $VodInfoDtoCopyWith<VodInfoDto> get copyWith => _$VodInfoDtoCopyWithImpl<VodInfo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VodInfoDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.director, director) || other.director == director)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.releaseDate, releaseDate) || other.releaseDate == releaseDate)&&(identical(other.coverBig, coverBig) || other.coverBig == coverBig)&&(identical(other.rating, rating) || other.rating == rating));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VodInfoDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.director, director) || other.director == director)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.releaseDate, releaseDate) || other.releaseDate == releaseDate)&&(identical(other.coverBig, coverBig) || other.coverBig == coverBig)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,streamId,name,plot,genre,cast,director,duration,releaseDate,coverBig,rating);
+int get hashCode => Object.hash(runtimeType,streamId,name,plot,genre,cast,director,duration,releaseDate,coverBig,rating,containerExtension);
 
 @override
 String toString() {
-  return 'VodInfoDto(streamId: $streamId, name: $name, plot: $plot, genre: $genre, cast: $cast, director: $director, duration: $duration, releaseDate: $releaseDate, coverBig: $coverBig, rating: $rating)';
+  return 'VodInfoDto(streamId: $streamId, name: $name, plot: $plot, genre: $genre, cast: $cast, director: $director, duration: $duration, releaseDate: $releaseDate, coverBig: $coverBig, rating: $rating, containerExtension: $containerExtension)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $VodInfoDtoCopyWith<$Res>  {
   factory $VodInfoDtoCopyWith(VodInfoDto value, $Res Function(VodInfoDto) _then) = _$VodInfoDtoCopyWithImpl;
 @useResult
 $Res call({
- String streamId, String name, String? plot, String? genre, String? cast, String? director, String? duration, String? releaseDate, String? coverBig, String? rating
+ String streamId, String name, String? plot, String? genre, String? cast, String? director, String? duration, String? releaseDate, String? coverBig, String? rating, String? containerExtension
 });
 
 
@@ -65,7 +65,7 @@ class _$VodInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of VodInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? streamId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? director = freezed,Object? duration = freezed,Object? releaseDate = freezed,Object? coverBig = freezed,Object? rating = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? streamId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? director = freezed,Object? duration = freezed,Object? releaseDate = freezed,Object? coverBig = freezed,Object? rating = freezed,Object? containerExtension = freezed,}) {
   return _then(_self.copyWith(
 streamId: null == streamId ? _self.streamId : streamId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -77,6 +77,7 @@ as String?,duration: freezed == duration ? _self.duration : duration // ignore: 
 as String?,releaseDate: freezed == releaseDate ? _self.releaseDate : releaseDate // ignore: cast_nullable_to_non_nullable
 as String?,coverBig: freezed == coverBig ? _self.coverBig : coverBig // ignore: cast_nullable_to_non_nullable
 as String?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as String?,containerExtension: freezed == containerExtension ? _self.containerExtension : containerExtension // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -162,10 +163,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String streamId,  String name,  String? plot,  String? genre,  String? cast,  String? director,  String? duration,  String? releaseDate,  String? coverBig,  String? rating)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String streamId,  String name,  String? plot,  String? genre,  String? cast,  String? director,  String? duration,  String? releaseDate,  String? coverBig,  String? rating,  String? containerExtension)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VodInfoDto() when $default != null:
-return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_that.director,_that.duration,_that.releaseDate,_that.coverBig,_that.rating);case _:
+return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_that.director,_that.duration,_that.releaseDate,_that.coverBig,_that.rating,_that.containerExtension);case _:
   return orElse();
 
 }
@@ -183,10 +184,10 @@ return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String streamId,  String name,  String? plot,  String? genre,  String? cast,  String? director,  String? duration,  String? releaseDate,  String? coverBig,  String? rating)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String streamId,  String name,  String? plot,  String? genre,  String? cast,  String? director,  String? duration,  String? releaseDate,  String? coverBig,  String? rating,  String? containerExtension)  $default,) {final _that = this;
 switch (_that) {
 case _VodInfoDto():
-return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_that.director,_that.duration,_that.releaseDate,_that.coverBig,_that.rating);case _:
+return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_that.director,_that.duration,_that.releaseDate,_that.coverBig,_that.rating,_that.containerExtension);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -203,10 +204,10 @@ return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String streamId,  String name,  String? plot,  String? genre,  String? cast,  String? director,  String? duration,  String? releaseDate,  String? coverBig,  String? rating)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String streamId,  String name,  String? plot,  String? genre,  String? cast,  String? director,  String? duration,  String? releaseDate,  String? coverBig,  String? rating,  String? containerExtension)?  $default,) {final _that = this;
 switch (_that) {
 case _VodInfoDto() when $default != null:
-return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_that.director,_that.duration,_that.releaseDate,_that.coverBig,_that.rating);case _:
+return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_that.director,_that.duration,_that.releaseDate,_that.coverBig,_that.rating,_that.containerExtension);case _:
   return null;
 
 }
@@ -218,7 +219,7 @@ return $default(_that.streamId,_that.name,_that.plot,_that.genre,_that.cast,_tha
 @JsonSerializable()
 
 class _VodInfoDto implements VodInfoDto {
-  const _VodInfoDto({required this.streamId, required this.name, this.plot, this.genre, this.cast, this.director, this.duration, this.releaseDate, this.coverBig, this.rating});
+  const _VodInfoDto({required this.streamId, required this.name, this.plot, this.genre, this.cast, this.director, this.duration, this.releaseDate, this.coverBig, this.rating, this.containerExtension});
   factory _VodInfoDto.fromJson(Map<String, dynamic> json) => _$VodInfoDtoFromJson(json);
 
 @override final  String streamId;
@@ -231,6 +232,7 @@ class _VodInfoDto implements VodInfoDto {
 @override final  String? releaseDate;
 @override final  String? coverBig;
 @override final  String? rating;
+@override final  String? containerExtension;
 
 /// Create a copy of VodInfoDto
 /// with the given fields replaced by the non-null parameter values.
@@ -245,16 +247,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VodInfoDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.director, director) || other.director == director)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.releaseDate, releaseDate) || other.releaseDate == releaseDate)&&(identical(other.coverBig, coverBig) || other.coverBig == coverBig)&&(identical(other.rating, rating) || other.rating == rating));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VodInfoDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.director, director) || other.director == director)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.releaseDate, releaseDate) || other.releaseDate == releaseDate)&&(identical(other.coverBig, coverBig) || other.coverBig == coverBig)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,streamId,name,plot,genre,cast,director,duration,releaseDate,coverBig,rating);
+int get hashCode => Object.hash(runtimeType,streamId,name,plot,genre,cast,director,duration,releaseDate,coverBig,rating,containerExtension);
 
 @override
 String toString() {
-  return 'VodInfoDto(streamId: $streamId, name: $name, plot: $plot, genre: $genre, cast: $cast, director: $director, duration: $duration, releaseDate: $releaseDate, coverBig: $coverBig, rating: $rating)';
+  return 'VodInfoDto(streamId: $streamId, name: $name, plot: $plot, genre: $genre, cast: $cast, director: $director, duration: $duration, releaseDate: $releaseDate, coverBig: $coverBig, rating: $rating, containerExtension: $containerExtension)';
 }
 
 
@@ -265,7 +267,7 @@ abstract mixin class _$VodInfoDtoCopyWith<$Res> implements $VodInfoDtoCopyWith<$
   factory _$VodInfoDtoCopyWith(_VodInfoDto value, $Res Function(_VodInfoDto) _then) = __$VodInfoDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String streamId, String name, String? plot, String? genre, String? cast, String? director, String? duration, String? releaseDate, String? coverBig, String? rating
+ String streamId, String name, String? plot, String? genre, String? cast, String? director, String? duration, String? releaseDate, String? coverBig, String? rating, String? containerExtension
 });
 
 
@@ -282,7 +284,7 @@ class __$VodInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of VodInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? streamId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? director = freezed,Object? duration = freezed,Object? releaseDate = freezed,Object? coverBig = freezed,Object? rating = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? streamId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? director = freezed,Object? duration = freezed,Object? releaseDate = freezed,Object? coverBig = freezed,Object? rating = freezed,Object? containerExtension = freezed,}) {
   return _then(_VodInfoDto(
 streamId: null == streamId ? _self.streamId : streamId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -294,6 +296,7 @@ as String?,duration: freezed == duration ? _self.duration : duration // ignore: 
 as String?,releaseDate: freezed == releaseDate ? _self.releaseDate : releaseDate // ignore: cast_nullable_to_non_nullable
 as String?,coverBig: freezed == coverBig ? _self.coverBig : coverBig // ignore: cast_nullable_to_non_nullable
 as String?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as String?,containerExtension: freezed == containerExtension ? _self.containerExtension : containerExtension // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

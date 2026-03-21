@@ -41,6 +41,7 @@ class VodRepositoryImpl implements VodRepository {
       releaseDate: item.releaseDate,
       coverUrl: item.coverBig,
       rating: item.rating,
+      containerExtension: item.containerExtension,
     );
   }
 

@@ -12,7 +12,7 @@ O projeto foi organizado em camadas por feature:
 - `lib/features/live`: categorias e canais Live.
 - `lib/features/vod`: categorias, listagens e `get_vod_info`.
 - `lib/features/series`: categorias, listagens e `get_series_info`.
-- `lib/features/player`: contrato/base de playback para PR2.
+- `lib/features/player`: resolução de playback, player e controles mínimos.
 - `lib/features/favorites`: persistência local pronta para favoritos.
 - `lib/shared`: scaffolds e widgets reutilizáveis.
 
@@ -39,6 +39,23 @@ Todos os endpoints passam por `player_api.php`:
 - `action=get_series&category_id=X`
 - `action=get_series_info&series=X`
 - fallback compatível: alguns provedores exigem `action=get_series_info&series_id=X`
+
+## Playback URL
+
+O player resolve URLs Xtream sem inventar endpoint adicional:
+
+- Live: `/live/USER/PASS/STREAM_ID.EXT`
+- Filmes: `/movie/USER/PASS/STREAM_ID.EXT`
+- Episódios: `/series/USER/PASS/STREAM_ID.EXT`
+
+A resolução usa:
+
+- `server_info`/base URL validada na sessão;
+- `username` e `password` autenticados;
+- `stream_id`/`episode id`;
+- `container_extension` vindo do payload real.
+
+Se `container_extension` ou outro dado crítico não vier do provedor, o app mostra erro explícito no player em vez de montar URL insegura.
 
 ## Credenciais locais
 
@@ -68,24 +85,24 @@ flutter test
 - Tema escuro com foco visível.
 - Navegação preparada para D-pad com `FocusableActionDetector`.
 - `AndroidManifest.xml` principal com `android.permission.INTERNET`, `LEANBACK_LAUNCHER` e touchscreen opcional.
+- Player com controles focáveis para D-pad, play/pause e seek apenas onde o conteúdo suporta.
 - Layout responsivo para telas menores e TVs largas.
 
 ## Limitações atuais
 
-- Player real não foi implementado nesta PR.
-- A URL final de mídia não é resolvida para Live/VOD/Séries nesta fase.
-- Favoritos têm base pronta, mas ainda não foram expostos na UI.
+- O player cobre Live, VOD e episódio de série com controles básicos; não há ainda telemetria, retry avançado ou resume persistente.
+- Live não força seek artificial; seek básico existe apenas em VOD e episódios.
+- Favoritos entraram no detalhe de VOD e Séries, mas ainda não existe tela dedicada de favoritos.
 - Persistência de credenciais usa `shared_preferences`; endurecimento de segurança pode entrar depois.
 - Não há ingestão de XMLTV no boot.
 - iOS ficou fora do escopo.
 
 ## Próxima PR sugerida
 
-PR2 focada em playback:
+PR3 sugerida:
 
-- resolução de URL de mídia sem inventar contrato fora do servidor usado;
-- tela de player com `video_player`;
-- controle remoto completo;
-- retomada de reprodução;
-- favoritos na UI;
-- cache leve e paginação/virtualização quando necessário.
+- histórico/retomada persistente;
+- refinamento de buffering/erros por provedor;
+- favoritos com listagem própria;
+- cache leve e paginação/virtualização quando necessário;
+- smoke tests instrumentados de navegação e playback.

@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../features/favorites/domain/entities/favorite_item.dart';
+import '../../../../features/favorites/presentation/controllers/favorites_controller.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
-import '../../../../features/player/presentation/screens/player_placeholder_screen.dart';
+import '../../../../features/player/presentation/screens/player_screen.dart';
+import '../../domain/entities/series_episode.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
+import '../../../../shared/widgets/content_list_tile.dart';
 import '../providers/series_providers.dart';
 
 class SeriesDetailsScreen extends ConsumerWidget {
@@ -20,6 +24,7 @@ class SeriesDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final info = ref.watch(seriesInfoProvider(seriesId));
+    final favorites = ref.watch(favoritesControllerProvider);
 
     return AppScaffold(
       title: 'Detalhes da Série',
@@ -28,6 +33,16 @@ class SeriesDetailsScreen extends ConsumerWidget {
       child: AsyncStateBuilder(
         value: info,
         dataBuilder: (item) {
+          final isFavorite = favorites.any(
+            (entry) =>
+                entry.contentType == 'series' && entry.contentId == item.id,
+          );
+          final episodesBySeason = <int, List<SeriesEpisode>>{};
+          for (final episode in item.episodes) {
+            episodesBySeason.putIfAbsent(episode.seasonNumber, () => []);
+            episodesBySeason[episode.seasonNumber]!.add(episode);
+          }
+
           return SingleChildScrollView(
             child: Card(
               child: Padding(
@@ -61,20 +76,84 @@ class SeriesDetailsScreen extends ConsumerWidget {
                       Text('Elenco: ${item.cast}'),
                     ],
                     const SizedBox(height: 24),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(
-                        PlayerPlaceholderScreen.routePath,
-                        extra: PlaybackContext(
-                          contentType: 'series',
-                          itemId: item.id,
-                          title: item.name,
-                          notes:
-                              'A montagem de temporadas/episódios reproduzíveis entra no PR2.',
-                        ),
+                    OutlinedButton.icon(
+                      onPressed: () => ref
+                          .read(favoritesControllerProvider.notifier)
+                          .toggle(
+                            FavoriteItem(
+                              contentType: 'series',
+                              contentId: item.id,
+                              title: item.name,
+                            ),
+                          ),
+                      icon: Icon(
+                        isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
                       ),
-                      icon: const Icon(Icons.play_circle_outline_rounded),
-                      label: const Text('Abrir base do player'),
+                      label: Text(
+                        isFavorite ? 'Remover dos favoritos' : 'Favoritar',
+                      ),
                     ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Episódios',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 16),
+                    if (item.episodes.isEmpty)
+                      const Text(
+                        'O provedor não retornou episódios reproduzíveis.',
+                      ),
+                    for (final seasonEntry in episodesBySeason.entries) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Temporada ${seasonEntry.key}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      for (
+                        var index = 0;
+                        index < seasonEntry.value.length;
+                        index++
+                      ) ...[
+                        ...() {
+                          final episode = seasonEntry.value[index];
+                          final subtitleParts = [
+                            if (episode.episodeNumber != null)
+                              'Ep. ${episode.episodeNumber}',
+                            if (episode.duration != null) episode.duration!,
+                          ];
+
+                          return [
+                            ContentListTile(
+                              autofocus:
+                                  seasonEntry.key ==
+                                      episodesBySeason.keys.first &&
+                                  index == 0,
+                              title: episode.title,
+                              subtitle: subtitleParts.isEmpty
+                                  ? null
+                                  : subtitleParts.join(' • '),
+                              icon: Icons.play_circle_outline_rounded,
+                              onPressed: () => context.push(
+                                PlayerScreen.routePath,
+                                extra: PlaybackContext(
+                                  contentType:
+                                      PlaybackContentType.seriesEpisode,
+                                  itemId: episode.id,
+                                  title: '${item.name} • ${episode.title}',
+                                  containerExtension:
+                                      episode.containerExtension,
+                                ),
+                              ),
+                            ),
+                          ];
+                        }(),
+                        if (index != seasonEntry.value.length - 1)
+                          const SizedBox(height: 12),
+                      ],
+                    ],
                   ],
                 ),
               ),

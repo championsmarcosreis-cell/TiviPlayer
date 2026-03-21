@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../../core/network/xtream_parsers.dart';
+import 'series_episode_dto.dart';
 
 part 'series_info_dto.freezed.dart';
 part 'series_info_dto.g.dart';
@@ -16,6 +17,7 @@ abstract class SeriesInfoDto with _$SeriesInfoDto {
     String? cover,
     required int seasonCount,
     required int episodeCount,
+    @Default(<SeriesEpisodeDto>[]) List<SeriesEpisodeDto> episodes,
   }) = _SeriesInfoDto;
 
   factory SeriesInfoDto.fromJson(Map<String, dynamic> json) =>
@@ -25,11 +27,21 @@ abstract class SeriesInfoDto with _$SeriesInfoDto {
     final info = XtreamParsers.asMap(json['info']) ?? const {};
     final seasons = XtreamParsers.asList(json['seasons']);
     final episodes = XtreamParsers.asMap(json['episodes']);
+    final episodeItems = <SeriesEpisodeDto>[];
 
     var episodeCount = 0;
     if (episodes != null) {
-      for (final entry in episodes.values) {
-        episodeCount += XtreamParsers.asList(entry).length;
+      for (final mapEntry in episodes.entries) {
+        final seasonNumber = XtreamParsers.asInt(mapEntry.key) ?? 0;
+        final seasonItems = XtreamParsers.asList(mapEntry.value);
+        episodeCount += seasonItems.length;
+        for (final rawItem in seasonItems) {
+          final episode = XtreamParsers.asMap(rawItem);
+          if (episode == null) {
+            continue;
+          }
+          episodeItems.add(SeriesEpisodeDto.fromApi(episode, seasonNumber));
+        }
       }
     }
 
@@ -45,6 +57,7 @@ abstract class SeriesInfoDto with _$SeriesInfoDto {
       cover: XtreamParsers.asString(info['cover']),
       seasonCount: seasons.length,
       episodeCount: episodeCount,
+      episodes: episodeItems,
     );
   }
 }

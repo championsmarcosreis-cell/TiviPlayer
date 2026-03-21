@@ -1,3 +1,4 @@
+import '../../domain/entities/series_episode.dart';
 import '../../../auth/domain/entities/xtream_session.dart';
 import '../../domain/entities/series_category.dart';
 import '../../domain/entities/series_info.dart';
@@ -39,6 +40,20 @@ class SeriesRepositoryImpl implements SeriesRepository {
       coverUrl: item.cover,
       seasonCount: item.seasonCount,
       episodeCount: item.episodeCount,
+      episodes: item.episodes
+          .where((episode) => episode.id.isNotEmpty)
+          .map(
+            (episode) => SeriesEpisode(
+              id: episode.id,
+              title: episode.title,
+              seasonNumber: episode.seasonNumber,
+              episodeNumber: episode.episodeNumber,
+              plot: episode.plot,
+              duration: episode.duration,
+              containerExtension: episode.containerExtension,
+            ),
+          )
+          .toList(),
     );
   }
 

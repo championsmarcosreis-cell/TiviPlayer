@@ -17,6 +17,7 @@ _VodInfoDto _$VodInfoDtoFromJson(Map<String, dynamic> json) => _VodInfoDto(
   releaseDate: json['releaseDate'] as String?,
   coverBig: json['coverBig'] as String?,
   rating: json['rating'] as String?,
+  containerExtension: json['containerExtension'] as String?,
 );
 
 Map<String, dynamic> _$VodInfoDtoToJson(_VodInfoDto instance) =>
@@ -31,4 +32,5 @@ Map<String, dynamic> _$VodInfoDtoToJson(_VodInfoDto instance) =>
       'releaseDate': instance.releaseDate,
       'coverBig': instance.coverBig,
       'rating': instance.rating,
+      'containerExtension': instance.containerExtension,
     };

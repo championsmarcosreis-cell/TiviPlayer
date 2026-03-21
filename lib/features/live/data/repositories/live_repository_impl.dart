@@ -43,6 +43,7 @@ class LiveRepositoryImpl implements LiveRepository {
             name: item.name,
             categoryId: item.categoryId,
             iconUrl: item.streamIcon,
+            containerExtension: item.containerExtension,
             epgChannelId: item.epgChannelId,
             hasArchive: item.tvArchive,
             isAdult: item.isAdult,

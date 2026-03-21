@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../features/favorites/domain/entities/favorite_item.dart';
+import '../../../../features/favorites/presentation/controllers/favorites_controller.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
-import '../../../../features/player/presentation/screens/player_placeholder_screen.dart';
+import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../providers/vod_providers.dart';
@@ -20,6 +22,7 @@ class VodDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final info = ref.watch(vodInfoProvider(vodId));
+    final favorites = ref.watch(favoritesControllerProvider);
 
     return AppScaffold(
       title: 'Detalhes do Filme',
@@ -28,6 +31,10 @@ class VodDetailsScreen extends ConsumerWidget {
       child: AsyncStateBuilder(
         value: info,
         dataBuilder: (item) {
+          final isFavorite = favorites.any(
+            (entry) => entry.contentType == 'vod' && entry.contentId == item.id,
+          );
+
           return SingleChildScrollView(
             child: Card(
               child: Padding(
@@ -67,19 +74,43 @@ class VodDetailsScreen extends ConsumerWidget {
                       Text('Direção: ${item.director}'),
                     ],
                     const SizedBox(height: 24),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(
-                        PlayerPlaceholderScreen.routePath,
-                        extra: PlaybackContext(
-                          contentType: 'vod',
-                          itemId: item.id,
-                          title: item.name,
-                          notes:
-                              'A resolução do arquivo VOD e controles completos entram no PR2.',
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: () => context.push(
+                            PlayerScreen.routePath,
+                            extra: PlaybackContext(
+                              contentType: PlaybackContentType.vod,
+                              itemId: item.id,
+                              title: item.name,
+                              containerExtension: item.containerExtension,
+                            ),
+                          ),
+                          icon: const Icon(Icons.play_circle_outline_rounded),
+                          label: const Text('Reproduzir'),
                         ),
-                      ),
-                      icon: const Icon(Icons.play_circle_outline_rounded),
-                      label: const Text('Abrir base do player'),
+                        OutlinedButton.icon(
+                          onPressed: () => ref
+                              .read(favoritesControllerProvider.notifier)
+                              .toggle(
+                                FavoriteItem(
+                                  contentType: 'vod',
+                                  contentId: item.id,
+                                  title: item.name,
+                                ),
+                              ),
+                          icon: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                          ),
+                          label: Text(
+                            isFavorite ? 'Remover dos favoritos' : 'Favoritar',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

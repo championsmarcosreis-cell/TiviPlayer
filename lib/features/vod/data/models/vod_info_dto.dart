@@ -18,6 +18,7 @@ abstract class VodInfoDto with _$VodInfoDto {
     String? releaseDate,
     String? coverBig,
     String? rating,
+    String? containerExtension,
   }) = _VodInfoDto;
 
   factory VodInfoDto.fromJson(Map<String, dynamic> json) =>
@@ -48,6 +49,9 @@ abstract class VodInfoDto with _$VodInfoDto {
           XtreamParsers.asString(info['cover_big']) ??
           XtreamParsers.asString(info['cover']),
       rating: XtreamParsers.asString(info['rating']),
+      containerExtension:
+          XtreamParsers.asString(movieData['container_extension']) ??
+          XtreamParsers.asString(info['container_extension']),
     );
   }
 }

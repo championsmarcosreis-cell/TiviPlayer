@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../features/player/domain/entities/playback_context.dart';
-import '../../../../features/player/presentation/screens/player_placeholder_screen.dart';
+import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
@@ -55,12 +55,12 @@ class LiveStreamsScreen extends ConsumerWidget {
                     : subtitleParts.join(' • '),
                 icon: Icons.live_tv_rounded,
                 onPressed: () => context.push(
-                  PlayerPlaceholderScreen.routePath,
+                  PlayerScreen.routePath,
                   extra: PlaybackContext(
-                    contentType: 'live',
+                    contentType: PlaybackContentType.live,
                     itemId: item.id,
                     title: item.name,
-                    notes: 'A URL final do stream e o playback entram no PR2.',
+                    containerExtension: item.containerExtension,
                   ),
                 ),
               );

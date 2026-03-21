@@ -1,3 +1,5 @@
+import 'series_episode.dart';
+
 class SeriesInfo {
   const SeriesInfo({
     required this.id,
@@ -8,6 +10,7 @@ class SeriesInfo {
     this.coverUrl,
     required this.seasonCount,
     required this.episodeCount,
+    required this.episodes,
   });
 
   final String id;
@@ -18,4 +21,5 @@ class SeriesInfo {
   final String? coverUrl;
   final int seasonCount;
   final int episodeCount;
+  final List<SeriesEpisode> episodes;
 }

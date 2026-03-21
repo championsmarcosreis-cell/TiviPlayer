@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SeriesInfoDto {
 
- String get seriesId; String get name; String? get plot; String? get genre; String? get cast; String? get cover; int get seasonCount; int get episodeCount;
+ String get seriesId; String get name; String? get plot; String? get genre; String? get cast; String? get cover; int get seasonCount; int get episodeCount; List<SeriesEpisodeDto> get episodes;
 /// Create a copy of SeriesInfoDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $SeriesInfoDtoCopyWith<SeriesInfoDto> get copyWith => _$SeriesInfoDtoCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SeriesInfoDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.seasonCount, seasonCount) || other.seasonCount == seasonCount)&&(identical(other.episodeCount, episodeCount) || other.episodeCount == episodeCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SeriesInfoDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.seasonCount, seasonCount) || other.seasonCount == seasonCount)&&(identical(other.episodeCount, episodeCount) || other.episodeCount == episodeCount)&&const DeepCollectionEquality().equals(other.episodes, episodes));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,seriesId,name,plot,genre,cast,cover,seasonCount,episodeCount);
+int get hashCode => Object.hash(runtimeType,seriesId,name,plot,genre,cast,cover,seasonCount,episodeCount,const DeepCollectionEquality().hash(episodes));
 
 @override
 String toString() {
-  return 'SeriesInfoDto(seriesId: $seriesId, name: $name, plot: $plot, genre: $genre, cast: $cast, cover: $cover, seasonCount: $seasonCount, episodeCount: $episodeCount)';
+  return 'SeriesInfoDto(seriesId: $seriesId, name: $name, plot: $plot, genre: $genre, cast: $cast, cover: $cover, seasonCount: $seasonCount, episodeCount: $episodeCount, episodes: $episodes)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $SeriesInfoDtoCopyWith<$Res>  {
   factory $SeriesInfoDtoCopyWith(SeriesInfoDto value, $Res Function(SeriesInfoDto) _then) = _$SeriesInfoDtoCopyWithImpl;
 @useResult
 $Res call({
- String seriesId, String name, String? plot, String? genre, String? cast, String? cover, int seasonCount, int episodeCount
+ String seriesId, String name, String? plot, String? genre, String? cast, String? cover, int seasonCount, int episodeCount, List<SeriesEpisodeDto> episodes
 });
 
 
@@ -65,7 +65,7 @@ class _$SeriesInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of SeriesInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? seriesId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? cover = freezed,Object? seasonCount = null,Object? episodeCount = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? seriesId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? cover = freezed,Object? seasonCount = null,Object? episodeCount = null,Object? episodes = null,}) {
   return _then(_self.copyWith(
 seriesId: null == seriesId ? _self.seriesId : seriesId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -75,7 +75,8 @@ as String?,cast: freezed == cast ? _self.cast : cast // ignore: cast_nullable_to
 as String?,cover: freezed == cover ? _self.cover : cover // ignore: cast_nullable_to_non_nullable
 as String?,seasonCount: null == seasonCount ? _self.seasonCount : seasonCount // ignore: cast_nullable_to_non_nullable
 as int,episodeCount: null == episodeCount ? _self.episodeCount : episodeCount // ignore: cast_nullable_to_non_nullable
-as int,
+as int,episodes: null == episodes ? _self.episodes : episodes // ignore: cast_nullable_to_non_nullable
+as List<SeriesEpisodeDto>,
   ));
 }
 
@@ -160,10 +161,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? plot,  String? genre,  String? cast,  String? cover,  int seasonCount,  int episodeCount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? plot,  String? genre,  String? cast,  String? cover,  int seasonCount,  int episodeCount,  List<SeriesEpisodeDto> episodes)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SeriesInfoDto() when $default != null:
-return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_that.cover,_that.seasonCount,_that.episodeCount);case _:
+return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_that.cover,_that.seasonCount,_that.episodeCount,_that.episodes);case _:
   return orElse();
 
 }
@@ -181,10 +182,10 @@ return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? plot,  String? genre,  String? cast,  String? cover,  int seasonCount,  int episodeCount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? plot,  String? genre,  String? cast,  String? cover,  int seasonCount,  int episodeCount,  List<SeriesEpisodeDto> episodes)  $default,) {final _that = this;
 switch (_that) {
 case _SeriesInfoDto():
-return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_that.cover,_that.seasonCount,_that.episodeCount);case _:
+return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_that.cover,_that.seasonCount,_that.episodeCount,_that.episodes);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -201,10 +202,10 @@ return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String seriesId,  String name,  String? plot,  String? genre,  String? cast,  String? cover,  int seasonCount,  int episodeCount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String seriesId,  String name,  String? plot,  String? genre,  String? cast,  String? cover,  int seasonCount,  int episodeCount,  List<SeriesEpisodeDto> episodes)?  $default,) {final _that = this;
 switch (_that) {
 case _SeriesInfoDto() when $default != null:
-return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_that.cover,_that.seasonCount,_that.episodeCount);case _:
+return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_that.cover,_that.seasonCount,_that.episodeCount,_that.episodes);case _:
   return null;
 
 }
@@ -216,7 +217,7 @@ return $default(_that.seriesId,_that.name,_that.plot,_that.genre,_that.cast,_tha
 @JsonSerializable()
 
 class _SeriesInfoDto implements SeriesInfoDto {
-  const _SeriesInfoDto({required this.seriesId, required this.name, this.plot, this.genre, this.cast, this.cover, required this.seasonCount, required this.episodeCount});
+  const _SeriesInfoDto({required this.seriesId, required this.name, this.plot, this.genre, this.cast, this.cover, required this.seasonCount, required this.episodeCount, final  List<SeriesEpisodeDto> episodes = const <SeriesEpisodeDto>[]}): _episodes = episodes;
   factory _SeriesInfoDto.fromJson(Map<String, dynamic> json) => _$SeriesInfoDtoFromJson(json);
 
 @override final  String seriesId;
@@ -227,6 +228,13 @@ class _SeriesInfoDto implements SeriesInfoDto {
 @override final  String? cover;
 @override final  int seasonCount;
 @override final  int episodeCount;
+ final  List<SeriesEpisodeDto> _episodes;
+@override@JsonKey() List<SeriesEpisodeDto> get episodes {
+  if (_episodes is EqualUnmodifiableListView) return _episodes;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_episodes);
+}
+
 
 /// Create a copy of SeriesInfoDto
 /// with the given fields replaced by the non-null parameter values.
@@ -241,16 +249,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SeriesInfoDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.seasonCount, seasonCount) || other.seasonCount == seasonCount)&&(identical(other.episodeCount, episodeCount) || other.episodeCount == episodeCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SeriesInfoDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.cast, cast) || other.cast == cast)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.seasonCount, seasonCount) || other.seasonCount == seasonCount)&&(identical(other.episodeCount, episodeCount) || other.episodeCount == episodeCount)&&const DeepCollectionEquality().equals(other._episodes, _episodes));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,seriesId,name,plot,genre,cast,cover,seasonCount,episodeCount);
+int get hashCode => Object.hash(runtimeType,seriesId,name,plot,genre,cast,cover,seasonCount,episodeCount,const DeepCollectionEquality().hash(_episodes));
 
 @override
 String toString() {
-  return 'SeriesInfoDto(seriesId: $seriesId, name: $name, plot: $plot, genre: $genre, cast: $cast, cover: $cover, seasonCount: $seasonCount, episodeCount: $episodeCount)';
+  return 'SeriesInfoDto(seriesId: $seriesId, name: $name, plot: $plot, genre: $genre, cast: $cast, cover: $cover, seasonCount: $seasonCount, episodeCount: $episodeCount, episodes: $episodes)';
 }
 
 
@@ -261,7 +269,7 @@ abstract mixin class _$SeriesInfoDtoCopyWith<$Res> implements $SeriesInfoDtoCopy
   factory _$SeriesInfoDtoCopyWith(_SeriesInfoDto value, $Res Function(_SeriesInfoDto) _then) = __$SeriesInfoDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String seriesId, String name, String? plot, String? genre, String? cast, String? cover, int seasonCount, int episodeCount
+ String seriesId, String name, String? plot, String? genre, String? cast, String? cover, int seasonCount, int episodeCount, List<SeriesEpisodeDto> episodes
 });
 
 
@@ -278,7 +286,7 @@ class __$SeriesInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of SeriesInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? seriesId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? cover = freezed,Object? seasonCount = null,Object? episodeCount = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? seriesId = null,Object? name = null,Object? plot = freezed,Object? genre = freezed,Object? cast = freezed,Object? cover = freezed,Object? seasonCount = null,Object? episodeCount = null,Object? episodes = null,}) {
   return _then(_SeriesInfoDto(
 seriesId: null == seriesId ? _self.seriesId : seriesId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -288,7 +296,8 @@ as String?,cast: freezed == cast ? _self.cast : cast // ignore: cast_nullable_to
 as String?,cover: freezed == cover ? _self.cover : cover // ignore: cast_nullable_to_non_nullable
 as String?,seasonCount: null == seasonCount ? _self.seasonCount : seasonCount // ignore: cast_nullable_to_non_nullable
 as int,episodeCount: null == episodeCount ? _self.episodeCount : episodeCount // ignore: cast_nullable_to_non_nullable
-as int,
+as int,episodes: null == episodes ? _self._episodes : episodes // ignore: cast_nullable_to_non_nullable
+as List<SeriesEpisodeDto>,
   ));
 }
 
