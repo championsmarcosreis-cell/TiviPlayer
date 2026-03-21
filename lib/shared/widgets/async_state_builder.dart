@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/failure.dart';
+import '../presentation/layout/device_layout.dart';
 import 'brand_logo.dart';
 import 'empty_state.dart';
 
@@ -37,25 +38,37 @@ class AsyncStateBuilder<T> extends StatelessWidget {
         return dataBuilder(data);
       },
       loading: () => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 280),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const BrandLogo(
-                variant: BrandLogoVariant.icon,
-                width: 56,
-                height: 56,
+        child: Builder(
+          builder: (context) {
+            final layout = DeviceLayout.of(context);
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: layout.isTv ? 420 : 300),
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(layout.cardPadding),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      BrandLogo(
+                        variant: BrandLogoVariant.icon,
+                        width: layout.isTv ? 72 : 56,
+                        height: layout.isTv ? 72 : 56,
+                      ),
+                      SizedBox(height: layout.sectionSpacing),
+                      const CircularProgressIndicator(),
+                      SizedBox(height: layout.sectionSpacing),
+                      Text(
+                        'Carregando conteúdo',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontSize: layout.isTv ? 24 : 18),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 18),
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                'Carregando conteúdo',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
       error: (error, stackTrace) => EmptyState(

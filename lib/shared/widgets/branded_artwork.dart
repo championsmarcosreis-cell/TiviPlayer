@@ -34,6 +34,7 @@ class BrandedArtwork extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.45),
+            width: 1.2,
           ),
           gradient: LinearGradient(
             colors: [
@@ -52,6 +53,17 @@ class BrandedArtwork extends StatelessWidget {
                   normalizedUrl,
                   fit: fit,
                   filterQuality: FilterQuality.medium,
+                  frameBuilder:
+                      (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded || frame != null) {
+                          return Padding(padding: imagePadding, child: child);
+                        }
+                        return _ArtworkFallback(
+                          icon: icon,
+                          label: placeholderLabel,
+                          loading: true,
+                        );
+                      },
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) {
                       return Padding(padding: imagePadding, child: child);
@@ -118,9 +130,12 @@ class _ArtworkFallback extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact =
-            constraints.maxWidth < 84 || constraints.maxHeight < 110;
+            constraints.maxWidth < 92 || constraints.maxHeight < 124;
+        final showLabel = !compact;
         final logoSize = compact ? 28.0 : 46.0;
         final contentPadding = compact ? 10.0 : 16.0;
+        final labelSpacing = compact ? 8.0 : 12.0;
+        final loadingSpacing = compact ? 8.0 : 14.0;
 
         return DecoratedBox(
           decoration: BoxDecoration(
@@ -156,8 +171,8 @@ class _ArtworkFallback extends StatelessWidget {
                       width: logoSize,
                       height: logoSize,
                     ),
-                    if (!compact) ...[
-                      const SizedBox(height: 12),
+                    if (showLabel) ...[
+                      SizedBox(height: labelSpacing),
                       Text(
                         label ?? 'Imagem indisponível',
                         maxLines: 2,
@@ -170,7 +185,7 @@ class _ArtworkFallback extends StatelessWidget {
                       ),
                     ],
                     if (loading) ...[
-                      SizedBox(height: compact ? 8 : 14),
+                      SizedBox(height: loadingSpacing),
                       SizedBox(
                         width: compact ? 18 : 24,
                         height: compact ? 18 : 24,

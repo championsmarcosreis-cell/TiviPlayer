@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/brand_logo.dart';
 
 class SplashScreen extends StatelessWidget {
@@ -9,6 +10,8 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = DeviceLayout.of(context);
+
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -56,26 +59,30 @@ class SplashScreen extends StatelessWidget {
           ),
           Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: BoxConstraints(maxWidth: layout.isTv ? 560 : 420),
               child: Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(28),
+                  padding: EdgeInsets.all(layout.cardPadding + 4),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const BrandLogo(width: 220),
-                      const SizedBox(height: 28),
+                      BrandLogo(width: layout.isTv ? 280 : 220),
+                      SizedBox(height: layout.sectionSpacing + 10),
                       const CircularProgressIndicator(),
-                      const SizedBox(height: 20),
+                      SizedBox(height: layout.sectionSpacing + 4),
                       Text(
                         'Preparando sua sessão',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: layout.isTv ? 30 : 22,
+                        ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         'Carregando preferências e acesso salvo neste aparelho.',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontSize: layout.isTv ? 17 : 15,
+                        ),
                       ),
                     ],
                   ),

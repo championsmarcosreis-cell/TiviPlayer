@@ -34,20 +34,20 @@ class AppTheme {
       focusColor: primary.withValues(alpha: 0.18),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
-          fontSize: 36,
+          fontSize: 38,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.9,
+          letterSpacing: -0.8,
         ),
         headlineMedium: TextStyle(
-          fontSize: 30,
+          fontSize: 32,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.6,
+          letterSpacing: -0.5,
         ),
         titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(fontSize: 16, height: 1.45),
-        bodyMedium: TextStyle(fontSize: 14, height: 1.5),
-        bodySmall: TextStyle(fontSize: 13, height: 1.5),
+        titleMedium: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(fontSize: 17, height: 1.45),
+        bodyMedium: TextStyle(fontSize: 15, height: 1.5),
+        bodySmall: TextStyle(fontSize: 13, height: 1.45),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -75,13 +75,13 @@ class AppTheme {
         color: surface,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 56),
+          minimumSize: const Size(0, 58),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),

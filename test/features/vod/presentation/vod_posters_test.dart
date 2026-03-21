@@ -69,4 +69,29 @@ void main() {
 
     expect(find.text('Poster indisponível'), findsOneWidget);
   });
+
+  testWidgets('fallback branded compacta sem overflow em card de lista', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 74,
+              child: BrandedArtwork(
+                imageUrl: null,
+                placeholderLabel: 'Poster indisponível',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(BrandedArtwork), findsOneWidget);
+  });
 }

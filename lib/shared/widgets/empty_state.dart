@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../presentation/layout/device_layout.dart';
 import 'brand_logo.dart';
 
 class EmptyState extends StatelessWidget {
@@ -16,12 +17,14 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = DeviceLayout.of(context);
+
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: BoxConstraints(maxWidth: layout.isTv ? 560 : 420),
         child: Card(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(layout.cardPadding),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -29,8 +32,8 @@ class EmptyState extends StatelessWidget {
                   alignment: Alignment.center,
                   children: [
                     Container(
-                      width: 78,
-                      height: 78,
+                      width: layout.isTv ? 92 : 78,
+                      height: layout.isTv ? 92 : 78,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Theme.of(
@@ -40,26 +43,30 @@ class EmptyState extends StatelessWidget {
                     ),
                     const BrandLogo(
                       variant: BrandLogoVariant.icon,
-                      width: 38,
-                      height: 38,
+                      width: 42,
+                      height: 42,
                     ),
                     Positioned(
                       right: 4,
                       bottom: 2,
-                      child: Icon(icon, size: 26),
+                      child: Icon(icon, size: layout.isTv ? 30 : 26),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: layout.sectionSpacing + 4),
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontSize: layout.isTv ? 30 : 24,
+                  ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: layout.isTv ? 12 : 8),
                 Text(
                   message,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontSize: layout.isTv ? 16 : 14,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],

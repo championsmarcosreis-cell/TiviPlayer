@@ -10,6 +10,7 @@ import '../../../features/live/presentation/screens/live_categories_screen.dart'
 import '../../../features/series/presentation/screens/series_categories_screen.dart';
 import '../../../features/vod/presentation/screens/vod_categories_screen.dart';
 import '../../testing/app_test_keys.dart';
+import '../layout/device_layout.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/brand_logo.dart';
 import '../../widgets/section_card.dart';
@@ -62,7 +63,9 @@ class HomeScreen extends ConsumerWidget {
         title: 'Minha assinatura',
         description: _buildAccountCardDescription(session, expiresAt),
         icon: Icons.verified_user_rounded,
-        onTap: () => context.go(AccountScreen.routePath),
+        interactiveKey: AppTestKeys.homeAccountCard,
+        testId: AppTestKeys.homeAccountCardId,
+        onTap: () => context.push(AccountScreen.routePath),
       ),
     ];
 
@@ -70,6 +73,12 @@ class HomeScreen extends ConsumerWidget {
       title: 'Sua central',
       subtitle: 'Catálogo pronto para continuar assistindo.',
       actions: [
+        FilledButton.tonalIcon(
+          key: AppTestKeys.homeAccountAction,
+          onPressed: () => context.push(AccountScreen.routePath),
+          icon: const Icon(Icons.verified_user_rounded),
+          label: const Text('Conta'),
+        ),
         FilledButton.tonalIcon(
           key: AppTestKeys.homeLogoutButton,
           onPressed: () => ref.read(authControllerProvider.notifier).logout(),
@@ -79,21 +88,29 @@ class HomeScreen extends ConsumerWidget {
       ],
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 1100
-              ? 3
-              : constraints.maxWidth >= 720
-              ? 2
-              : 1;
-          final spacing = 18.0;
-          final totalSpacing = spacing * (columns - 1);
-          final width = (constraints.maxWidth - totalSpacing) / columns;
+          final layout = DeviceLayout.of(context, constraints: constraints);
+          final spacing = layout.cardSpacing;
+          final columns = layout.columnsForWidth(
+            constraints.maxWidth,
+            minTileWidth: layout.isTv ? 340 : 300,
+            maxColumns: layout.isTv ? 3 : 2,
+          );
+          final width = layout.itemWidth(
+            constraints.maxWidth,
+            columns: columns,
+            spacing: spacing,
+          );
 
           return SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _HomeHero(session: session, expiresAt: expiresAt),
-                const SizedBox(height: 24),
+                _HomeHero(
+                  session: session,
+                  expiresAt: expiresAt,
+                  layout: layout,
+                ),
+                SizedBox(height: layout.sectionSpacing + 6),
                 Wrap(
                   spacing: spacing,
                   runSpacing: spacing,
@@ -141,35 +158,46 @@ class _HomeEntry {
 }
 
 class _HomeHero extends StatelessWidget {
-  const _HomeHero({required this.session, required this.expiresAt});
+  const _HomeHero({
+    required this.session,
+    required this.expiresAt,
+    required this.layout,
+  });
 
   final XtreamSession session;
   final String? expiresAt;
+  final DeviceLayout layout;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(layout.cardPadding),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 900;
+            final isWide = layout.isTv || constraints.maxWidth >= 900;
             final summary = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Bem-vindo, ${session.credentials.username}',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontSize: layout.isTv ? 38 : 32,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   'Navegue por canais, filmes e séries com uma interface otimizada para TV e celular.',
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.88),
+                  ),
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: layout.sectionSpacing + 2),
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: layout.isTv ? 12 : 10,
+                  runSpacing: layout.isTv ? 12 : 10,
                   children: [
                     Chip(
                       avatar: const Icon(Icons.verified_rounded, size: 18),
@@ -212,8 +240,8 @@ class _HomeHero extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const BrandLogo(width: 190),
-                  const SizedBox(height: 24),
+                  BrandLogo(width: layout.isTv ? 220 : 186),
+                  SizedBox(height: layout.sectionSpacing + 6),
                   summary,
                 ],
               );
@@ -222,8 +250,8 @@ class _HomeHero extends StatelessWidget {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const BrandLogo(width: 220),
-                const SizedBox(width: 28),
+                BrandLogo(width: layout.isTv ? 250 : 220),
+                SizedBox(width: layout.isTv ? 32 : 26),
                 Expanded(child: summary),
               ],
             );

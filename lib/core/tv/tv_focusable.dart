@@ -77,6 +77,10 @@ class _TvFocusableState extends State<TvFocusable> {
 
   @override
   Widget build(BuildContext context) {
+    final usesDirectionalNavigation =
+        MediaQuery.navigationModeOf(context) == NavigationMode.directional;
+    final focusedScale = usesDirectionalNavigation ? 1.028 : 1.01;
+
     return FocusableActionDetector(
       autofocus: widget.autofocus,
       focusNode: _effectiveFocusNode,
@@ -113,7 +117,7 @@ class _TvFocusableState extends State<TvFocusable> {
             onTap: widget.onPressed,
             child: AnimatedScale(
               duration: const Duration(milliseconds: 140),
-              scale: _focused ? 1.02 : 1,
+              scale: _focused ? focusedScale : 1,
               child: widget.builder(context, _focused),
             ),
           ),

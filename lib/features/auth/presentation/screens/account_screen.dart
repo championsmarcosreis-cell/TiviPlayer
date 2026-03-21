@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/formatting/display_formatters.dart';
+import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../controllers/auth_controller.dart';
 
@@ -19,7 +20,13 @@ class AccountScreen extends ConsumerWidget {
         title: 'Minha assinatura',
         subtitle: 'Informações do acesso sincronizadas com sua conta.',
         showBack: true,
-        onBack: () => context.go('/home'),
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+            return;
+          }
+          context.go('/home');
+        },
         child: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -74,121 +81,142 @@ class AccountScreen extends ConsumerWidget {
       title: 'Minha assinatura',
       subtitle: 'Informações do acesso sincronizadas com sua conta.',
       showBack: true,
-      onBack: () => context.go('/home'),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth >= 760;
-                    final showConnectionsHighlight =
-                        session.activeConnections != null &&
-                        session.maxConnections != null;
+      onBack: () {
+        if (context.canPop()) {
+          context.pop();
+          return;
+        }
+        context.go('/home');
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = DeviceLayout.of(context, constraints: constraints);
 
-                    final summary = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          session.credentials.username,
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(layout.cardPadding),
+                    child: LayoutBuilder(
+                      builder: (context, heroConstraints) {
+                        final isWide =
+                            layout.isTv || heroConstraints.maxWidth >= 760;
+                        final showConnectionsHighlight =
+                            session.activeConnections != null &&
+                            session.maxConnections != null;
+
+                        final summary = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Chip(
-                              avatar: const Icon(
-                                Icons.verified_rounded,
-                                size: 18,
-                              ),
-                              label: Text(
-                                DisplayFormatters.humanizeAccountStatus(
-                                  session.accountStatus,
+                            Text(
+                              session.credentials.username,
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(fontSize: layout.isTv ? 38 : 32),
+                            ),
+                            SizedBox(height: layout.sectionSpacing),
+                            Wrap(
+                              spacing: layout.isTv ? 12 : 10,
+                              runSpacing: layout.isTv ? 12 : 10,
+                              children: [
+                                Chip(
+                                  avatar: const Icon(
+                                    Icons.verified_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    DisplayFormatters.humanizeAccountStatus(
+                                      session.accountStatus,
+                                    ),
+                                  ),
                                 ),
+                                if (expiresAt != null)
+                                  Chip(
+                                    avatar: const Icon(
+                                      Icons.event_available_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text('Vence em $expiresAt'),
+                                  ),
+                                if (session.isTrial == true)
+                                  const Chip(
+                                    avatar: Icon(
+                                      Icons.workspace_premium_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text('Trial'),
+                                  ),
+                              ],
+                            ),
+                            if (session.message != null &&
+                                session.message!.trim().isNotEmpty) ...[
+                              SizedBox(height: layout.sectionSpacing),
+                              Text(
+                                session.message!,
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                            ],
+                          ],
+                        );
+
+                        if (!isWide || !showConnectionsHighlight) {
+                          return summary;
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: summary),
+                            SizedBox(width: layout.cardSpacing),
+                            _ConnectionsHighlight(
+                              activeConnections: session.activeConnections,
+                              maxConnections: session.maxConnections,
+                              layout: layout,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                if (accountDetails.isNotEmpty) ...[
+                  SizedBox(height: layout.sectionSpacing + 8),
+                  LayoutBuilder(
+                    builder: (context, gridConstraints) {
+                      final spacing = layout.cardSpacing;
+                      final columns = layout.columnsForWidth(
+                        gridConstraints.maxWidth,
+                        minTileWidth: layout.isTv ? 320 : 270,
+                        maxColumns: layout.isTv ? 3 : 2,
+                      );
+                      final width = layout.itemWidth(
+                        gridConstraints.maxWidth,
+                        columns: columns,
+                        spacing: spacing,
+                      );
+
+                      return Wrap(
+                        spacing: spacing,
+                        runSpacing: spacing,
+                        children: [
+                          for (final detail in accountDetails)
+                            SizedBox(
+                              width: width,
+                              child: _DetailCard(
+                                detail: detail,
+                                layout: layout,
                               ),
                             ),
-                            if (expiresAt != null)
-                              Chip(
-                                avatar: const Icon(
-                                  Icons.event_available_rounded,
-                                  size: 18,
-                                ),
-                                label: Text('Vence em $expiresAt'),
-                              ),
-                            if (session.isTrial == true)
-                              const Chip(
-                                avatar: Icon(
-                                  Icons.workspace_premium_rounded,
-                                  size: 18,
-                                ),
-                                label: Text('Trial'),
-                              ),
-                          ],
-                        ),
-                        if (session.message != null &&
-                            session.message!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          Text(
-                            session.message!,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                          ),
                         ],
-                      ],
-                    );
-
-                    if (!isWide || !showConnectionsHighlight) {
-                      return summary;
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: summary),
-                        const SizedBox(width: 24),
-                        _ConnectionsHighlight(
-                          activeConnections: session.activeConnections,
-                          maxConnections: session.maxConnections,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
+                      );
+                    },
+                  ),
+                ],
+              ],
             ),
-            if (accountDetails.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final columns = constraints.maxWidth >= 1100
-                      ? 3
-                      : constraints.maxWidth >= 720
-                      ? 2
-                      : 1;
-                  final spacing = 16.0;
-                  final totalSpacing = spacing * (columns - 1);
-                  final width = (constraints.maxWidth - totalSpacing) / columns;
-
-                  return Wrap(
-                    spacing: spacing,
-                    runSpacing: spacing,
-                    children: [
-                      for (final detail in accountDetails)
-                        SizedBox(
-                          width: width,
-                          child: _DetailCard(detail: detail),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -198,18 +226,20 @@ class _ConnectionsHighlight extends StatelessWidget {
   const _ConnectionsHighlight({
     required this.activeConnections,
     required this.maxConnections,
+    required this.layout,
   });
 
   final int? activeConnections;
   final int? maxConnections;
+  final DeviceLayout layout;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 220,
-      padding: const EdgeInsets.all(20),
+      width: layout.isTv ? 250 : 220,
+      padding: EdgeInsets.all(layout.isTv ? 22 : 20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(layout.isTv ? 26 : 24),
         color: Theme.of(
           context,
         ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
@@ -224,7 +254,9 @@ class _ConnectionsHighlight extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             '${activeConnections ?? 0}/${maxConnections ?? 0}',
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontSize: layout.isTv ? 40 : 32,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -238,9 +270,10 @@ class _ConnectionsHighlight extends StatelessWidget {
 }
 
 class _DetailCard extends StatelessWidget {
-  const _DetailCard({required this.detail});
+  const _DetailCard({required this.detail, required this.layout});
 
   final _AccountDetail detail;
+  final DeviceLayout layout;
 
   @override
   Widget build(BuildContext context) {
@@ -248,23 +281,32 @@ class _DetailCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(22),
+        padding: EdgeInsets.all(layout.cardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: layout.isTv ? 56 : 48,
+              height: layout.isTv ? 56 : 48,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(layout.isTv ? 18 : 16),
                 color: colorScheme.primary.withValues(alpha: 0.14),
               ),
-              child: Icon(detail.icon, color: colorScheme.primary),
+              child: Icon(
+                detail.icon,
+                color: colorScheme.primary,
+                size: layout.isTv ? 30 : 24,
+              ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: layout.sectionSpacing + 2),
             Text(detail.label, style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 8),
-            Text(detail.value, style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              detail.value,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontSize: layout.isTv ? 28 : 22),
+            ),
           ],
         ),
       ),

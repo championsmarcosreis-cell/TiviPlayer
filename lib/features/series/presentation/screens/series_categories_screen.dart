@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/screens/home_screen.dart';
+import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/section_card.dart';
@@ -47,14 +48,18 @@ class SeriesCategoriesScreen extends ConsumerWidget {
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 1100
-                  ? 3
-                  : constraints.maxWidth >= 720
-                  ? 2
-                  : 1;
-              final spacing = 16.0;
-              final width =
-                  (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+              final layout = DeviceLayout.of(context, constraints: constraints);
+              final spacing = layout.cardSpacing;
+              final columns = layout.columnsForWidth(
+                constraints.maxWidth,
+                minTileWidth: layout.isTv ? 330 : 280,
+                maxColumns: layout.isTv ? 3 : 2,
+              );
+              final width = layout.itemWidth(
+                constraints.maxWidth,
+                columns: columns,
+                spacing: spacing,
+              );
 
               return SingleChildScrollView(
                 child: Wrap(

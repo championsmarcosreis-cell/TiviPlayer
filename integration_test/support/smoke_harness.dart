@@ -60,8 +60,23 @@ Future<SmokeConfig> launchAndLogin(WidgetTester tester) async {
   await tester.pumpAndSettle(const Duration(seconds: 2));
   _logStage('launchAndLogin:app_ready');
 
-  if (find.byKey(AppTestKeys.homeLogoutButton).evaluate().isNotEmpty &&
-      find.byKey(AppTestKeys.loginBaseUrlField).evaluate().isEmpty) {
+  final initialState = await pumpUntilAnyFound(
+    tester,
+    [
+      find.byKey(AppTestKeys.loginBaseUrlField),
+      find.byKey(AppTestKeys.homeLiveCard),
+    ],
+    timeout: const Duration(seconds: 20),
+    description: 'bootstrap inicial do app',
+  );
+
+  if (initialState == 1) {
+    await pumpUntilFound(
+      tester,
+      find.byKey(AppTestKeys.homeLogoutButton),
+      timeout: const Duration(seconds: 10),
+      description: 'botão Sair da home',
+    );
     _logStage('launchAndLogin:logout_saved_session');
     await tapVisible(tester, find.byKey(AppTestKeys.homeLogoutButton));
     await pumpUntilFound(
@@ -71,6 +86,25 @@ Future<SmokeConfig> launchAndLogin(WidgetTester tester) async {
       description: 'retorno ao login',
     );
   }
+
+  await pumpUntilFound(
+    tester,
+    find.byKey(AppTestKeys.loginBaseUrlField),
+    timeout: const Duration(seconds: 10),
+    description: 'campo base URL no login',
+  );
+  await pumpUntilFound(
+    tester,
+    find.byKey(AppTestKeys.loginUsernameField),
+    timeout: const Duration(seconds: 10),
+    description: 'campo usuário no login',
+  );
+  await pumpUntilFound(
+    tester,
+    find.byKey(AppTestKeys.loginPasswordField),
+    timeout: const Duration(seconds: 10),
+    description: 'campo senha no login',
+  );
 
   await tester.enterText(
     find.byKey(AppTestKeys.loginBaseUrlField),
@@ -345,11 +379,13 @@ Future<void> openVodDetailsByDpad(WidgetTester tester, {String? vodId}) async {
 Future<void> openPlayerByTap(WidgetTester tester) async {
   _logStage('openPlayerByTap:start');
   await tapVisible(tester, find.byKey(AppTestKeys.vodPlayButton));
+  _logStage('openPlayerByTap:submitted');
 }
 
 Future<void> openPlayerByDpad(WidgetTester tester) async {
   _logStage('openPlayerByDpad:start');
   await sendRemoteKey(tester, LogicalKeyboardKey.enter);
+  _logStage('openPlayerByDpad:submitted');
 }
 
 Future<void> expectPlayerTolerant(WidgetTester tester) async {
@@ -379,20 +415,100 @@ Future<void> expectPlayerLoadedStrict(WidgetTester tester) async {
   _logStage('expectPlayerLoadedStrict:done');
 }
 
+Future<void> closePlayerAndReturnToVodDetailsByTap(WidgetTester tester) async {
+  _logStage('closePlayerAndReturnToVodDetailsByTap:start');
+
+  await pumpUntilFound(
+    tester,
+    find.byKey(AppTestKeys.playerCloseButton),
+    timeout: const Duration(seconds: 15),
+    description: 'botão Sair do player',
+  );
+
+  await tapVisible(tester, find.byKey(AppTestKeys.playerCloseButton));
+  await tester.pumpAndSettle(const Duration(seconds: 2));
+
+  await pumpUntilFound(
+    tester,
+    find.byKey(AppTestKeys.vodPlayButton),
+    timeout: const Duration(seconds: 20),
+    description: 'retorno do player para detalhe VOD por tap',
+  );
+
+  expect(find.byKey(AppTestKeys.playerLoadedState), findsNothing);
+  expect(find.byKey(AppTestKeys.playerErrorState), findsNothing);
+  _logStage('closePlayerAndReturnToVodDetailsByTap:done');
+}
+
+Future<void> closePlayerAndReturnToVodDetailsByDpad(WidgetTester tester) async {
+  _logStage('closePlayerAndReturnToVodDetailsByDpad:start');
+
+  await sendRemoteKey(tester, LogicalKeyboardKey.enter);
+  await tester.pumpAndSettle(const Duration(seconds: 2));
+
+  if (find.byKey(AppTestKeys.vodPlayButton).evaluate().isEmpty) {
+    _logStage('closePlayerAndReturnToVodDetailsByDpad:fallback_pop_route');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+  }
+
+  await pumpUntilFound(
+    tester,
+    find.byKey(AppTestKeys.vodPlayButton),
+    timeout: const Duration(seconds: 20),
+    description: 'retorno do player para detalhe VOD por D-pad',
+  );
+
+  expect(find.byKey(AppTestKeys.playerLoadedState), findsNothing);
+  expect(find.byKey(AppTestKeys.playerErrorState), findsNothing);
+  _logStage('closePlayerAndReturnToVodDetailsByDpad:done');
+}
+
+Future<void> ensurePlayerClosedIfVisible(
+  WidgetTester tester, {
+  required bool directionalNavigation,
+}) async {
+  final hasLoaded = find
+      .byKey(AppTestKeys.playerLoadedState)
+      .evaluate()
+      .isNotEmpty;
+  final hasError = find
+      .byKey(AppTestKeys.playerErrorState)
+      .evaluate()
+      .isNotEmpty;
+  final hasCloseButton = find
+      .byKey(AppTestKeys.playerCloseButton)
+      .evaluate()
+      .isNotEmpty;
+
+  if (!hasLoaded && !hasError && !hasCloseButton) {
+    return;
+  }
+
+  _logStage('ensurePlayerClosedIfVisible:start');
+
+  if (directionalNavigation) {
+    await closePlayerAndReturnToVodDetailsByDpad(tester);
+  } else {
+    await closePlayerAndReturnToVodDetailsByTap(tester);
+  }
+
+  _logStage('ensurePlayerClosedIfVisible:done');
+}
+
 Future<void> openAccountAndVerifyByTap(
   WidgetTester tester,
   SmokeConfig config,
 ) async {
   _logStage('openAccountAndVerifyByTap:start');
-  await expectFocused(
+  await pumpUntilFound(
     tester,
-    AppTestKeys.focusMarker(AppTestKeys.homeLiveCardId),
+    find.byKey(AppTestKeys.homeAccountAction),
     timeout: const Duration(seconds: 10),
+    description: 'botão Conta na home',
   );
-  await sendRemoteKey(tester, LogicalKeyboardKey.arrowDown);
-  await sendRemoteKey(tester, LogicalKeyboardKey.arrowDown);
-  await sendRemoteKey(tester, LogicalKeyboardKey.arrowDown);
-  await sendRemoteKey(tester, LogicalKeyboardKey.enter);
+  await tapVisible(tester, find.byKey(AppTestKeys.homeAccountAction));
+  _logStage('openAccountAndVerifyByTap:account_action_tapped');
 
   final state = await pumpUntilAnyFound(
     tester,
@@ -519,6 +635,7 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle(const Duration(milliseconds: 300));
   await tester.tap(finder);
+  await tester.pumpAndSettle(const Duration(milliseconds: 300));
 }
 
 Future<void> dismissTextInput(WidgetTester tester) async {

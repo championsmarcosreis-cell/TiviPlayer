@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../presentation/layout/device_layout.dart';
 import 'brand_logo.dart';
 
 class AppScaffold extends StatelessWidget {
@@ -53,15 +54,18 @@ class AppScaffold extends StatelessWidget {
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 900;
-                  final horizontalPadding = isWide ? 40.0 : 20.0;
+                  final layout = DeviceLayout.of(
+                    context,
+                    constraints: constraints,
+                  );
+                  final horizontalPadding = layout.pageHorizontalPadding;
 
                   return Padding(
                     padding: EdgeInsets.fromLTRB(
                       horizontalPadding,
-                      24,
+                      layout.pageTopPadding,
                       horizontalPadding,
-                      24,
+                      layout.pageBottomPadding,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,15 +76,15 @@ class AppScaffold extends StatelessWidget {
                           actions: actions,
                           showBack: showBack,
                           onBack: onBack,
-                          isWide: isWide,
+                          layout: layout,
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: layout.sectionSpacing + 6),
                         Expanded(
                           child: Align(
                             alignment: Alignment.topCenter,
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
-                                maxWidth: isWide ? 1240 : double.infinity,
+                                maxWidth: layout.maxContentWidth,
                               ),
                               child: child,
                             ),
@@ -106,7 +110,7 @@ class _AppScaffoldHeader extends StatelessWidget {
     required this.actions,
     required this.showBack,
     required this.onBack,
-    required this.isWide,
+    required this.layout,
   });
 
   final String title;
@@ -114,13 +118,20 @@ class _AppScaffoldHeader extends StatelessWidget {
   final List<Widget> actions;
   final bool showBack;
   final VoidCallback? onBack;
-  final bool isWide;
+  final DeviceLayout layout;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconSize = layout.headerIconContainer;
+    final isWide = layout.isTv || layout.width >= 940;
+
     final backButton = showBack
         ? Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: EdgeInsets.only(
+              right: layout.isMobilePortrait ? 8 : 12,
+              top: 2,
+            ),
             child: IconButton.filledTonal(
               onPressed:
                   onBack ??
@@ -129,6 +140,7 @@ class _AppScaffoldHeader extends StatelessWidget {
                       context.pop();
                     }
                   },
+              padding: EdgeInsets.all(layout.isTv ? 16 : 12),
               icon: const Icon(Icons.arrow_back_rounded),
             ),
           )
@@ -143,40 +155,64 @@ class _AppScaffoldHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 54,
-                height: 54,
-                padding: const EdgeInsets.all(9),
+                width: iconSize,
+                height: iconSize,
+                padding: EdgeInsets.all(layout.isTv ? 10 : 8),
                 decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(18),
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.82,
+                  ),
+                  borderRadius: BorderRadius.circular(layout.isTv ? 20 : 16),
                   border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.outline.withValues(alpha: 0.55),
+                    color: colorScheme.outline.withValues(alpha: 0.55),
                   ),
                 ),
                 child: const BrandLogo(
                   variant: BrandLogoVariant.icon,
-                  width: 30,
-                  height: 30,
+                  width: 32,
+                  height: 32,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: layout.isMobilePortrait ? 12 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.headlineLarge,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          (layout.isMobilePortrait
+                                  ? Theme.of(context).textTheme.headlineMedium
+                                  : Theme.of(context).textTheme.headlineLarge)
+                              ?.copyWith(
+                                fontSize: switch (layout.deviceClass) {
+                                  DeviceClass.mobilePortrait => 30,
+                                  DeviceClass.mobileLandscape => 34,
+                                  DeviceClass.tablet => 36,
+                                  DeviceClass.tvCompact => 40,
+                                  DeviceClass.tvLarge => 44,
+                                },
+                                height: 1.05,
+                              ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 6),
+                      SizedBox(height: layout.isTv ? 8 : 6),
                       Text(
                         subtitle!,
-                        style: Theme.of(context).textTheme.bodyLarge,
+                        maxLines: layout.isMobilePortrait ? 3 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.84),
+                          fontSize: switch (layout.deviceClass) {
+                            DeviceClass.mobilePortrait => 14,
+                            DeviceClass.mobileLandscape => 15,
+                            DeviceClass.tablet => 16,
+                            DeviceClass.tvCompact => 18,
+                            DeviceClass.tvLarge => 19,
+                          },
+                        ),
                       ),
                     ],
                   ],
@@ -197,7 +233,7 @@ class _AppScaffoldHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           titleBlock,
-          const SizedBox(height: 16),
+          SizedBox(height: layout.sectionSpacing),
           Wrap(spacing: 12, runSpacing: 12, children: actions),
         ],
       );

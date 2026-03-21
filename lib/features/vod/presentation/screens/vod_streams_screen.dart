@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
@@ -35,29 +36,37 @@ class VodStreamsScreen extends ConsumerWidget {
         emptyTitle: 'Sem títulos disponíveis',
         emptyMessage: 'Nenhum filme foi encontrado para o filtro selecionado.',
         dataBuilder: (items) {
-          return ListView.separated(
-            itemCount: items.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              final subtitleParts = [
-                'Sob demanda',
-                if (item.rating != null) 'Nota ${item.rating}',
-                if (item.containerExtension != null)
-                  item.containerExtension!.toUpperCase(),
-              ];
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final layout = DeviceLayout.of(context, constraints: constraints);
 
-              return ContentListTile(
-                interactiveKey: AppTestKeys.vodItem(item.id),
-                autofocus: index == 0,
-                testId: AppTestKeys.vodItemId(item.id),
-                title: item.name,
-                subtitle: subtitleParts.join(' • '),
-                icon: Icons.movie_creation_outlined,
-                imageUrl: item.coverUrl,
-                thumbnailLabel: 'Poster indisponível',
-                onPressed: () =>
-                    context.push(VodDetailsScreen.buildLocation(item.id)),
+              return ListView.separated(
+                padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
+                itemCount: items.length,
+                separatorBuilder: (context, index) =>
+                    SizedBox(height: layout.cardSpacing),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  final subtitleParts = [
+                    'Sob demanda',
+                    if (item.rating != null) 'Nota ${item.rating}',
+                    if (item.containerExtension != null)
+                      item.containerExtension!.toUpperCase(),
+                  ];
+
+                  return ContentListTile(
+                    interactiveKey: AppTestKeys.vodItem(item.id),
+                    autofocus: index == 0,
+                    testId: AppTestKeys.vodItemId(item.id),
+                    title: item.name,
+                    subtitle: subtitleParts.join(' • '),
+                    icon: Icons.movie_creation_outlined,
+                    imageUrl: item.coverUrl,
+                    thumbnailLabel: 'Poster indisponível',
+                    onPressed: () =>
+                        context.push(VodDetailsScreen.buildLocation(item.id)),
+                  );
+                },
               );
             },
           );

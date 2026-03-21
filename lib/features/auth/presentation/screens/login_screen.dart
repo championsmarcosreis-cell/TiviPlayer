@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/testing/app_test_keys.dart';
+import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/brand_logo.dart';
 import '../../domain/entities/xtream_credentials.dart';
@@ -62,30 +63,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       subtitle: 'Layout otimizado para Android TV e Android mobile.',
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 980;
+          final layout = DeviceLayout.of(context, constraints: constraints);
+          final isWide = layout.isTv || constraints.maxWidth >= 980;
 
           return Scrollbar(
             thumbVisibility: true,
             child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: keyboardInset + 24),
+              padding: EdgeInsets.only(
+                bottom: keyboardInset + layout.cardSpacing,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1120),
+                    constraints: BoxConstraints(
+                      maxWidth: layout.isTv ? 1180 : 1080,
+                    ),
                     child: IntrinsicHeight(
                       child: isWide
                           ? Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Expanded(
+                                Expanded(
                                   flex: 11,
-                                  child: _LoginBrandPanel(isWide: true),
+                                  child: _LoginBrandPanel(
+                                    isWide: true,
+                                    layout: layout,
+                                  ),
                                 ),
-                                const SizedBox(width: 24),
+                                SizedBox(width: layout.cardSpacing),
                                 Expanded(
                                   flex: 10,
                                   child: _LoginFormCard(
+                                    layout: layout,
                                     formKey: _formKey,
                                     baseUrlController: _baseUrlController,
                                     usernameController: _usernameController,
@@ -103,9 +113,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           : Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const _LoginBrandPanel(isWide: false),
-                                const SizedBox(height: 20),
+                                _LoginBrandPanel(isWide: false, layout: layout),
+                                SizedBox(height: layout.cardSpacing),
                                 _LoginFormCard(
+                                  layout: layout,
                                   formKey: _formKey,
                                   baseUrlController: _baseUrlController,
                                   usernameController: _usernameController,
@@ -173,59 +184,68 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 
 class _LoginBrandPanel extends StatelessWidget {
-  const _LoginBrandPanel({required this.isWide});
+  const _LoginBrandPanel({required this.isWide, required this.layout});
 
   final bool isWide;
+  final DeviceLayout layout;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final logoWidth = layout.isTv ? 280.0 : (isWide ? 240.0 : 210.0);
+    final cardPadding = isWide ? layout.cardPadding + 6 : layout.cardPadding;
+    final featureWidth = layout.isMobilePortrait ? double.infinity : 220.0;
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(isWide ? 32 : 24),
+        padding: EdgeInsets.all(cardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const BrandLogo(width: 240),
-            const SizedBox(height: 28),
+            BrandLogo(width: logoWidth),
+            SizedBox(height: layout.sectionSpacing + 8),
             Text(
               'Entre e continue assistindo sem fricção.',
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontSize: layout.isTv ? 38 : 32,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               'Acesso com navegação previsível no controle remoto, rolagem segura em telas menores e credenciais armazenadas somente neste aparelho.',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            const SizedBox(height: 24),
-            const Wrap(
+            SizedBox(height: layout.sectionSpacing + 6),
+            Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
                 _BrandFeature(
+                  width: featureWidth,
                   icon: Icons.tv_rounded,
                   title: 'Pronto para TV',
                   description: 'Foco previsível e ação rápida pelo D-pad.',
                 ),
                 _BrandFeature(
+                  width: featureWidth,
                   icon: Icons.mobile_friendly_rounded,
                   title: 'Também no celular',
                   description: 'Campos e CTA confortáveis em telas menores.',
                 ),
                 _BrandFeature(
+                  width: featureWidth,
                   icon: Icons.lock_outline_rounded,
                   title: 'Sessão local',
                   description: 'Os dados ficam salvos apenas no dispositivo.',
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: layout.sectionSpacing + 2),
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(layout.isTv ? 20 : 16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
                 color: colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.65,
                 ),
@@ -255,11 +275,13 @@ class _LoginBrandPanel extends StatelessWidget {
 
 class _BrandFeature extends StatelessWidget {
   const _BrandFeature({
+    required this.width,
     required this.icon,
     required this.title,
     required this.description,
   });
 
+  final double width;
   final IconData icon;
   final String title;
   final String description;
@@ -269,7 +291,7 @@ class _BrandFeature extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return SizedBox(
-      width: 220,
+      width: width,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -293,6 +315,7 @@ class _BrandFeature extends StatelessWidget {
 
 class _LoginFormCard extends StatelessWidget {
   const _LoginFormCard({
+    required this.layout,
     required this.formKey,
     required this.baseUrlController,
     required this.usernameController,
@@ -304,6 +327,7 @@ class _LoginFormCard extends StatelessWidget {
     required this.validateRequired,
   });
 
+  final DeviceLayout layout;
   final GlobalKey<FormState> formKey;
   final TextEditingController baseUrlController;
   final TextEditingController usernameController;
@@ -316,9 +340,13 @@ class _LoginFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.headlineMedium?.copyWith(fontSize: layout.isTv ? 34 : 30);
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(layout.cardPadding),
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
           child: AutofillGroup(
@@ -328,16 +356,13 @@ class _LoginFormCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Conectar',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
+                  Text('Conectar', style: titleStyle),
+                  SizedBox(height: layout.isTv ? 10 : 8),
                   Text(
                     'Informe os dados da sua assinatura para liberar o catálogo.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: layout.sectionSpacing + 8),
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(1),
                     child: TextFormField(
@@ -355,7 +380,7 @@ class _LoginFormCard extends StatelessWidget {
                       validator: validateBaseUrl,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: layout.sectionSpacing),
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(2),
                     child: TextFormField(
@@ -370,7 +395,7 @@ class _LoginFormCard extends StatelessWidget {
                       validator: validateRequired,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: layout.sectionSpacing),
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(3),
                     child: TextFormField(
@@ -386,7 +411,7 @@ class _LoginFormCard extends StatelessWidget {
                       validator: validateRequired,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: layout.sectionSpacing + 8),
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(4),
                     child: SizedBox(

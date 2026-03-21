@@ -9,11 +9,14 @@ abstract final class AppTestKeys {
   static const homeLiveCard = ValueKey<String>('home.card.live');
   static const homeMoviesCard = ValueKey<String>('home.card.movies');
   static const homeSeriesCard = ValueKey<String>('home.card.series');
+  static const homeAccountCard = ValueKey<String>('home.card.account');
+  static const homeAccountAction = ValueKey<String>('home.action.account');
   static const homeLogoutButton = ValueKey<String>('home.logout');
 
   static const homeLiveCardId = 'home.card.live';
   static const homeMoviesCardId = 'home.card.movies';
   static const homeSeriesCardId = 'home.card.series';
+  static const homeAccountCardId = 'home.card.account';
 
   static const vodCategoryAll = ValueKey<String>('vod.category.all');
   static const vodCategoryAllId = 'vod.category.all';

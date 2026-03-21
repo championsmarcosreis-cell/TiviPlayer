@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../presentation/layout/device_layout.dart';
 import '../../core/tv/tv_focusable.dart';
 
 class SectionCard extends StatelessWidget {
@@ -25,6 +26,7 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final layout = DeviceLayout.of(context);
 
     return TvFocusable(
       autofocus: autofocus,
@@ -32,9 +34,17 @@ class SectionCard extends StatelessWidget {
       onPressed: onPressed,
       testId: testId,
       builder: (context, focused) {
+        final containerPadding = layout.cardPadding;
+        final iconSize = layout.isTv ? 56.0 : 50.0;
+        final titleStyle = layout.isTv
+            ? Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontSize: layout.isTv ? 28 : 24)
+            : Theme.of(context).textTheme.titleLarge;
+
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(containerPadding),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: focused
@@ -51,7 +61,7 @@ class SectionCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(layout.cardBorderRadius),
             border: Border.all(
               color: focused
                   ? colorScheme.primary
@@ -69,7 +79,7 @@ class SectionCard extends StatelessWidget {
                 : const [],
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 190),
+            constraints: BoxConstraints(minHeight: layout.isTv ? 210 : 182),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -77,13 +87,19 @@ class SectionCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      height: 52,
-                      width: 52,
+                      height: iconSize,
+                      width: iconSize,
                       decoration: BoxDecoration(
                         color: colorScheme.secondary.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(
+                          layout.isTv ? 18 : 16,
+                        ),
                       ),
-                      child: Icon(icon, color: colorScheme.secondary),
+                      child: Icon(
+                        icon,
+                        color: colorScheme.secondary,
+                        size: layout.isTv ? 30 : 26,
+                      ),
                     ),
                     const Spacer(),
                     Icon(
@@ -91,14 +107,22 @@ class SectionCard extends StatelessWidget {
                       color: focused
                           ? colorScheme.primary
                           : colorScheme.onSurface.withValues(alpha: 0.72),
+                      size: layout.isTv ? 30 : 26,
                     ),
                   ],
                 ),
-                const SizedBox(height: 28),
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 10),
+                SizedBox(height: layout.isTv ? 30 : 24),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: titleStyle,
+                ),
+                SizedBox(height: layout.isTv ? 12 : 10),
                 Text(
                   description,
+                  maxLines: layout.isTv ? 3 : 2,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],

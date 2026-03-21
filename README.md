@@ -1,169 +1,185 @@
 # TiviPlayer
 
-Base Flutter para Android mobile e Android TV com login, catálogo e playback via API compatível com Xtream Codes.
+Base Flutter para Android mobile e Android TV com login, catálogos e playback via API compatível com Xtream Codes.
 
-## PR3
+## PR4
 
-Este PR fecha o recorte de branding, aparência comercial, posters/capas, área de conta e white-label da UI.
+Estado atual do pacote: PR4 concluído no escopo previsto desta fase.
 
-### Branding importado do legado
+Foco desta entrega:
 
-Foram importados somente assets visuais do projeto legado em `C:\clubTivi-main`, sem reaproveitar código, telas ou lógica:
+- presença visual mais profissional nas telas principais
+- melhor encaixe por classe de device
+- branding nativo Android coerente com o branding interno
+- white-label preservado
+- validação operacional com `mobile = emulador Android` e `smart TV = Mi TV Stick`
 
-- `assets/branding/app_logo.png`
-- `assets/branding/app_icon.png`
+## O que o PR4 entregou
 
-Decisão de uso:
+### Presença visual / polish
 
-- `app_logo.png`: escolhido como lockup principal para splash, login e hero/home por ser a versão mais limpa e legível.
-- `app_icon.png`: usado como ícone de apoio no header e como placeholder branded para conteúdos sem imagem válida.
+As telas tocadas pelo PR4 receberam refinamento de spacing, hierarquia, proporção e leitura:
 
-Os assets estão registrados no `pubspec.yaml` via `assets/branding/`.
+- login
+- splash/home
+- catálogos e listas
+- detalhes
+- conta
 
-## O que foi entregue
+Direção aplicada:
 
-### Login TV/mobile
+- mais respiro visual
+- tipografia e alinhamentos mais consistentes
+- cards e listas com densidade mais controlada
+- leitura a distância melhor em TV
+- placeholders e loading states com aparência branded
 
-- Tela refeita com layout responsivo para mobile e TV.
-- Scroll seguro com `SingleChildScrollView`.
-- Botão `Entrar` sempre visível e acionável.
-- Ordem de foco previsível no formulário.
-- Texto e labels neutros, sem expor `Xtream`, URL base ou endpoint técnico na UI normal.
+### Encaixe por classe de device
 
-### Posters, capas e thumbnails
+O app passou a tratar explicitamente classes de layout usadas no PR4 por meio de `DeviceLayout`:
 
-As imagens agora usam apenas campos reais já retornados pelo payload:
+- mobile portrait
+- TV 10-foot UI
+- TV compacta/fraca
 
-- Live: `stream_icon`
-- VOD list: `stream_icon`
-- VOD detail: `cover_big` com fallback para `cover`
-- Series list/detail: `cover`
+Impacto prático:
 
-Comportamento:
+- botões críticos continuam visíveis em mobile
+- grids e listas ficam menos espremidos
+- detalhes e conta mantêm hierarquia melhor
+- foco em TV continua previsível
 
-- URLs inválidas ou ausentes caem em placeholder branded.
-- Loading visual de artwork mostra estado intermediário.
-- Erro de carregamento não quebra layout.
-- Aspect ratio consistente em listas e detalhes.
-- Categoria VOD/Live/Séries continua branded por card; os endpoints de categoria não trazem poster útil no contrato atual.
+Arquivo-base desse recorte:
 
-## Conta / Minha assinatura
+- `lib/shared/presentation/layout/device_layout.dart`
 
-Os dados abaixo passam a ser integrados do `player_api.php` no login e persistidos localmente com a sessão:
+### Grid, listas e cards
 
-- `status`
-- `exp_date`
-- `is_trial`
-- `active_cons`
-- `max_connections`
-- `server_info.timezone`
-- `server_info.time_now` / `server_info.timestamp_now`
-- mensagem retornada no payload, quando existir
+Foram ajustados:
 
-Na UI, os dados são exibidos apenas se existirem:
+- tamanhos e paddings de cards da home
+- listas/grids de Live, VOD e Séries
+- tiles e metadados em catálogo
+- cards de detalhe
 
-- status da assinatura
-- vencimento formatado em linguagem humana
+Objetivo do recorte:
+
+- poster + título + metadados legíveis sem poluir a tela
+- ergonomia melhor para navegação por toque e D-pad
+
+### Posters, capas e placeholders
+
+O PR4 manteve o contrato Xtream atual e refinou a apresentação visual:
+
+- fallback branded consistente
+- loading visual para artworks
+- bordas e moldura mais estáveis
+- comportamento compacto sem overflow em cards estreitos
+
+Arquivo relevante:
+
+- `lib/shared/widgets/branded_artwork.dart`
+
+### Conta / home / white-label
+
+A home e a conta foram reorganizadas para melhorar apresentação e hierarquia de:
+
+- status
+- vencimento
 - trial
-- conexões ativas
-- máximo simultâneo
-- fuso horário
-- horário do serviço
+- conexões
 
-Não há exibição de JSON cru.
+Regras mantidas:
 
-## White-label da UI
+- sem expor URL/IP/provedor na UI normal
+- sem JSON cru
+- sem reabrir contrato Xtream além do necessário
 
-Decisão do PR3:
+### Branding nativo Android
 
-- remover da navegação normal qualquer exposição desnecessária de nome do provedor, base URL, IP, porta e label `Xtream`
-- manter o endereço técnico apenas como dado de entrada no login, com linguagem neutra (`Endereço de acesso`)
-- não exibir URL/IP na home, nos detalhes ou na tela de conta
-- não introduzir gateway, proxy ou endpoint adicional neste PR
+O branding nativo Android foi alinhado ao branding interno do app:
 
-## Arquitetura
+- launcher icon
+- round icon
+- foreground/background dos ícones adaptativos
+- splash logo nativo
+- TV banner
 
-- `lib/app`: bootstrap, roteamento e tema
-- `lib/core`: rede, parsing, formatação e storage local
-- `lib/features/auth`: login, sessão e minha assinatura
-- `lib/features/live`: categorias e canais ao vivo
-- `lib/features/vod`: categorias, listagens e detalhe de filmes
-- `lib/features/series`: categorias, listagens e detalhe de séries
-- `lib/features/player`: resolução de playback e player atual
-- `lib/features/favorites`: favoritos locais
-- `lib/shared`: scaffold, branding e widgets reutilizáveis
+Arquivos nativos relevantes:
 
-## Endpoints usados
+- `android/app/src/main/AndroidManifest.xml`
+- `android/app/src/main/res/mipmap-anydpi-v26/`
+- `android/app/src/main/res/mipmap-*/`
+- `android/app/src/main/res/drawable/tiviplayer_splash_logo.png`
+- `android/app/src/main/res/drawable-nodpi/tv_banner.png`
 
-Todos os endpoints continuam passando somente por `player_api.php`:
+### TV / foco / ergonomia
 
-- `player_api.php?username=USER&password=PASS`
-- `action=get_live_categories`
-- `action=get_live_streams`
-- `action=get_live_streams&category_id=X`
-- `action=get_vod_categories`
-- `action=get_vod_streams`
-- `action=get_vod_streams&category_id=X`
-- `action=get_vod_info&vod_id=X`
-- `action=get_series_categories`
-- `action=get_series`
-- `action=get_series&category_id=X`
-- `action=get_series_info&series=X`
-- fallback compatível: alguns provedores exigem `action=get_series_info&series_id=X`
+O PR4 refinou apenas o que impacta UX real em TV:
 
-## Playback
+- foco visível
+- áreas clicáveis
+- espaçamento para 10-foot UI
+- navegação por D-pad nas telas tocadas por esta fase
 
-O player continua resolvendo URLs sem endpoint extra:
+Sem reabrir arquitetura de foco.
 
-- Live: `/live/USER/PASS/STREAM_ID.EXT`
-- Filmes: `/movie/USER/PASS/STREAM_ID.EXT`
-- Episódios: `/series/USER/PASS/STREAM_ID.EXT`
+## Segurança e segredos
 
-Se faltar dado crítico como `container_extension`, o app mantém erro explícito em vez de montar URL insegura.
-
-## Credenciais locais
-
-- `api.txt` segue local e ignorado pelo Git
+- `api.txt` continua local e ignorado pelo Git
 - o app não lê `api.txt` automaticamente
-- o build não embute segredos
-- a sessão local agora persiste também os metadados de conta já retornados no login
+- o build não embute segredos por padrão
+- o pacote deste PR não inclui segredos locais
 
 ## Como rodar
 
 ```bash
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
-flutter run
-```
-
-Para análise e testes:
-
-```bash
 flutter analyze
 flutter test
 ```
 
-## Smokes de integração
+## Smokes do PR4
 
-Smokes existentes:
+Fluxos de validação desta fase:
 
-- `integration_test/playback_smoke_tolerant_test.dart`
-- `integration_test/playback_smoke_strict_test.dart`
-- `integration_test/android_tv_smoke_test.dart`
+- `integration_test/pr4_mobile_flow_test.dart`
+- `integration_test/pr4_account_flow_test.dart`
+- `integration_test/pr4_tv_dpad_flow_test.dart`
 
 Execução com `dart-define-from-file` local ignorado:
 
 ```bash
-flutter test integration_test/playback_smoke_tolerant_test.dart -d <android_device> --dart-define-from-file=<arquivo_local_ignorado>.json
-flutter test integration_test/playback_smoke_strict_test.dart -d <android_device> --dart-define-from-file=<arquivo_local_ignorado>.json
-flutter test integration_test/android_tv_smoke_test.dart -d <tv_device_suportado_pelo_flutter> --dart-define-from-file=<arquivo_local_ignorado>.json
+flutter test integration_test/pr4_mobile_flow_test.dart -d <android_emulator> --dart-define-from-file=<arquivo_local_ignorado>.json
+flutter test integration_test/pr4_account_flow_test.dart -d <android_device> --dart-define-from-file=<arquivo_local_ignorado>.json
+flutter test integration_test/pr4_tv_dpad_flow_test.dart -d <android_tv_device> --dart-define-from-file=<arquivo_local_ignorado>.json
 ```
 
-## Limitações que ficam para PR4
+Alvos operacionais definidos ao final do PR4:
 
-- player premium completo e refinamentos avançados de UX de playback
-- proxy/gateway ou qualquer mascaramento além da ocultação de interface
-- cache persistente de imagens em disco
-- redesign mais amplo fora das telas tocadas neste PR
-- launcher/native splash rebrand completo
+- mobile: emulador Android
+- smart TV: Mi TV Stick
+
+## Validação final do PR4
+
+Checklist fechado nesta fase:
+
+- `flutter analyze` passando
+- `flutter test` passando
+- smoke mobile principal passando no emulador Android
+- smoke de conta isolado passando
+- smoke TV passando no Mi TV Stick
+
+## Próxima fase
+
+Fora do escopo entregue neste PR e mantido para a próxima etapa:
+
+- player premium completo
+- troca de engine/player
+- proxy, gateway ou backend masking real
+- cache persistente complexo
 - favoritos com tela dedicada
+- EPG timeline
+- live preview grande
+- redesign total do app
+- telemetria avançada

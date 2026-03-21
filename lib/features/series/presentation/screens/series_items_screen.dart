@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
@@ -35,23 +36,32 @@ class SeriesItemsScreen extends ConsumerWidget {
         emptyTitle: 'Sem séries disponíveis',
         emptyMessage: 'Nenhuma série foi encontrada para o filtro selecionado.',
         dataBuilder: (items) {
-          return ListView.separated(
-            itemCount: items.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final item = items[index];
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final layout = DeviceLayout.of(context, constraints: constraints);
 
-              return ContentListTile(
-                autofocus: index == 0,
-                title: item.name,
-                subtitle: item.plot?.trim().isNotEmpty == true
-                    ? item.plot
-                    : 'Série disponível para assistir',
-                icon: Icons.tv_outlined,
-                imageUrl: item.coverUrl,
-                thumbnailLabel: 'Capa indisponível',
-                onPressed: () =>
-                    context.push(SeriesDetailsScreen.buildLocation(item.id)),
+              return ListView.separated(
+                padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
+                itemCount: items.length,
+                separatorBuilder: (context, index) =>
+                    SizedBox(height: layout.cardSpacing),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+
+                  return ContentListTile(
+                    autofocus: index == 0,
+                    title: item.name,
+                    subtitle: item.plot?.trim().isNotEmpty == true
+                        ? item.plot
+                        : 'Série disponível para assistir',
+                    icon: Icons.tv_outlined,
+                    imageUrl: item.coverUrl,
+                    thumbnailLabel: 'Capa indisponível',
+                    onPressed: () => context.push(
+                      SeriesDetailsScreen.buildLocation(item.id),
+                    ),
+                  );
+                },
               );
             },
           );
