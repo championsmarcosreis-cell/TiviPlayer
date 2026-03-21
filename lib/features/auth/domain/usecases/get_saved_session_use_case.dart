@@ -6,13 +6,5 @@ class GetSavedSessionUseCase {
 
   final AuthRepository _repository;
 
-  XtreamSession? call() {
-    final credentials = _repository.readSavedCredentials();
-
-    if (credentials == null) {
-      return null;
-    }
-
-    return XtreamSession.cached(credentials);
-  }
+  XtreamSession? call() => _repository.readSavedSession();
 }

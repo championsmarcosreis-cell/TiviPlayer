@@ -27,32 +27,29 @@ class SeriesItemsScreen extends ConsumerWidget {
       title: 'Séries',
       subtitle: effectiveCategoryId == null
           ? 'Catálogo completo'
-          : 'Categoria $effectiveCategoryId',
+          : 'Seleção disponível',
       showBack: true,
       child: AsyncStateBuilder(
         value: series,
         isEmpty: (items) => items.isEmpty,
-        emptyTitle: 'Sem séries',
-        emptyMessage: 'A API não retornou séries para esse filtro.',
+        emptyTitle: 'Sem séries disponíveis',
+        emptyMessage: 'Nenhuma série foi encontrada para o filtro selecionado.',
         dataBuilder: (items) {
           return ListView.separated(
             itemCount: items.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final item = items[index];
-              final subtitleParts = [
-                if (item.categoryId != null) 'Cat. ${item.categoryId}',
-                if (item.plot != null && item.plot!.isNotEmpty)
-                  'Resumo disponível',
-              ];
 
               return ContentListTile(
                 autofocus: index == 0,
                 title: item.name,
-                subtitle: subtitleParts.isEmpty
-                    ? 'Série'
-                    : subtitleParts.join(' • '),
+                subtitle: item.plot?.trim().isNotEmpty == true
+                    ? item.plot
+                    : 'Série disponível para assistir',
                 icon: Icons.tv_outlined,
+                imageUrl: item.coverUrl,
+                thumbnailLabel: 'Capa indisponível',
                 onPressed: () =>
                     context.push(SeriesDetailsScreen.buildLocation(item.id)),
               );

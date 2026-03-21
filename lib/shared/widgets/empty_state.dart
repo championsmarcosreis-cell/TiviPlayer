@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'brand_logo.dart';
+
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
@@ -23,7 +25,31 @@ class EmptyState extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 42),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 78,
+                      height: 78,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    const BrandLogo(
+                      variant: BrandLogoVariant.icon,
+                      width: 38,
+                      height: 38,
+                    ),
+                    Positioned(
+                      right: 4,
+                      bottom: 2,
+                      child: Icon(icon, size: 26),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Text(
                   title,

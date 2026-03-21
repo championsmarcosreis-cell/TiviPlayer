@@ -27,6 +27,9 @@ _UserInfoDto _$UserInfoDtoFromJson(Map<String, dynamic> json) => _UserInfoDto(
   password: json['password'] as String?,
   message: json['message'] as String?,
   expirationDate: json['expirationDate'] as String?,
+  activeConnections: (json['activeConnections'] as num?)?.toInt(),
+  maxConnections: (json['maxConnections'] as num?)?.toInt(),
+  isTrial: json['isTrial'] as bool?,
 );
 
 Map<String, dynamic> _$UserInfoDtoToJson(_UserInfoDto instance) =>
@@ -37,6 +40,9 @@ Map<String, dynamic> _$UserInfoDtoToJson(_UserInfoDto instance) =>
       'password': instance.password,
       'message': instance.message,
       'expirationDate': instance.expirationDate,
+      'activeConnections': instance.activeConnections,
+      'maxConnections': instance.maxConnections,
+      'isTrial': instance.isTrial,
     };
 
 _ServerInfoDto _$ServerInfoDtoFromJson(Map<String, dynamic> json) =>
@@ -46,6 +52,8 @@ _ServerInfoDto _$ServerInfoDtoFromJson(Map<String, dynamic> json) =>
       httpsPort: json['httpsPort'] as String?,
       serverProtocol: json['serverProtocol'] as String?,
       timezone: json['timezone'] as String?,
+      timeNow: json['timeNow'] as String?,
+      timestampNow: json['timestampNow'] as String?,
     );
 
 Map<String, dynamic> _$ServerInfoDtoToJson(_ServerInfoDto instance) =>
@@ -55,4 +63,6 @@ Map<String, dynamic> _$ServerInfoDtoToJson(_ServerInfoDto instance) =>
       'httpsPort': instance.httpsPort,
       'serverProtocol': instance.serverProtocol,
       'timezone': instance.timezone,
+      'timeNow': instance.timeNow,
+      'timestampNow': instance.timestampNow,
     };

@@ -36,12 +36,20 @@ final vodCategoriesProvider = FutureProvider.autoDispose<List<VodCategory>>((
   ref,
 ) async {
   final session = ref.watch(currentSessionProvider);
+  if (session == null) {
+    return const <VodCategory>[];
+  }
+
   return ref.watch(getVodCategoriesUseCaseProvider).call(session);
 });
 
 final vodStreamsProvider = FutureProvider.autoDispose
     .family<List<VodStream>, String?>((ref, categoryId) async {
       final session = ref.watch(currentSessionProvider);
+      if (session == null) {
+        return const <VodStream>[];
+      }
+
       return ref
           .watch(getVodStreamsUseCaseProvider)
           .call(session, categoryId: categoryId);
@@ -52,5 +60,9 @@ final vodInfoProvider = FutureProvider.autoDispose.family<VodInfo, String>((
   vodId,
 ) async {
   final session = ref.watch(currentSessionProvider);
+  if (session == null) {
+    throw StateError('Sessão indisponível.');
+  }
+
   return ref.watch(getVodInfoUseCaseProvider).call(session, vodId);
 });

@@ -12,15 +12,18 @@ void main() {
   ) async {
     final config = await launchAndLogin(tester);
 
-    if (config.strictVodId == null) {
-      // Fallback útil para CI local, mas menos determinístico do que um VOD alvo.
-      // A limitação fica documentada no README.
-      // ignore: avoid_print
-      print('XTREAM_STRICT_VOD_ID ausente; usando o primeiro VOD disponível.');
-    }
+    expect(
+      config.strictVodId,
+      isNotNull,
+      reason: 'XTREAM_STRICT_VOD_ID é obrigatório para o smoke strict.',
+    );
 
+    expectNoTechnicalProviderUi(tester, config, stage: 'home strict');
     await navigateToVodAllByTap(tester);
+    expectArtworkBound(tester, stage: 'lista VOD strict');
     await openVodDetailsByTap(tester, vodId: config.strictVodId);
+    expectArtworkBound(tester, stage: 'detalhe VOD strict');
+    expectNoTechnicalProviderUi(tester, config, stage: 'detalhe VOD strict');
     await openPlayerByTap(tester);
     await expectPlayerLoadedStrict(tester);
 

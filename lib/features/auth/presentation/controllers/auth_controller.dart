@@ -69,13 +69,8 @@ final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
 );
 
-final currentSessionProvider = Provider<XtreamSession>((ref) {
-  final session = ref.watch(authControllerProvider).session;
-  if (session == null) {
-    throw StateError('Sessão Xtream indisponível.');
-  }
-
-  return session;
+final currentSessionProvider = Provider<XtreamSession?>((ref) {
+  return ref.watch(authControllerProvider.select((state) => state.session));
 });
 
 class AuthController extends Notifier<AuthState> {

@@ -21,22 +21,27 @@ class VodCategoriesScreen extends ConsumerWidget {
 
     return AppScaffold(
       title: 'Filmes',
-      subtitle: 'Categorias VOD da API Xtream',
+      subtitle: 'Escolha uma coleção para abrir o catálogo sob demanda.',
       showBack: true,
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,
         isEmpty: (items) => items.isEmpty,
-        emptyTitle: 'Sem categorias VOD',
-        emptyMessage: 'A API não retornou categorias de filmes.',
+        emptyTitle: 'Sem coleções disponíveis',
+        emptyMessage:
+            'Nenhuma categoria de filmes foi encontrada para este acesso.',
         dataBuilder: (items) {
           final entries = [
-            _CategoryItem(id: 'all', title: 'Todos', description: 'Sem filtro'),
+            const _CategoryItem(
+              id: 'all',
+              title: 'Todos',
+              description: 'Abrir catálogo completo',
+            ),
             ...items.map(
               (item) => _CategoryItem(
                 id: item.id,
                 title: item.name,
-                description: 'Categoria ${item.id}',
+                description: 'Abrir coleção',
               ),
             ),
           ];

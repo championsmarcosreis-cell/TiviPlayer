@@ -21,7 +21,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
     if (!_isAuthorized(response)) {
       throw XtreamUnauthorizedException(
-        response.userInfo.message ?? 'Login rejeitado pelo servidor Xtream.',
+        response.userInfo.message ?? 'A autenticação foi rejeitada.',
       );
     }
 
@@ -35,32 +35,65 @@ class AuthRepositoryImpl implements AuthRepository {
       accountStatus: response.userInfo.status ?? 'Active',
       serverUrl: serverUrl,
       serverTimezone: response.serverInfo?.timezone,
+      serverTimeNow:
+          response.serverInfo?.timestampNow ?? response.serverInfo?.timeNow,
       serverProtocol: response.serverInfo?.serverProtocol,
       message: response.userInfo.message,
+      expirationDate: response.userInfo.expirationDate,
+      isTrial: response.userInfo.isTrial,
+      activeConnections: response.userInfo.activeConnections,
+      maxConnections: response.userInfo.maxConnections,
     );
   }
 
   @override
-  XtreamCredentials? readSavedCredentials() {
+  XtreamSession? readSavedSession() {
     final saved = _sessionStorage.load();
 
-    if (saved == null) {
+    if (saved == null ||
+        saved.baseUrl.trim().isEmpty ||
+        saved.username.trim().isEmpty ||
+        saved.password.trim().isEmpty) {
       return null;
     }
 
-    return XtreamCredentials(
-      baseUrl: saved.baseUrl,
-      username: saved.username,
-      password: saved.password,
+    return XtreamSession(
+      credentials: XtreamCredentials(
+        baseUrl: saved.baseUrl,
+        username: saved.username,
+        password: saved.password,
+      ),
+      accountStatus: saved.accountStatus ?? 'cached',
+      serverUrl: saved.serverUrl,
+      serverTimezone: saved.serverTimezone,
+      serverTimeNow: saved.serverTimeNow,
+      serverProtocol: saved.serverProtocol,
+      message: saved.message,
+      expirationDate: saved.expirationDate,
+      isTrial: saved.isTrial,
+      activeConnections: saved.activeConnections,
+      maxConnections: saved.maxConnections,
     );
   }
 
   @override
-  Future<void> saveCredentials(XtreamCredentials credentials) {
+  Future<void> saveSession(XtreamSession session) {
     return _sessionStorage.save(
-      baseUrl: credentials.normalizedBaseUrl,
-      username: credentials.username,
-      password: credentials.password,
+      SavedSessionData(
+        baseUrl: session.credentials.normalizedBaseUrl,
+        username: session.credentials.username,
+        password: session.credentials.password,
+        accountStatus: session.accountStatus,
+        serverUrl: session.serverUrl,
+        serverTimezone: session.serverTimezone,
+        serverTimeNow: session.serverTimeNow,
+        serverProtocol: session.serverProtocol,
+        message: session.message,
+        expirationDate: session.expirationDate,
+        isTrial: session.isTrial,
+        activeConnections: session.activeConnections,
+        maxConnections: session.maxConnections,
+      ),
     );
   }
 

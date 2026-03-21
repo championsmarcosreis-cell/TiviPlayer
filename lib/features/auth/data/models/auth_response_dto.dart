@@ -35,6 +35,9 @@ abstract class UserInfoDto with _$UserInfoDto {
     String? password,
     String? message,
     String? expirationDate,
+    int? activeConnections,
+    int? maxConnections,
+    bool? isTrial,
   }) = _UserInfoDto;
 
   factory UserInfoDto.fromJson(Map<String, dynamic> json) =>
@@ -48,6 +51,9 @@ abstract class UserInfoDto with _$UserInfoDto {
       password: XtreamParsers.asString(json['password']),
       message: XtreamParsers.asString(json['message']),
       expirationDate: XtreamParsers.asString(json['exp_date']),
+      activeConnections: XtreamParsers.asInt(json['active_cons']),
+      maxConnections: XtreamParsers.asInt(json['max_connections']),
+      isTrial: _readNullableBool(json['is_trial']),
     );
   }
 }
@@ -60,6 +66,8 @@ abstract class ServerInfoDto with _$ServerInfoDto {
     String? httpsPort,
     String? serverProtocol,
     String? timezone,
+    String? timeNow,
+    String? timestampNow,
   }) = _ServerInfoDto;
 
   factory ServerInfoDto.fromJson(Map<String, dynamic> json) =>
@@ -72,6 +80,17 @@ abstract class ServerInfoDto with _$ServerInfoDto {
       httpsPort: XtreamParsers.asString(json['https_port']),
       serverProtocol: XtreamParsers.asString(json['server_protocol']),
       timezone: XtreamParsers.asString(json['timezone']),
+      timeNow: XtreamParsers.asString(json['time_now']),
+      timestampNow: XtreamParsers.asString(json['timestamp_now']),
     );
   }
+}
+
+bool? _readNullableBool(dynamic value) {
+  final normalized = XtreamParsers.asString(value);
+  if (normalized == null) {
+    return null;
+  }
+
+  return XtreamParsers.asBool(value);
 }

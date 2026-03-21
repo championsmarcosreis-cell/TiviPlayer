@@ -9,7 +9,7 @@ class LoginUseCase {
 
   Future<XtreamSession> call(XtreamCredentials credentials) async {
     final session = await _repository.login(credentials);
-    await _repository.saveCredentials(credentials);
+    await _repository.saveSession(session);
     return session;
   }
 }

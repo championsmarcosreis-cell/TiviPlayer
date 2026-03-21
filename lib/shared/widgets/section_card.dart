@@ -36,9 +36,21 @@ class SectionCard extends StatelessWidget {
           duration: const Duration(milliseconds: 140),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: focused
-                ? colorScheme.primary.withValues(alpha: 0.14)
-                : colorScheme.surface,
+            gradient: LinearGradient(
+              colors: focused
+                  ? [
+                      colorScheme.primary.withValues(alpha: 0.22),
+                      colorScheme.surface.withValues(alpha: 0.98),
+                    ]
+                  : [
+                      colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.85,
+                      ),
+                      colorScheme.surface.withValues(alpha: 0.98),
+                    ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(26),
             border: Border.all(
               color: focused
@@ -56,24 +68,41 @@ class SectionCard extends StatelessWidget {
                   ]
                 : const [],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 52,
-                width: 52,
-                decoration: BoxDecoration(
-                  color: colorScheme.secondary.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 190),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      height: 52,
+                      width: 52,
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondary.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(icon, color: colorScheme.secondary),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: focused
+                          ? colorScheme.primary
+                          : colorScheme.onSurface.withValues(alpha: 0.72),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: colorScheme.secondary),
-              ),
-              const SizedBox(height: 20),
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(description, style: Theme.of(context).textTheme.bodyMedium),
-            ],
+                const SizedBox(height: 28),
+                Text(title, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 10),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
           ),
         );
       },

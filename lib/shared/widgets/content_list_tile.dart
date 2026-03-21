@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/tv/tv_focusable.dart';
+import 'branded_artwork.dart';
 
 class ContentListTile extends StatelessWidget {
   const ContentListTile({
@@ -12,6 +13,12 @@ class ContentListTile extends StatelessWidget {
     this.autofocus = false,
     this.testId,
     this.interactiveKey,
+    this.imageUrl,
+    this.thumbnailAspectRatio = 2 / 3,
+    this.thumbnailWidth = 74,
+    this.thumbnailFit = BoxFit.cover,
+    this.thumbnailLabel,
+    this.imagePadding = EdgeInsets.zero,
   });
 
   final String title;
@@ -21,6 +28,12 @@ class ContentListTile extends StatelessWidget {
   final bool autofocus;
   final String? testId;
   final Key? interactiveKey;
+  final String? imageUrl;
+  final double thumbnailAspectRatio;
+  final double thumbnailWidth;
+  final BoxFit thumbnailFit;
+  final String? thumbnailLabel;
+  final EdgeInsets imagePadding;
 
   @override
   Widget build(BuildContext context) {
@@ -48,16 +61,31 @@ class ContentListTile extends StatelessWidget {
             ),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 44,
-                width: 44,
-                decoration: BoxDecoration(
-                  color: colorScheme.secondary.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
+              if (imageUrl != null || thumbnailLabel != null)
+                SizedBox(
+                  width: thumbnailWidth,
+                  child: BrandedArtwork(
+                    imageUrl: imageUrl,
+                    aspectRatio: thumbnailAspectRatio,
+                    fit: thumbnailFit,
+                    imagePadding: imagePadding,
+                    borderRadius: 18,
+                    icon: icon,
+                    placeholderLabel: thumbnailLabel,
+                  ),
+                )
+              else
+                Container(
+                  height: 44,
+                  width: 44,
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondary.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: colorScheme.secondary),
                 ),
-                child: Icon(icon, color: colorScheme.secondary),
-              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

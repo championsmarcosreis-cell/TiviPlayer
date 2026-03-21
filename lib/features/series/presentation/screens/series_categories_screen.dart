@@ -20,22 +20,27 @@ class SeriesCategoriesScreen extends ConsumerWidget {
 
     return AppScaffold(
       title: 'Séries',
-      subtitle: 'Categorias da API Xtream',
+      subtitle: 'Escolha uma coleção para abrir temporadas e episódios.',
       showBack: true,
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,
         isEmpty: (items) => items.isEmpty,
-        emptyTitle: 'Sem categorias de séries',
-        emptyMessage: 'A API não retornou categorias de séries.',
+        emptyTitle: 'Sem coleções disponíveis',
+        emptyMessage:
+            'Nenhuma categoria de séries foi encontrada para este acesso.',
         dataBuilder: (items) {
           final entries = [
-            _CategoryItem(id: 'all', title: 'Todas', description: 'Sem filtro'),
+            const _CategoryItem(
+              id: 'all',
+              title: 'Todas',
+              description: 'Abrir catálogo completo',
+            ),
             ...items.map(
               (item) => _CategoryItem(
                 id: item.id,
                 title: item.name,
-                description: 'Categoria ${item.id}',
+                description: 'Abrir coleção',
               ),
             ),
           ];

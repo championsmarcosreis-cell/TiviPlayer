@@ -25,35 +25,37 @@ class LiveStreamsScreen extends ConsumerWidget {
     final streams = ref.watch(liveStreamsProvider(effectiveCategoryId));
 
     return AppScaffold(
-      title: 'Canais Live',
+      title: 'Ao vivo',
       subtitle: effectiveCategoryId == null
-          ? 'Lista completa'
-          : 'Categoria $effectiveCategoryId',
+          ? 'Todos os canais'
+          : 'Grade selecionada',
       showBack: true,
       child: AsyncStateBuilder(
         value: streams,
         isEmpty: (items) => items.isEmpty,
-        emptyTitle: 'Sem canais',
-        emptyMessage: 'A API não retornou canais para esse filtro.',
+        emptyTitle: 'Sem canais disponíveis',
+        emptyMessage: 'Nenhum canal foi encontrado para o filtro selecionado.',
         dataBuilder: (items) {
           return ListView.separated(
             itemCount: items.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final item = items[index];
-              final subtitleParts = [
-                if (item.categoryId != null) 'Cat. ${item.categoryId}',
-                if (item.epgChannelId != null) 'EPG ${item.epgChannelId}',
-                if (item.hasArchive) 'Replay',
-              ];
+              final subtitle = item.hasArchive
+                  ? 'Canal com replay disponível'
+                  : 'Canal disponível para assistir';
 
               return ContentListTile(
                 autofocus: index == 0,
                 title: item.name,
-                subtitle: subtitleParts.isEmpty
-                    ? 'Canal Live'
-                    : subtitleParts.join(' • '),
+                subtitle: subtitle,
                 icon: Icons.live_tv_rounded,
+                imageUrl: item.iconUrl,
+                thumbnailAspectRatio: 1,
+                thumbnailWidth: 64,
+                thumbnailFit: BoxFit.contain,
+                imagePadding: const EdgeInsets.all(14),
+                thumbnailLabel: 'Canal',
                 onPressed: () => context.push(
                   PlayerScreen.routePath,
                   extra: PlaybackContext(

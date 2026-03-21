@@ -15,7 +15,9 @@ class PlayerRepositoryImpl implements PlayerRepository {
     final baseUri = Uri.tryParse(session.displayServer);
 
     if (baseUri == null || !baseUri.hasScheme || baseUri.host.isEmpty) {
-      throw const AppException('Base URL inválida para resolver playback.');
+      throw const AppException(
+        'Endereço de acesso inválido para iniciar a reprodução.',
+      );
     }
 
     if (context.itemId.trim().isEmpty) {
@@ -33,7 +35,7 @@ class PlayerRepositoryImpl implements PlayerRepository {
     final password = session.credentials.password.trim();
 
     if (username.isEmpty || password.isEmpty) {
-      throw const AppException('Credenciais Xtream inválidas para reprodução.');
+      throw const AppException('Credenciais inválidas para reprodução.');
     }
 
     final pathPrefix = switch (context.contentType) {

@@ -1,30 +1,101 @@
 # TiviPlayer
 
-Base estrutural Flutter para Android Mobile + Android TV consumindo API Xtream-compatible.
+Base Flutter para Android mobile e Android TV com login, catálogo e playback via API compatível com Xtream Codes.
+
+## PR3
+
+Este PR fecha o recorte de branding, aparência comercial, posters/capas, área de conta e white-label da UI.
+
+### Branding importado do legado
+
+Foram importados somente assets visuais do projeto legado em `C:\clubTivi-main`, sem reaproveitar código, telas ou lógica:
+
+- `assets/branding/app_logo.png`
+- `assets/branding/app_icon.png`
+
+Decisão de uso:
+
+- `app_logo.png`: escolhido como lockup principal para splash, login e hero/home por ser a versão mais limpa e legível.
+- `app_icon.png`: usado como ícone de apoio no header e como placeholder branded para conteúdos sem imagem válida.
+
+Os assets estão registrados no `pubspec.yaml` via `assets/branding/`.
+
+## O que foi entregue
+
+### Login TV/mobile
+
+- Tela refeita com layout responsivo para mobile e TV.
+- Scroll seguro com `SingleChildScrollView`.
+- Botão `Entrar` sempre visível e acionável.
+- Ordem de foco previsível no formulário.
+- Texto e labels neutros, sem expor `Xtream`, URL base ou endpoint técnico na UI normal.
+
+### Posters, capas e thumbnails
+
+As imagens agora usam apenas campos reais já retornados pelo payload:
+
+- Live: `stream_icon`
+- VOD list: `stream_icon`
+- VOD detail: `cover_big` com fallback para `cover`
+- Series list/detail: `cover`
+
+Comportamento:
+
+- URLs inválidas ou ausentes caem em placeholder branded.
+- Loading visual de artwork mostra estado intermediário.
+- Erro de carregamento não quebra layout.
+- Aspect ratio consistente em listas e detalhes.
+- Categoria VOD/Live/Séries continua branded por card; os endpoints de categoria não trazem poster útil no contrato atual.
+
+## Conta / Minha assinatura
+
+Os dados abaixo passam a ser integrados do `player_api.php` no login e persistidos localmente com a sessão:
+
+- `status`
+- `exp_date`
+- `is_trial`
+- `active_cons`
+- `max_connections`
+- `server_info.timezone`
+- `server_info.time_now` / `server_info.timestamp_now`
+- mensagem retornada no payload, quando existir
+
+Na UI, os dados são exibidos apenas se existirem:
+
+- status da assinatura
+- vencimento formatado em linguagem humana
+- trial
+- conexões ativas
+- máximo simultâneo
+- fuso horário
+- horário do serviço
+
+Não há exibição de JSON cru.
+
+## White-label da UI
+
+Decisão do PR3:
+
+- remover da navegação normal qualquer exposição desnecessária de nome do provedor, base URL, IP, porta e label `Xtream`
+- manter o endereço técnico apenas como dado de entrada no login, com linguagem neutra (`Endereço de acesso`)
+- não exibir URL/IP na home, nos detalhes ou na tela de conta
+- não introduzir gateway, proxy ou endpoint adicional neste PR
 
 ## Arquitetura
 
-O projeto foi organizado em camadas por feature:
-
-- `lib/app`: bootstrap, roteamento e tema.
-- `lib/core`: rede Xtream, parsing tolerante, storage local e utilitários TV.
-- `lib/features/auth`: login, sessão e persistência local de credenciais.
-- `lib/features/live`: categorias e canais Live.
-- `lib/features/vod`: categorias, listagens e `get_vod_info`.
-- `lib/features/series`: categorias, listagens e `get_series_info`.
-- `lib/features/player`: resolução de playback, player e controles mínimos.
-- `lib/features/favorites`: persistência local pronta para favoritos.
-- `lib/shared`: scaffolds e widgets reutilizáveis.
-
-Padrão aplicado:
-
-- `data`: datasources remotos + DTOs + repositories concretos.
-- `domain`: entities + repositories abstratos + usecases.
-- `presentation`: providers Riverpod + telas.
+- `lib/app`: bootstrap, roteamento e tema
+- `lib/core`: rede, parsing, formatação e storage local
+- `lib/features/auth`: login, sessão e minha assinatura
+- `lib/features/live`: categorias e canais ao vivo
+- `lib/features/vod`: categorias, listagens e detalhe de filmes
+- `lib/features/series`: categorias, listagens e detalhe de séries
+- `lib/features/player`: resolução de playback e player atual
+- `lib/features/favorites`: favoritos locais
+- `lib/shared`: scaffold, branding e widgets reutilizáveis
 
 ## Endpoints usados
 
-Todos os endpoints passam por `player_api.php`:
+Todos os endpoints continuam passando somente por `player_api.php`:
 
 - `player_api.php?username=USER&password=PASS`
 - `action=get_live_categories`
@@ -40,30 +111,22 @@ Todos os endpoints passam por `player_api.php`:
 - `action=get_series_info&series=X`
 - fallback compatível: alguns provedores exigem `action=get_series_info&series_id=X`
 
-## Playback URL
+## Playback
 
-O player resolve URLs Xtream sem inventar endpoint adicional:
+O player continua resolvendo URLs sem endpoint extra:
 
 - Live: `/live/USER/PASS/STREAM_ID.EXT`
 - Filmes: `/movie/USER/PASS/STREAM_ID.EXT`
 - Episódios: `/series/USER/PASS/STREAM_ID.EXT`
 
-A resolução usa:
-
-- `server_info`/base URL validada na sessão;
-- `username` e `password` autenticados;
-- `stream_id`/`episode id`;
-- `container_extension` vindo do payload real.
-
-Se `container_extension` ou outro dado crítico não vier do provedor, o app mostra erro explícito no player em vez de montar URL insegura.
+Se faltar dado crítico como `container_extension`, o app mantém erro explícito em vez de montar URL insegura.
 
 ## Credenciais locais
 
-- `api.txt` permanece local e está bloqueado no `.gitignore`.
-- XML Android do projeto não deve ser ignorado globalmente; não use regra ampla como `*.xml`.
-- O app não lê `api.txt` automaticamente e não embute segredos no build.
-- Para usar credenciais reais, abra o app e preencha `Base URL`, `Usuário` e `Senha` na tela de login.
-- As credenciais válidas são persistidas localmente via `shared_preferences` para reabertura rápida da sessão.
+- `api.txt` segue local e ignorado pelo Git
+- o app não lê `api.txt` automaticamente
+- o build não embute segredos
+- a sessão local agora persiste também os metadados de conta já retornados no login
 
 ## Como rodar
 
@@ -82,13 +145,13 @@ flutter test
 
 ## Smokes de integração
 
-Existem três smokes separados:
+Smokes existentes:
 
-- `integration_test/playback_smoke_tolerant_test.dart`: smoke tolerante de playback. Passa se o player abrir com sucesso real ou se entrar em erro explícito tratado.
-- `integration_test/playback_smoke_strict_test.dart`: smoke strict de playback. Só passa se o player entrar em estado carregado/reproduzível; falha em erro explícito ou retry.
-- `integration_test/android_tv_smoke_test.dart`: smoke dedicado de Android TV com foco em D-pad, foco e back. A validação mobile não substitui esse teste.
+- `integration_test/playback_smoke_tolerant_test.dart`
+- `integration_test/playback_smoke_strict_test.dart`
+- `integration_test/android_tv_smoke_test.dart`
 
-Para rodar os smokes, use um arquivo local ignorado com `XTREAM_BASE_URL`, `XTREAM_USERNAME`, `XTREAM_PASSWORD` e, opcionalmente no strict, `XTREAM_STRICT_VOD_ID` para apontar um VOD conhecido e estável:
+Execução com `dart-define-from-file` local ignorado:
 
 ```bash
 flutter test integration_test/playback_smoke_tolerant_test.dart -d <android_device> --dart-define-from-file=<arquivo_local_ignorado>.json
@@ -96,36 +159,11 @@ flutter test integration_test/playback_smoke_strict_test.dart -d <android_device
 flutter test integration_test/android_tv_smoke_test.dart -d <tv_device_suportado_pelo_flutter> --dart-define-from-file=<arquivo_local_ignorado>.json
 ```
 
-Observações:
+## Limitações que ficam para PR4
 
-- Se `XTREAM_STRICT_VOD_ID` não for informado, o smoke strict cai no primeiro VOD disponível; isso é útil, mas menos determinístico.
-- O smoke TV depende de um target Android TV que o Flutter reconheça como suportado. Alguns AVDs TV sobem via `adb`, mas aparecem como `unsupported` no `flutter devices`, o que bloqueia a execução instrumentada.
-
-## Compatibilidade TV
-
-- Tema escuro com foco visível.
-- Navegação preparada para D-pad com `FocusableActionDetector`.
-- `AndroidManifest.xml` principal com `android.permission.INTERNET`, `android:usesCleartextTraffic="true"` para provedores Xtream via HTTP, `LEANBACK_LAUNCHER` e touchscreen opcional.
-- Player com controles focáveis para D-pad, play/pause e seek apenas onde o conteúdo suporta.
-- Layout responsivo para telas menores e TVs largas.
-
-## Limitações atuais
-
-- O player cobre Live, VOD e episódio de série com controles básicos; não há ainda telemetria, retry avançado ou resume persistente.
-- Live não força seek artificial; seek básico existe apenas em VOD e episódios.
-- O smoke tolerante valida robustez de abertura/erro explícito; ele não substitui o smoke strict.
-- O smoke mobile não substitui a validação em Android TV.
-- Favoritos entraram no detalhe de VOD e Séries, mas ainda não existe tela dedicada de favoritos.
-- Persistência de credenciais usa `shared_preferences`; endurecimento de segurança pode entrar depois.
-- Não há ingestão de XMLTV no boot.
-- iOS ficou fora do escopo.
-
-## Próxima PR sugerida
-
-PR3 sugerida:
-
-- histórico/retomada persistente;
-- refinamento de buffering/erros por provedor;
-- favoritos com listagem própria;
-- cache leve e paginação/virtualização quando necessário;
-- smoke tests instrumentados de navegação e playback.
+- player premium completo e refinamentos avançados de UX de playback
+- proxy/gateway ou qualquer mascaramento além da ocultação de interface
+- cache persistente de imagens em disco
+- redesign mais amplo fora das telas tocadas neste PR
+- launcher/native splash rebrand completo
+- favoritos com tela dedicada

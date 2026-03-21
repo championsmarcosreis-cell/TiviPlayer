@@ -16,33 +16,40 @@ class LiveCategoriesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _LiveCategoriesView();
+    return const _LiveCategoriesView();
   }
 }
 
 class _LiveCategoriesView extends ConsumerWidget {
+  const _LiveCategoriesView();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categories = ref.watch(liveCategoriesProvider);
 
     return AppScaffold(
-      title: 'Live',
-      subtitle: 'Categorias carregadas da API Xtream',
+      title: 'Ao vivo',
+      subtitle: 'Escolha uma categoria para abrir os canais disponíveis.',
       showBack: true,
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,
         isEmpty: (items) => items.isEmpty,
-        emptyTitle: 'Sem categorias Live',
-        emptyMessage: 'A API não retornou categorias de canais.',
+        emptyTitle: 'Sem categorias disponíveis',
+        emptyMessage:
+            'Nenhuma categoria de canais foi encontrada para este acesso.',
         dataBuilder: (items) {
           final entries = [
-            _CategoryItem(id: 'all', title: 'Todos', description: 'Sem filtro'),
+            const _CategoryItem(
+              id: 'all',
+              title: 'Todos',
+              description: 'Abrir grade completa',
+            ),
             ...items.map(
               (item) => _CategoryItem(
                 id: item.id,
                 title: item.name,
-                description: 'Categoria ${item.id}',
+                description: 'Abrir categoria',
               ),
             ),
           ];

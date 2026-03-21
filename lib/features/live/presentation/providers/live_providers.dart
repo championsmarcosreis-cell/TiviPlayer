@@ -30,12 +30,20 @@ final liveCategoriesProvider = FutureProvider.autoDispose<List<LiveCategory>>((
   ref,
 ) async {
   final session = ref.watch(currentSessionProvider);
+  if (session == null) {
+    return const <LiveCategory>[];
+  }
+
   return ref.watch(getLiveCategoriesUseCaseProvider).call(session);
 });
 
 final liveStreamsProvider = FutureProvider.autoDispose
     .family<List<LiveStream>, String?>((ref, categoryId) async {
       final session = ref.watch(currentSessionProvider);
+      if (session == null) {
+        return const <LiveStream>[];
+      }
+
       return ref
           .watch(getLiveStreamsUseCaseProvider)
           .call(session, categoryId: categoryId);

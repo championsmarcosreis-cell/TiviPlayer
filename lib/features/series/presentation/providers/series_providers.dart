@@ -35,12 +35,20 @@ final getSeriesInfoUseCaseProvider = Provider<GetSeriesInfoUseCase>(
 final seriesCategoriesProvider =
     FutureProvider.autoDispose<List<SeriesCategory>>((ref) async {
       final session = ref.watch(currentSessionProvider);
+      if (session == null) {
+        return const <SeriesCategory>[];
+      }
+
       return ref.watch(getSeriesCategoriesUseCaseProvider).call(session);
     });
 
 final seriesItemsProvider = FutureProvider.autoDispose
     .family<List<SeriesItem>, String?>((ref, categoryId) async {
       final session = ref.watch(currentSessionProvider);
+      if (session == null) {
+        return const <SeriesItem>[];
+      }
+
       return ref
           .watch(getSeriesItemsUseCaseProvider)
           .call(session, categoryId: categoryId);
@@ -49,5 +57,9 @@ final seriesItemsProvider = FutureProvider.autoDispose
 final seriesInfoProvider = FutureProvider.autoDispose
     .family<SeriesInfo, String>((ref, seriesId) async {
       final session = ref.watch(currentSessionProvider);
+      if (session == null) {
+        throw StateError('Sessão indisponível.');
+      }
+
       return ref.watch(getSeriesInfoUseCaseProvider).call(session, seriesId);
     });

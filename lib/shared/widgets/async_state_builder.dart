@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/failure.dart';
+import 'brand_logo.dart';
 import 'empty_state.dart';
 
 class AsyncStateBuilder<T> extends StatelessWidget {
@@ -35,7 +36,28 @@ class AsyncStateBuilder<T> extends StatelessWidget {
 
         return dataBuilder(data);
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const BrandLogo(
+                variant: BrandLogoVariant.icon,
+                width: 56,
+                height: 56,
+              ),
+              const SizedBox(height: 18),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Carregando conteúdo',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
       error: (error, stackTrace) => EmptyState(
         title: 'Falha ao carregar',
         message: Failure.fromError(error).message,

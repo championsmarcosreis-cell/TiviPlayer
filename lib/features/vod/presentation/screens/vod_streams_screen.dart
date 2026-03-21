@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
-import '../../../../shared/testing/app_test_keys.dart';
 import '../providers/vod_providers.dart';
 import 'vod_details_screen.dart';
 
@@ -27,13 +27,13 @@ class VodStreamsScreen extends ConsumerWidget {
       title: 'Filmes',
       subtitle: effectiveCategoryId == null
           ? 'Catálogo completo'
-          : 'Categoria $effectiveCategoryId',
+          : 'Seleção disponível',
       showBack: true,
       child: AsyncStateBuilder(
         value: streams,
         isEmpty: (items) => items.isEmpty,
-        emptyTitle: 'Sem filmes',
-        emptyMessage: 'A API não retornou itens VOD para esse filtro.',
+        emptyTitle: 'Sem títulos disponíveis',
+        emptyMessage: 'Nenhum filme foi encontrado para o filtro selecionado.',
         dataBuilder: (items) {
           return ListView.separated(
             itemCount: items.length,
@@ -41,9 +41,10 @@ class VodStreamsScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final item = items[index];
               final subtitleParts = [
+                'Sob demanda',
                 if (item.rating != null) 'Nota ${item.rating}',
-                if (item.containerExtension != null) item.containerExtension!,
-                if (item.categoryId != null) 'Cat. ${item.categoryId}',
+                if (item.containerExtension != null)
+                  item.containerExtension!.toUpperCase(),
               ];
 
               return ContentListTile(
@@ -51,10 +52,10 @@ class VodStreamsScreen extends ConsumerWidget {
                 autofocus: index == 0,
                 testId: AppTestKeys.vodItemId(item.id),
                 title: item.name,
-                subtitle: subtitleParts.isEmpty
-                    ? 'Filme VOD'
-                    : subtitleParts.join(' • '),
+                subtitle: subtitleParts.join(' • '),
                 icon: Icons.movie_creation_outlined,
+                imageUrl: item.coverUrl,
+                thumbnailLabel: 'Poster indisponível',
                 onPressed: () =>
                     context.push(VodDetailsScreen.buildLocation(item.id)),
               );

@@ -213,6 +213,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     try {
       final session = ref.read(currentSessionProvider);
+      if (session == null) {
+        setState(() {
+          _resolvedPlayback = null;
+          _isInitializing = false;
+          _errorMessage = 'Sessão indisponível.';
+        });
+        return;
+      }
+
       final resolvedPlayback = ref
           .read(resolvePlaybackUseCaseProvider)
           .call(session, playbackContext);

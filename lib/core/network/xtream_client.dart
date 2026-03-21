@@ -86,13 +86,11 @@ class XtreamClient {
 
         await Future<void>.delayed(Duration(milliseconds: 350 * (attempt + 1)));
       } on FormatException {
-        throw const XtreamRequestException(
-          'Resposta inválida ou malformada do servidor Xtream.',
-        );
+        throw const XtreamRequestException('Resposta inválida do serviço.');
       }
     }
 
-    throw const XtreamRequestException('Falha ao consultar o servidor Xtream.');
+    throw const XtreamRequestException('Falha ao consultar o serviço.');
   }
 
   dynamic _decodePayload(dynamic data) {
@@ -119,22 +117,22 @@ class XtreamClient {
     final statusCode = error.response?.statusCode;
 
     if (statusCode == 401 || statusCode == 403) {
-      return 'Acesso negado pelo servidor Xtream.';
+      return 'Acesso negado para este acesso.';
     }
 
     if (statusCode != null) {
-      return 'Falha HTTP $statusCode ao consultar o servidor Xtream.';
+      return 'Falha HTTP $statusCode ao consultar o serviço.';
     }
 
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Tempo limite excedido ao conectar no servidor Xtream.';
+        return 'Tempo limite excedido ao conectar no serviço.';
       case DioExceptionType.connectionError:
-        return 'Não foi possível alcançar o servidor Xtream.';
+        return 'Não foi possível alcançar o serviço.';
       default:
-        return 'Erro de comunicação com o servidor Xtream.';
+        return 'Erro de comunicação com o serviço.';
     }
   }
 

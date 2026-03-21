@@ -323,7 +323,7 @@ $ServerInfoDtoCopyWith<$Res>? get serverInfo {
 /// @nodoc
 mixin _$UserInfoDto {
 
- bool get auth; String? get status; String? get username; String? get password; String? get message; String? get expirationDate;
+ bool get auth; String? get status; String? get username; String? get password; String? get message; String? get expirationDate; int? get activeConnections; int? get maxConnections; bool? get isTrial;
 /// Create a copy of UserInfoDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -336,16 +336,16 @@ $UserInfoDtoCopyWith<UserInfoDto> get copyWith => _$UserInfoDtoCopyWithImpl<User
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserInfoDto&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.status, status) || other.status == status)&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.message, message) || other.message == message)&&(identical(other.expirationDate, expirationDate) || other.expirationDate == expirationDate));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserInfoDto&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.status, status) || other.status == status)&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.message, message) || other.message == message)&&(identical(other.expirationDate, expirationDate) || other.expirationDate == expirationDate)&&(identical(other.activeConnections, activeConnections) || other.activeConnections == activeConnections)&&(identical(other.maxConnections, maxConnections) || other.maxConnections == maxConnections)&&(identical(other.isTrial, isTrial) || other.isTrial == isTrial));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,auth,status,username,password,message,expirationDate);
+int get hashCode => Object.hash(runtimeType,auth,status,username,password,message,expirationDate,activeConnections,maxConnections,isTrial);
 
 @override
 String toString() {
-  return 'UserInfoDto(auth: $auth, status: $status, username: $username, password: $password, message: $message, expirationDate: $expirationDate)';
+  return 'UserInfoDto(auth: $auth, status: $status, username: $username, password: $password, message: $message, expirationDate: $expirationDate, activeConnections: $activeConnections, maxConnections: $maxConnections, isTrial: $isTrial)';
 }
 
 
@@ -356,7 +356,7 @@ abstract mixin class $UserInfoDtoCopyWith<$Res>  {
   factory $UserInfoDtoCopyWith(UserInfoDto value, $Res Function(UserInfoDto) _then) = _$UserInfoDtoCopyWithImpl;
 @useResult
 $Res call({
- bool auth, String? status, String? username, String? password, String? message, String? expirationDate
+ bool auth, String? status, String? username, String? password, String? message, String? expirationDate, int? activeConnections, int? maxConnections, bool? isTrial
 });
 
 
@@ -373,7 +373,7 @@ class _$UserInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of UserInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? auth = null,Object? status = freezed,Object? username = freezed,Object? password = freezed,Object? message = freezed,Object? expirationDate = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? auth = null,Object? status = freezed,Object? username = freezed,Object? password = freezed,Object? message = freezed,Object? expirationDate = freezed,Object? activeConnections = freezed,Object? maxConnections = freezed,Object? isTrial = freezed,}) {
   return _then(_self.copyWith(
 auth: null == auth ? _self.auth : auth // ignore: cast_nullable_to_non_nullable
 as bool,status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
@@ -381,7 +381,10 @@ as String?,username: freezed == username ? _self.username : username // ignore: 
 as String?,password: freezed == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
 as String?,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String?,expirationDate: freezed == expirationDate ? _self.expirationDate : expirationDate // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,activeConnections: freezed == activeConnections ? _self.activeConnections : activeConnections // ignore: cast_nullable_to_non_nullable
+as int?,maxConnections: freezed == maxConnections ? _self.maxConnections : maxConnections // ignore: cast_nullable_to_non_nullable
+as int?,isTrial: freezed == isTrial ? _self.isTrial : isTrial // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
@@ -466,10 +469,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool auth,  String? status,  String? username,  String? password,  String? message,  String? expirationDate)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool auth,  String? status,  String? username,  String? password,  String? message,  String? expirationDate,  int? activeConnections,  int? maxConnections,  bool? isTrial)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserInfoDto() when $default != null:
-return $default(_that.auth,_that.status,_that.username,_that.password,_that.message,_that.expirationDate);case _:
+return $default(_that.auth,_that.status,_that.username,_that.password,_that.message,_that.expirationDate,_that.activeConnections,_that.maxConnections,_that.isTrial);case _:
   return orElse();
 
 }
@@ -487,10 +490,10 @@ return $default(_that.auth,_that.status,_that.username,_that.password,_that.mess
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool auth,  String? status,  String? username,  String? password,  String? message,  String? expirationDate)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool auth,  String? status,  String? username,  String? password,  String? message,  String? expirationDate,  int? activeConnections,  int? maxConnections,  bool? isTrial)  $default,) {final _that = this;
 switch (_that) {
 case _UserInfoDto():
-return $default(_that.auth,_that.status,_that.username,_that.password,_that.message,_that.expirationDate);case _:
+return $default(_that.auth,_that.status,_that.username,_that.password,_that.message,_that.expirationDate,_that.activeConnections,_that.maxConnections,_that.isTrial);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -507,10 +510,10 @@ return $default(_that.auth,_that.status,_that.username,_that.password,_that.mess
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool auth,  String? status,  String? username,  String? password,  String? message,  String? expirationDate)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool auth,  String? status,  String? username,  String? password,  String? message,  String? expirationDate,  int? activeConnections,  int? maxConnections,  bool? isTrial)?  $default,) {final _that = this;
 switch (_that) {
 case _UserInfoDto() when $default != null:
-return $default(_that.auth,_that.status,_that.username,_that.password,_that.message,_that.expirationDate);case _:
+return $default(_that.auth,_that.status,_that.username,_that.password,_that.message,_that.expirationDate,_that.activeConnections,_that.maxConnections,_that.isTrial);case _:
   return null;
 
 }
@@ -522,7 +525,7 @@ return $default(_that.auth,_that.status,_that.username,_that.password,_that.mess
 @JsonSerializable()
 
 class _UserInfoDto implements UserInfoDto {
-  const _UserInfoDto({required this.auth, this.status, this.username, this.password, this.message, this.expirationDate});
+  const _UserInfoDto({required this.auth, this.status, this.username, this.password, this.message, this.expirationDate, this.activeConnections, this.maxConnections, this.isTrial});
   factory _UserInfoDto.fromJson(Map<String, dynamic> json) => _$UserInfoDtoFromJson(json);
 
 @override final  bool auth;
@@ -531,6 +534,9 @@ class _UserInfoDto implements UserInfoDto {
 @override final  String? password;
 @override final  String? message;
 @override final  String? expirationDate;
+@override final  int? activeConnections;
+@override final  int? maxConnections;
+@override final  bool? isTrial;
 
 /// Create a copy of UserInfoDto
 /// with the given fields replaced by the non-null parameter values.
@@ -545,16 +551,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserInfoDto&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.status, status) || other.status == status)&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.message, message) || other.message == message)&&(identical(other.expirationDate, expirationDate) || other.expirationDate == expirationDate));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserInfoDto&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.status, status) || other.status == status)&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.message, message) || other.message == message)&&(identical(other.expirationDate, expirationDate) || other.expirationDate == expirationDate)&&(identical(other.activeConnections, activeConnections) || other.activeConnections == activeConnections)&&(identical(other.maxConnections, maxConnections) || other.maxConnections == maxConnections)&&(identical(other.isTrial, isTrial) || other.isTrial == isTrial));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,auth,status,username,password,message,expirationDate);
+int get hashCode => Object.hash(runtimeType,auth,status,username,password,message,expirationDate,activeConnections,maxConnections,isTrial);
 
 @override
 String toString() {
-  return 'UserInfoDto(auth: $auth, status: $status, username: $username, password: $password, message: $message, expirationDate: $expirationDate)';
+  return 'UserInfoDto(auth: $auth, status: $status, username: $username, password: $password, message: $message, expirationDate: $expirationDate, activeConnections: $activeConnections, maxConnections: $maxConnections, isTrial: $isTrial)';
 }
 
 
@@ -565,7 +571,7 @@ abstract mixin class _$UserInfoDtoCopyWith<$Res> implements $UserInfoDtoCopyWith
   factory _$UserInfoDtoCopyWith(_UserInfoDto value, $Res Function(_UserInfoDto) _then) = __$UserInfoDtoCopyWithImpl;
 @override @useResult
 $Res call({
- bool auth, String? status, String? username, String? password, String? message, String? expirationDate
+ bool auth, String? status, String? username, String? password, String? message, String? expirationDate, int? activeConnections, int? maxConnections, bool? isTrial
 });
 
 
@@ -582,7 +588,7 @@ class __$UserInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of UserInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? auth = null,Object? status = freezed,Object? username = freezed,Object? password = freezed,Object? message = freezed,Object? expirationDate = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? auth = null,Object? status = freezed,Object? username = freezed,Object? password = freezed,Object? message = freezed,Object? expirationDate = freezed,Object? activeConnections = freezed,Object? maxConnections = freezed,Object? isTrial = freezed,}) {
   return _then(_UserInfoDto(
 auth: null == auth ? _self.auth : auth // ignore: cast_nullable_to_non_nullable
 as bool,status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
@@ -590,7 +596,10 @@ as String?,username: freezed == username ? _self.username : username // ignore: 
 as String?,password: freezed == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
 as String?,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String?,expirationDate: freezed == expirationDate ? _self.expirationDate : expirationDate // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,activeConnections: freezed == activeConnections ? _self.activeConnections : activeConnections // ignore: cast_nullable_to_non_nullable
+as int?,maxConnections: freezed == maxConnections ? _self.maxConnections : maxConnections // ignore: cast_nullable_to_non_nullable
+as int?,isTrial: freezed == isTrial ? _self.isTrial : isTrial // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
@@ -601,7 +610,7 @@ as String?,
 /// @nodoc
 mixin _$ServerInfoDto {
 
- String? get url; String? get port; String? get httpsPort; String? get serverProtocol; String? get timezone;
+ String? get url; String? get port; String? get httpsPort; String? get serverProtocol; String? get timezone; String? get timeNow; String? get timestampNow;
 /// Create a copy of ServerInfoDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -614,16 +623,16 @@ $ServerInfoDtoCopyWith<ServerInfoDto> get copyWith => _$ServerInfoDtoCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServerInfoDto&&(identical(other.url, url) || other.url == url)&&(identical(other.port, port) || other.port == port)&&(identical(other.httpsPort, httpsPort) || other.httpsPort == httpsPort)&&(identical(other.serverProtocol, serverProtocol) || other.serverProtocol == serverProtocol)&&(identical(other.timezone, timezone) || other.timezone == timezone));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServerInfoDto&&(identical(other.url, url) || other.url == url)&&(identical(other.port, port) || other.port == port)&&(identical(other.httpsPort, httpsPort) || other.httpsPort == httpsPort)&&(identical(other.serverProtocol, serverProtocol) || other.serverProtocol == serverProtocol)&&(identical(other.timezone, timezone) || other.timezone == timezone)&&(identical(other.timeNow, timeNow) || other.timeNow == timeNow)&&(identical(other.timestampNow, timestampNow) || other.timestampNow == timestampNow));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,url,port,httpsPort,serverProtocol,timezone);
+int get hashCode => Object.hash(runtimeType,url,port,httpsPort,serverProtocol,timezone,timeNow,timestampNow);
 
 @override
 String toString() {
-  return 'ServerInfoDto(url: $url, port: $port, httpsPort: $httpsPort, serverProtocol: $serverProtocol, timezone: $timezone)';
+  return 'ServerInfoDto(url: $url, port: $port, httpsPort: $httpsPort, serverProtocol: $serverProtocol, timezone: $timezone, timeNow: $timeNow, timestampNow: $timestampNow)';
 }
 
 
@@ -634,7 +643,7 @@ abstract mixin class $ServerInfoDtoCopyWith<$Res>  {
   factory $ServerInfoDtoCopyWith(ServerInfoDto value, $Res Function(ServerInfoDto) _then) = _$ServerInfoDtoCopyWithImpl;
 @useResult
 $Res call({
- String? url, String? port, String? httpsPort, String? serverProtocol, String? timezone
+ String? url, String? port, String? httpsPort, String? serverProtocol, String? timezone, String? timeNow, String? timestampNow
 });
 
 
@@ -651,13 +660,15 @@ class _$ServerInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of ServerInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? url = freezed,Object? port = freezed,Object? httpsPort = freezed,Object? serverProtocol = freezed,Object? timezone = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? url = freezed,Object? port = freezed,Object? httpsPort = freezed,Object? serverProtocol = freezed,Object? timezone = freezed,Object? timeNow = freezed,Object? timestampNow = freezed,}) {
   return _then(_self.copyWith(
 url: freezed == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
 as String?,port: freezed == port ? _self.port : port // ignore: cast_nullable_to_non_nullable
 as String?,httpsPort: freezed == httpsPort ? _self.httpsPort : httpsPort // ignore: cast_nullable_to_non_nullable
 as String?,serverProtocol: freezed == serverProtocol ? _self.serverProtocol : serverProtocol // ignore: cast_nullable_to_non_nullable
 as String?,timezone: freezed == timezone ? _self.timezone : timezone // ignore: cast_nullable_to_non_nullable
+as String?,timeNow: freezed == timeNow ? _self.timeNow : timeNow // ignore: cast_nullable_to_non_nullable
+as String?,timestampNow: freezed == timestampNow ? _self.timestampNow : timestampNow // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -743,10 +754,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? url,  String? port,  String? httpsPort,  String? serverProtocol,  String? timezone)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? url,  String? port,  String? httpsPort,  String? serverProtocol,  String? timezone,  String? timeNow,  String? timestampNow)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ServerInfoDto() when $default != null:
-return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.timezone);case _:
+return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.timezone,_that.timeNow,_that.timestampNow);case _:
   return orElse();
 
 }
@@ -764,10 +775,10 @@ return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? url,  String? port,  String? httpsPort,  String? serverProtocol,  String? timezone)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? url,  String? port,  String? httpsPort,  String? serverProtocol,  String? timezone,  String? timeNow,  String? timestampNow)  $default,) {final _that = this;
 switch (_that) {
 case _ServerInfoDto():
-return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.timezone);case _:
+return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.timezone,_that.timeNow,_that.timestampNow);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -784,10 +795,10 @@ return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? url,  String? port,  String? httpsPort,  String? serverProtocol,  String? timezone)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? url,  String? port,  String? httpsPort,  String? serverProtocol,  String? timezone,  String? timeNow,  String? timestampNow)?  $default,) {final _that = this;
 switch (_that) {
 case _ServerInfoDto() when $default != null:
-return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.timezone);case _:
+return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.timezone,_that.timeNow,_that.timestampNow);case _:
   return null;
 
 }
@@ -799,7 +810,7 @@ return $default(_that.url,_that.port,_that.httpsPort,_that.serverProtocol,_that.
 @JsonSerializable()
 
 class _ServerInfoDto implements ServerInfoDto {
-  const _ServerInfoDto({this.url, this.port, this.httpsPort, this.serverProtocol, this.timezone});
+  const _ServerInfoDto({this.url, this.port, this.httpsPort, this.serverProtocol, this.timezone, this.timeNow, this.timestampNow});
   factory _ServerInfoDto.fromJson(Map<String, dynamic> json) => _$ServerInfoDtoFromJson(json);
 
 @override final  String? url;
@@ -807,6 +818,8 @@ class _ServerInfoDto implements ServerInfoDto {
 @override final  String? httpsPort;
 @override final  String? serverProtocol;
 @override final  String? timezone;
+@override final  String? timeNow;
+@override final  String? timestampNow;
 
 /// Create a copy of ServerInfoDto
 /// with the given fields replaced by the non-null parameter values.
@@ -821,16 +834,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ServerInfoDto&&(identical(other.url, url) || other.url == url)&&(identical(other.port, port) || other.port == port)&&(identical(other.httpsPort, httpsPort) || other.httpsPort == httpsPort)&&(identical(other.serverProtocol, serverProtocol) || other.serverProtocol == serverProtocol)&&(identical(other.timezone, timezone) || other.timezone == timezone));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ServerInfoDto&&(identical(other.url, url) || other.url == url)&&(identical(other.port, port) || other.port == port)&&(identical(other.httpsPort, httpsPort) || other.httpsPort == httpsPort)&&(identical(other.serverProtocol, serverProtocol) || other.serverProtocol == serverProtocol)&&(identical(other.timezone, timezone) || other.timezone == timezone)&&(identical(other.timeNow, timeNow) || other.timeNow == timeNow)&&(identical(other.timestampNow, timestampNow) || other.timestampNow == timestampNow));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,url,port,httpsPort,serverProtocol,timezone);
+int get hashCode => Object.hash(runtimeType,url,port,httpsPort,serverProtocol,timezone,timeNow,timestampNow);
 
 @override
 String toString() {
-  return 'ServerInfoDto(url: $url, port: $port, httpsPort: $httpsPort, serverProtocol: $serverProtocol, timezone: $timezone)';
+  return 'ServerInfoDto(url: $url, port: $port, httpsPort: $httpsPort, serverProtocol: $serverProtocol, timezone: $timezone, timeNow: $timeNow, timestampNow: $timestampNow)';
 }
 
 
@@ -841,7 +854,7 @@ abstract mixin class _$ServerInfoDtoCopyWith<$Res> implements $ServerInfoDtoCopy
   factory _$ServerInfoDtoCopyWith(_ServerInfoDto value, $Res Function(_ServerInfoDto) _then) = __$ServerInfoDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String? url, String? port, String? httpsPort, String? serverProtocol, String? timezone
+ String? url, String? port, String? httpsPort, String? serverProtocol, String? timezone, String? timeNow, String? timestampNow
 });
 
 
@@ -858,13 +871,15 @@ class __$ServerInfoDtoCopyWithImpl<$Res>
 
 /// Create a copy of ServerInfoDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? url = freezed,Object? port = freezed,Object? httpsPort = freezed,Object? serverProtocol = freezed,Object? timezone = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? url = freezed,Object? port = freezed,Object? httpsPort = freezed,Object? serverProtocol = freezed,Object? timezone = freezed,Object? timeNow = freezed,Object? timestampNow = freezed,}) {
   return _then(_ServerInfoDto(
 url: freezed == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
 as String?,port: freezed == port ? _self.port : port // ignore: cast_nullable_to_non_nullable
 as String?,httpsPort: freezed == httpsPort ? _self.httpsPort : httpsPort // ignore: cast_nullable_to_non_nullable
 as String?,serverProtocol: freezed == serverProtocol ? _self.serverProtocol : serverProtocol // ignore: cast_nullable_to_non_nullable
 as String?,timezone: freezed == timezone ? _self.timezone : timezone // ignore: cast_nullable_to_non_nullable
+as String?,timeNow: freezed == timeNow ? _self.timeNow : timeNow // ignore: cast_nullable_to_non_nullable
+as String?,timestampNow: freezed == timestampNow ? _self.timestampNow : timestampNow // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

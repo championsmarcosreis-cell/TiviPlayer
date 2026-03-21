@@ -8,10 +8,20 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('android tv smoke: login, D-pad, player e back', (tester) async {
-    await launchAndLogin(tester);
+    final config = await launchAndLogin(tester);
+    expect(
+      config.strictVodId,
+      isNotNull,
+      reason: 'XTREAM_STRICT_VOD_ID é obrigatório para o smoke real.',
+    );
 
+    expectNoTechnicalProviderUi(tester, config, stage: 'home tv');
     await navigateToVodAllByDpad(tester);
-    await openVodDetailsByDpad(tester);
+    await ensureVodTargetFocusedByDpad(tester, vodId: config.strictVodId);
+    expectArtworkBound(tester, stage: 'lista VOD tv');
+    await openVodDetailsByDpad(tester, vodId: config.strictVodId);
+    expectArtworkBound(tester, stage: 'detalhe VOD tv');
+    expectNoTechnicalProviderUi(tester, config, stage: 'detalhe VOD tv');
     await openPlayerByDpad(tester);
     await expectPlayerTolerant(tester);
 
@@ -22,6 +32,7 @@ void main() {
       tester,
       find.byKey(AppTestKeys.vodPlayButton),
       timeout: const Duration(seconds: 15),
+      description: 'retorno do player para detalhe VOD na TV',
     );
   });
 }
