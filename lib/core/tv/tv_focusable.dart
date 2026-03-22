@@ -79,7 +79,7 @@ class _TvFocusableState extends State<TvFocusable> {
   Widget build(BuildContext context) {
     final usesDirectionalNavigation =
         MediaQuery.navigationModeOf(context) == NavigationMode.directional;
-    final focusedScale = usesDirectionalNavigation ? 1.028 : 1.01;
+    final focusedScale = usesDirectionalNavigation ? 1.014 : 1.008;
 
     return FocusableActionDetector(
       autofocus: widget.autofocus,

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
-import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/brand_logo.dart';
 import '../../domain/entities/xtream_credentials.dart';
 import '../controllers/auth_controller.dart';
@@ -19,14 +18,27 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  static const _embeddedBaseUrlFromApi = 'http://179.42.145.74:8080';
+  static const _embeddedBaseUrlPrimary = String.fromEnvironment(
+    'XTREAM_BASE_URL',
+    defaultValue: _embeddedBaseUrlFromApi,
+  );
+  static const _embeddedBaseUrlFallback = String.fromEnvironment(
+    'TIVIPLAYER_BASE_URL',
+    defaultValue: _embeddedBaseUrlFromApi,
+  );
+
   late final TextEditingController _baseUrlController;
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
 
+  var _showAdvancedServer = false;
+  var _obscurePassword = true;
+
   @override
   void initState() {
     super.initState();
-    _baseUrlController = TextEditingController();
+    _baseUrlController = TextEditingController(text: _embeddedBaseUrl);
     _usernameController = TextEditingController();
     _passwordController = TextEditingController();
   }
@@ -58,64 +70,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         MediaQuery.navigationModeOf(context) == NavigationMode.directional;
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return AppScaffold(
-      title: 'Acesse sua assinatura',
-      subtitle: 'Layout otimizado para Android TV e Android mobile.',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = DeviceLayout.of(context, constraints: constraints);
-          final isWide = layout.isTv || constraints.maxWidth >= 980;
-
-          return Scrollbar(
-            thumbVisibility: true,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(
-                bottom: keyboardInset + layout.cardSpacing,
+    return Scaffold(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF03060D), Color(0xFF0A1321), Color(0xFF060B13)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Stack(
+          children: [
+            const Positioned(
+              top: -210,
+              right: -180,
+              child: _BackgroundOrb(
+                size: 460,
+                colors: [Color(0x26FF6A1A), Color(0x00FF6A1A)],
               ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: layout.isTv ? 1180 : 1080,
-                    ),
-                    child: IntrinsicHeight(
-                      child: isWide
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+            ),
+            const Positioned(
+              bottom: -260,
+              left: -150,
+              child: _BackgroundOrb(
+                size: 520,
+                colors: [Color(0x1E16C7FF), Color(0x00E33DFF)],
+              ),
+            ),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final layout = DeviceLayout.of(
+                    context,
+                    constraints: constraints,
+                  );
+                  final compactHeader = constraints.maxHeight < 740;
+
+                  return Scrollbar(
+                    thumbVisibility: false,
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.pageHorizontalPadding,
+                        layout.pageTopPadding,
+                        layout.pageHorizontalPadding,
+                        layout.pageBottomPadding + keyboardInset,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: layout.isTv ? 840 : 560,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Expanded(
-                                  flex: 11,
-                                  child: _LoginBrandPanel(
-                                    isWide: true,
-                                    layout: layout,
-                                  ),
+                                BrandWordmark(
+                                  height: layout.isTv ? 68 : 52,
+                                  compact: !layout.isTv,
+                                  showTagline: false,
                                 ),
-                                SizedBox(width: layout.cardSpacing),
-                                Expanded(
-                                  flex: 10,
-                                  child: _LoginFormCard(
-                                    layout: layout,
-                                    formKey: _formKey,
-                                    baseUrlController: _baseUrlController,
-                                    usernameController: _usernameController,
-                                    passwordController: _passwordController,
-                                    usesDirectionalNavigation:
-                                        usesDirectionalNavigation,
-                                    isSubmitting: isSubmitting,
-                                    onSubmit: _submit,
-                                    validateBaseUrl: _validateBaseUrl,
-                                    validateRequired: _validateRequired,
-                                  ),
+                                SizedBox(height: layout.isTv ? 20 : 14),
+                                Text(
+                                  compactHeader
+                                      ? 'Entre para continuar'
+                                      : 'Digite suas credenciais para acessar',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.86),
+                                        fontSize: layout.isTv ? 24 : 18,
+                                      ),
                                 ),
-                              ],
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _LoginBrandPanel(isWide: false, layout: layout),
-                                SizedBox(height: layout.cardSpacing),
-                                _LoginFormCard(
+                                SizedBox(height: layout.sectionSpacing + 8),
+                                _CredentialsCard(
                                   layout: layout,
                                   formKey: _formKey,
                                   baseUrlController: _baseUrlController,
@@ -124,35 +158,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   usesDirectionalNavigation:
                                       usesDirectionalNavigation,
                                   isSubmitting: isSubmitting,
+                                  showAdvancedServer: _showAdvancedServer,
+                                  embeddedBaseUrl: _embeddedBaseUrl,
+                                  obscurePassword: _obscurePassword,
+                                  onToggleAdvancedServer: _toggleAdvancedServer,
+                                  onUseEmbeddedServer: _useEmbeddedServer,
+                                  onToggleObscurePassword:
+                                      _toggleObscurePassword,
                                   onSubmit: _submit,
                                   validateBaseUrl: _validateBaseUrl,
                                   validateRequired: _validateRequired,
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 
+  static String get _embeddedBaseUrl {
+    final primary = _embeddedBaseUrlPrimary.trim();
+    if (primary.isNotEmpty) {
+      return primary;
+    }
+
+    return _embeddedBaseUrlFallback.trim();
+  }
+
+  void _toggleAdvancedServer() {
+    setState(() {
+      _showAdvancedServer = !_showAdvancedServer;
+      if (_showAdvancedServer &&
+          _baseUrlController.text.trim().isEmpty &&
+          _embeddedBaseUrl.isNotEmpty) {
+        _baseUrlController.text = _embeddedBaseUrl;
+      }
+    });
+  }
+
+  void _useEmbeddedServer() {
+    final embedded = _embeddedBaseUrl;
+    if (embedded.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _baseUrlController.text = embedded;
+    });
+  }
+
+  void _toggleObscurePassword() {
+    setState(() {
+      _obscurePassword = !_obscurePassword;
+    });
+  }
+
   String? _validateBaseUrl(String? value) {
+    if (!_showAdvancedServer) {
+      return null;
+    }
+
     final text = value?.trim() ?? '';
     final uri = Uri.tryParse(text);
 
     if (text.isEmpty) {
-      return 'Informe o endereço de acesso.';
+      return null;
     }
 
     if (uri == null ||
         !uri.hasScheme ||
         (uri.host.isEmpty && uri.path.isEmpty)) {
-      return 'Use um endereço completo, por exemplo http://acesso.seuservico.com.';
+      return 'Use um endereco completo, por exemplo http://acesso.seuservico.com.';
     }
 
     return null;
@@ -160,7 +245,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   String? _validateRequired(String? value) {
     if ((value ?? '').trim().isEmpty) {
-      return 'Campo obrigatório.';
+      return 'Campo obrigatorio.';
     }
 
     return null;
@@ -171,150 +256,55 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
+    final resolvedBaseUrl = _resolveBaseUrl();
+    if (resolvedBaseUrl.isEmpty) {
+      if (!_showAdvancedServer) {
+        setState(() {
+          _showAdvancedServer = true;
+        });
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Servidor nao configurado. Abra "Servidor avancado" para informar a URL.',
+            ),
+          ),
+        );
+      return;
+    }
+
     await ref
         .read(authControllerProvider.notifier)
         .login(
           XtreamCredentials(
-            baseUrl: _baseUrlController.text.trim(),
+            baseUrl: resolvedBaseUrl,
             username: _usernameController.text.trim(),
             password: _passwordController.text.trim(),
           ),
         );
   }
-}
 
-class _LoginBrandPanel extends StatelessWidget {
-  const _LoginBrandPanel({required this.isWide, required this.layout});
+  String _resolveBaseUrl() {
+    if (_showAdvancedServer) {
+      final custom = _baseUrlController.text.trim();
+      if (custom.isNotEmpty) {
+        return custom;
+      }
+    }
 
-  final bool isWide;
-  final DeviceLayout layout;
+    final embedded = _embeddedBaseUrl;
+    if (embedded.isNotEmpty) {
+      return embedded;
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final logoWidth = layout.isTv ? 280.0 : (isWide ? 240.0 : 210.0);
-    final cardPadding = isWide ? layout.cardPadding + 6 : layout.cardPadding;
-    final featureWidth = layout.isMobilePortrait ? double.infinity : 220.0;
-
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(cardPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            BrandLogo(width: logoWidth),
-            SizedBox(height: layout.sectionSpacing + 8),
-            Text(
-              'Entre e continue assistindo sem fricção.',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontSize: layout.isTv ? 38 : 32,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Acesso com navegação previsível no controle remoto, rolagem segura em telas menores e credenciais armazenadas somente neste aparelho.',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            SizedBox(height: layout.sectionSpacing + 6),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _BrandFeature(
-                  width: featureWidth,
-                  icon: Icons.tv_rounded,
-                  title: 'Pronto para TV',
-                  description: 'Foco previsível e ação rápida pelo D-pad.',
-                ),
-                _BrandFeature(
-                  width: featureWidth,
-                  icon: Icons.mobile_friendly_rounded,
-                  title: 'Também no celular',
-                  description: 'Campos e CTA confortáveis em telas menores.',
-                ),
-                _BrandFeature(
-                  width: featureWidth,
-                  icon: Icons.lock_outline_rounded,
-                  title: 'Sessão local',
-                  description: 'Os dados ficam salvos apenas no dispositivo.',
-                ),
-              ],
-            ),
-            SizedBox(height: layout.sectionSpacing + 2),
-            Container(
-              padding: EdgeInsets.all(layout.isTv ? 20 : 16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
-                color: colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.65,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    color: colorScheme.secondary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Use o endereço de acesso, usuário e senha fornecidos com sua assinatura.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return _baseUrlController.text.trim();
   }
 }
 
-class _BrandFeature extends StatelessWidget {
-  const _BrandFeature({
-    required this.width,
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  final double width;
-  final IconData icon;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return SizedBox(
-      width: width,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(description, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginFormCard extends StatelessWidget {
-  const _LoginFormCard({
+class _CredentialsCard extends StatelessWidget {
+  const _CredentialsCard({
     required this.layout,
     required this.formKey,
     required this.baseUrlController,
@@ -322,6 +312,12 @@ class _LoginFormCard extends StatelessWidget {
     required this.passwordController,
     required this.usesDirectionalNavigation,
     required this.isSubmitting,
+    required this.showAdvancedServer,
+    required this.embeddedBaseUrl,
+    required this.obscurePassword,
+    required this.onToggleAdvancedServer,
+    required this.onUseEmbeddedServer,
+    required this.onToggleObscurePassword,
     required this.onSubmit,
     required this.validateBaseUrl,
     required this.validateRequired,
@@ -334,17 +330,34 @@ class _LoginFormCard extends StatelessWidget {
   final TextEditingController passwordController;
   final bool usesDirectionalNavigation;
   final bool isSubmitting;
+  final bool showAdvancedServer;
+  final String embeddedBaseUrl;
+  final bool obscurePassword;
+  final VoidCallback onToggleAdvancedServer;
+  final VoidCallback onUseEmbeddedServer;
+  final VoidCallback onToggleObscurePassword;
   final VoidCallback onSubmit;
   final String? Function(String?) validateBaseUrl;
   final String? Function(String?) validateRequired;
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = Theme.of(
-      context,
-    ).textTheme.headlineMedium?.copyWith(fontSize: layout.isTv ? 34 : 30);
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasEmbeddedServer = embeddedBaseUrl.trim().isNotEmpty;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(layout.cardBorderRadius),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.4)),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surface.withValues(alpha: 0.9),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Padding(
         padding: EdgeInsets.all(layout.cardPadding),
         child: FocusTraversalGroup(
@@ -353,43 +366,18 @@ class _LoginFormCard extends StatelessWidget {
             child: Form(
               key: formKey,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Conectar', style: titleStyle),
-                  SizedBox(height: layout.isTv ? 10 : 8),
-                  Text(
-                    'Informe os dados da sua assinatura para liberar o catálogo.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  SizedBox(height: layout.sectionSpacing + 8),
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(1),
                     child: TextFormField(
-                      key: AppTestKeys.loginBaseUrlField,
-                      controller: baseUrlController,
-                      keyboardType: TextInputType.url,
-                      textInputAction: TextInputAction.next,
-                      autofocus: usesDirectionalNavigation,
-                      autofillHints: const [AutofillHints.url],
-                      decoration: const InputDecoration(
-                        labelText: 'Endereço de acesso',
-                        hintText: 'http://acesso.seuservico.com',
-                        prefixIcon: Icon(Icons.public_rounded),
-                      ),
-                      validator: validateBaseUrl,
-                    ),
-                  ),
-                  SizedBox(height: layout.sectionSpacing),
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(2),
-                    child: TextFormField(
                       key: AppTestKeys.loginUsernameField,
                       controller: usernameController,
+                      autofocus: usesDirectionalNavigation,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.username],
                       decoration: const InputDecoration(
-                        labelText: 'Usuário',
+                        labelText: 'Usuario',
                         prefixIcon: Icon(Icons.person_outline_rounded),
                       ),
                       validator: validateRequired,
@@ -397,29 +385,40 @@ class _LoginFormCard extends StatelessWidget {
                   ),
                   SizedBox(height: layout.sectionSpacing),
                   FocusTraversalOrder(
-                    order: const NumericFocusOrder(3),
+                    order: const NumericFocusOrder(2),
                     child: TextFormField(
                       key: AppTestKeys.loginPasswordField,
                       controller: passwordController,
-                      obscureText: true,
+                      obscureText: obscurePassword,
                       autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Senha',
-                        prefixIcon: Icon(Icons.lock_outline_rounded),
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: onToggleObscurePassword,
+                          tooltip: obscurePassword
+                              ? 'Mostrar senha'
+                              : 'Ocultar senha',
+                        ),
                       ),
                       onFieldSubmitted: (_) => onSubmit(),
                       validator: validateRequired,
                     ),
                   ),
-                  SizedBox(height: layout.sectionSpacing + 8),
+                  SizedBox(height: layout.sectionSpacing + 4),
                   FocusTraversalOrder(
-                    order: const NumericFocusOrder(4),
+                    order: const NumericFocusOrder(3),
                     child: SizedBox(
                       width: double.infinity,
-                      child: FilledButton(
+                      child: FilledButton.icon(
                         key: AppTestKeys.loginSubmitButton,
                         onPressed: isSubmitting ? null : onSubmit,
-                        child: isSubmitting
+                        icon: isSubmitting
                             ? const SizedBox(
                                 height: 22,
                                 width: 22,
@@ -427,19 +426,123 @@ class _LoginFormCard extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Entrar'),
+                            : const Icon(Icons.login_rounded),
+                        label: Text(isSubmitting ? 'Conectando...' : 'Entrar'),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Os dados de acesso permanecem locais e podem ser removidos ao sair da conta.',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  SizedBox(height: layout.sectionSpacing),
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: onToggleAdvancedServer,
+                        icon: Icon(
+                          showAdvancedServer
+                              ? Icons.expand_less_rounded
+                              : Icons.tune_rounded,
+                          size: 18,
+                        ),
+                        label: Text(
+                          showAdvancedServer
+                              ? 'Ocultar servidor avancado'
+                              : 'Servidor avancado',
+                        ),
+                      ),
+                    ),
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: showAdvancedServer
+                        ? Padding(
+                            key: const ValueKey('advanced-server-visible'),
+                            padding: EdgeInsets.only(
+                              top: layout.sectionSpacing - 2,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Use apenas quando precisar trocar o servidor desta instalacao.',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.74,
+                                        ),
+                                      ),
+                                ),
+                                SizedBox(height: layout.sectionSpacing - 4),
+                                FocusTraversalOrder(
+                                  order: const NumericFocusOrder(5),
+                                  child: TextFormField(
+                                    key: AppTestKeys.loginBaseUrlField,
+                                    controller: baseUrlController,
+                                    keyboardType: TextInputType.url,
+                                    textInputAction: TextInputAction.done,
+                                    autofillHints: const [AutofillHints.url],
+                                    decoration: const InputDecoration(
+                                      labelText: 'Servidor',
+                                      hintText: 'http://acesso.seuservico.com',
+                                      prefixIcon: Icon(Icons.public_rounded),
+                                    ),
+                                    validator: validateBaseUrl,
+                                  ),
+                                ),
+                                if (hasEmbeddedServer)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 10),
+                                    child: TextButton(
+                                      onPressed: onUseEmbeddedServer,
+                                      child: const Text('Usar servidor padrao'),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : Padding(
+                            key: const ValueKey('advanced-server-hidden'),
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              hasEmbeddedServer
+                                  ? 'Servidor padrao configurado no app.'
+                                  : 'Servidor padrao nao configurado nesta build.',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.72,
+                                    ),
+                                  ),
+                            ),
+                          ),
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BackgroundOrb extends StatelessWidget {
+  const _BackgroundOrb({required this.size, required this.colors});
+
+  final double size;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: colors),
         ),
       ),
     );

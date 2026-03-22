@@ -17,9 +17,12 @@ class DeviceLayout {
     final navigationMode = MediaQuery.navigationModeOf(context);
     final resolvedWidth = constraints?.maxWidth ?? mediaQuery.size.width;
     final resolvedHeight = constraints?.maxHeight ?? mediaQuery.size.height;
+    final longestSide = math.max(resolvedWidth, resolvedHeight);
     final shortestSide = math.min(resolvedWidth, resolvedHeight);
     final directionalNavigation = navigationMode == NavigationMode.directional;
-    final isTv = directionalNavigation && shortestSide >= 480;
+    final largeScreenTvFallback = longestSide >= 1500 && shortestSide >= 850;
+    final isTv =
+        (directionalNavigation && shortestSide >= 480) || largeScreenTvFallback;
 
     final deviceClass = switch ((isTv, resolvedWidth, resolvedHeight)) {
       (true, < 1280, _) => DeviceClass.tvCompact,

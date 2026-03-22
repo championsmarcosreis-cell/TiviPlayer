@@ -26,7 +26,6 @@ class SmokeConfig {
 }
 
 SmokeConfig requireSmokeConfig() {
-  expect(_rawBaseUrl, isNotEmpty, reason: 'XTREAM_BASE_URL ausente.');
   expect(_username, isNotEmpty, reason: 'XTREAM_USERNAME ausente.');
   expect(_password, isNotEmpty, reason: 'XTREAM_PASSWORD ausente.');
 
@@ -63,7 +62,7 @@ Future<SmokeConfig> launchAndLogin(WidgetTester tester) async {
   final initialState = await pumpUntilAnyFound(
     tester,
     [
-      find.byKey(AppTestKeys.loginBaseUrlField),
+      find.byKey(AppTestKeys.loginUsernameField),
       find.byKey(AppTestKeys.homeLiveCard),
     ],
     timeout: const Duration(seconds: 20),
@@ -81,18 +80,11 @@ Future<SmokeConfig> launchAndLogin(WidgetTester tester) async {
     await tapVisible(tester, find.byKey(AppTestKeys.homeLogoutButton));
     await pumpUntilFound(
       tester,
-      find.byKey(AppTestKeys.loginBaseUrlField),
+      find.byKey(AppTestKeys.loginUsernameField),
       timeout: const Duration(seconds: 10),
       description: 'retorno ao login',
     );
   }
-
-  await pumpUntilFound(
-    tester,
-    find.byKey(AppTestKeys.loginBaseUrlField),
-    timeout: const Duration(seconds: 10),
-    description: 'campo base URL no login',
-  );
   await pumpUntilFound(
     tester,
     find.byKey(AppTestKeys.loginUsernameField),
@@ -106,19 +98,33 @@ Future<SmokeConfig> launchAndLogin(WidgetTester tester) async {
     description: 'campo senha no login',
   );
 
-  await tester.enterText(
-    find.byKey(AppTestKeys.loginBaseUrlField),
-    config.baseUrl,
-  );
-  await tester.enterText(
+  final baseUrlField = find.byKey(AppTestKeys.loginBaseUrlField);
+  if (baseUrlField.evaluate().isNotEmpty) {
+    expect(
+      config.baseUrl,
+      isNotEmpty,
+      reason:
+          'XTREAM_BASE_URL ausente. Necessario quando a tela exigir servidor manual.',
+    );
+    await setFormFieldText(
+      tester,
+      baseUrlField,
+      config.baseUrl,
+      description: 'campo servidor',
+    );
+  }
+  await setFormFieldText(
+    tester,
     find.byKey(AppTestKeys.loginUsernameField),
     config.username,
+    description: 'campo usuario',
   );
-  await tester.enterText(
+  await setFormFieldText(
+    tester,
     find.byKey(AppTestKeys.loginPasswordField),
     config.password,
+    description: 'campo senha',
   );
-  await tester.testTextInput.receiveAction(TextInputAction.done);
   await tester.pumpAndSettle(const Duration(seconds: 1));
   _logStage('launchAndLogin:credentials_filled');
 
@@ -199,6 +205,7 @@ Future<void> navigateToVodAllByTap(WidgetTester tester) async {
     );
   }
 
+  await _scrollVodCatalogIntoListByTouch(tester);
   await pumpUntilFound(
     tester,
     find.byType(ContentListTile),
@@ -261,6 +268,7 @@ Future<void> navigateToVodAllByDpad(WidgetTester tester) async {
     tester,
     [
       find.byType(ContentListTile),
+      find.text('Abrir destaque'),
       find.text('Sem títulos disponíveis'),
       find.text('Falha ao carregar'),
     ],
@@ -268,20 +276,31 @@ Future<void> navigateToVodAllByDpad(WidgetTester tester) async {
     description: 'carregamento da lista VOD por D-pad',
   );
 
-  if (catalogState == 1) {
+  if (catalogState == 2) {
     _failWithDiagnostics(
       tester,
       'carregamento da lista VOD por D-pad',
       'A lista VOD abriu em empty-state válido.',
     );
   }
-  if (catalogState == 2) {
+  if (catalogState == 3) {
     _failWithDiagnostics(
       tester,
       'carregamento da lista VOD por D-pad',
       'A lista VOD abriu em estado de erro.',
     );
   }
+
+  if (catalogState == 1) {
+    await _scrollVodCatalogIntoListByDpad(tester);
+  }
+
+  await pumpUntilFound(
+    tester,
+    find.byType(ContentListTile),
+    timeout: const Duration(seconds: 20),
+    description: 'lista VOD visível após hero por D-pad',
+  );
   _logStage('navigateToVodAllByDpad:list_ready');
 }
 
@@ -321,13 +340,19 @@ Future<void> ensureVodTargetFocusedByDpad(
   int maxSteps = 25,
 }) async {
   if (vodId == null) {
-    await pumpUntilFound(
+    await _scrollVodCatalogIntoListByDpad(tester, maxSteps: maxSteps);
+    for (var step = 0; step < maxSteps; step++) {
+      if (_hasFocusedVodItem(tester)) {
+        return;
+      }
+      await sendRemoteKey(tester, LogicalKeyboardKey.arrowDown);
+    }
+
+    _failWithDiagnostics(
       tester,
-      find.byType(ContentListTile).first,
-      timeout: const Duration(seconds: 10),
-      description: 'primeiro VOD focável',
+      'foco inicial do VOD por D-pad',
+      'Nenhum item VOD recebeu foco após $maxSteps passos.',
     );
-    return;
   }
 
   final focusKey = AppTestKeys.focusMarker(AppTestKeys.vodItemId(vodId));
@@ -643,9 +668,87 @@ Future<void> dismissTextInput(WidgetTester tester) async {
   await tester.pumpAndSettle(const Duration(milliseconds: 300));
 }
 
+Future<void> setFormFieldText(
+  WidgetTester tester,
+  Finder finder,
+  String value, {
+  required String description,
+}) async {
+  final hitTestableFinder = finder.hitTestable();
+  if (hitTestableFinder.evaluate().isNotEmpty) {
+    await tapVisible(tester, hitTestableFinder);
+  }
+  await tester.enterText(finder, value);
+  await tester.pumpAndSettle(const Duration(milliseconds: 250));
+
+  final current = _readFormFieldText(tester, finder);
+  if (current == value) {
+    return;
+  }
+
+  final field = tester.widget<TextFormField>(finder);
+  final controller = field.controller;
+  if (controller != null) {
+    controller.text = value;
+    controller.selection = TextSelection.collapsed(offset: value.length);
+    await tester.pumpAndSettle(const Duration(milliseconds: 250));
+  }
+
+  if (_readFormFieldText(tester, finder) != value) {
+    _failWithDiagnostics(
+      tester,
+      description,
+      'Nao foi possivel preencher o texto do campo.',
+    );
+  }
+}
+
+String _readFormFieldText(WidgetTester tester, Finder finder) {
+  final field = tester.widget<TextFormField>(finder);
+  return field.controller?.text ?? '';
+}
+
 Future<void> sendRemoteKey(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.sendKeyEvent(key);
   await tester.pumpAndSettle(const Duration(milliseconds: 500));
+}
+
+Future<void> _scrollVodCatalogIntoListByTouch(
+  WidgetTester tester, {
+  int maxSwipes = 6,
+}) async {
+  for (var attempt = 0; attempt < maxSwipes; attempt++) {
+    if (find.byType(ContentListTile).evaluate().isNotEmpty) {
+      return;
+    }
+
+    final scrollable = find.byType(Scrollable);
+    if (scrollable.evaluate().isEmpty) {
+      return;
+    }
+    await tester.drag(scrollable.first, const Offset(0, -320));
+    await tester.pumpAndSettle(const Duration(milliseconds: 350));
+  }
+}
+
+Future<void> _scrollVodCatalogIntoListByDpad(
+  WidgetTester tester, {
+  int maxSteps = 12,
+}) async {
+  for (var step = 0; step < maxSteps; step++) {
+    if (find.byType(ContentListTile).evaluate().isNotEmpty) {
+      return;
+    }
+    await sendRemoteKey(tester, LogicalKeyboardKey.arrowDown);
+  }
+}
+
+bool _hasFocusedVodItem(WidgetTester tester) {
+  final finder = find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey<String> && key.value.startsWith('focus.vod.item.');
+  });
+  return finder.evaluate().isNotEmpty;
 }
 
 Future<void> pumpUntilFound(
