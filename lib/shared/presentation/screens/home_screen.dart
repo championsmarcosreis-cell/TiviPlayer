@@ -632,13 +632,35 @@ class _CinematicHeroCard extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compactMobile = !tvMode && constraints.maxHeight < 260;
+            final veryCompactMobile = !tvMode && constraints.maxHeight < 236;
             final metadata = hero.metadata
-                .take(tvMode ? 3 : (compactMobile ? 1 : 2))
+                .take(
+                  tvMode
+                      ? 3
+                      : (veryCompactMobile ? 0 : (compactMobile ? 1 : 2)),
+                )
                 .toList();
-            final titleFontSize = tvMode ? 48.0 : (compactMobile ? 32.0 : 36.0);
+            final titleFontSize = tvMode ? 46.0 : (compactMobile ? 27.0 : 32.0);
             final metadataFontSize = tvMode
-                ? 27.0
-                : (compactMobile ? 16.0 : 18.0);
+                ? 16.0
+                : (compactMobile ? 13.0 : 14.0);
+            final descriptionFontSize = tvMode
+                ? 14.5
+                : (compactMobile ? 11.8 : 12.6);
+            final actionStyle = tvMode
+                ? null
+                : FilledButton.styleFrom(
+                    minimumSize: Size(0, veryCompactMobile ? 42 : 46),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: veryCompactMobile ? 14 : 16,
+                      vertical: veryCompactMobile ? 10 : 11,
+                    ),
+                    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: veryCompactMobile ? 13.5 : 14.5,
+                    ),
+                  );
+            final showDescription = tvMode || !compactMobile;
 
             return Stack(
               fit: StackFit.expand,
@@ -674,7 +696,7 @@ class _CinematicHeroCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Spacer(),
+                      if (tvMode) const Spacer(),
                       Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: compactMobile ? 10 : 12,
@@ -694,20 +716,35 @@ class _CinematicHeroCard extends StatelessWidget {
                               ),
                         ),
                       ),
-                      SizedBox(height: tvMode ? 14 : (compactMobile ? 8 : 10)),
+                      SizedBox(height: tvMode ? 14 : (compactMobile ? 6 : 8)),
                       Text(
                         hero.title,
-                        maxLines: tvMode ? 2 : 2,
+                        maxLines: tvMode ? 2 : (veryCompactMobile ? 2 : 3),
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(
                               fontSize: titleFontSize,
-                              height: 0.98,
+                              height: veryCompactMobile ? 1.02 : 0.99,
                               fontWeight: FontWeight.w800,
                             ),
                       ),
+                      if (showDescription) ...[
+                        SizedBox(height: tvMode ? 8 : 6),
+                        Text(
+                          hero.description,
+                          maxLines: veryCompactMobile ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontSize: descriptionFontSize,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.8,
+                                ),
+                              ),
+                        ),
+                      ],
                       if (metadata.isNotEmpty) ...[
-                        SizedBox(height: tvMode ? 12 : (compactMobile ? 6 : 8)),
+                        SizedBox(height: tvMode ? 10 : (compactMobile ? 5 : 7)),
                         Text(
                           metadata.join('  •  '),
                           maxLines: 1,
@@ -718,16 +755,17 @@ class _CinematicHeroCard extends StatelessWidget {
                                   alpha: 0.88,
                                 ),
                                 fontSize: metadataFontSize,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                         ),
                       ],
-                      SizedBox(height: tvMode ? 16 : (compactMobile ? 10 : 12)),
+                      SizedBox(height: tvMode ? 14 : (compactMobile ? 8 : 10)),
                       Wrap(
                         spacing: compactMobile ? 10 : 12,
-                        runSpacing: 10,
+                        runSpacing: compactMobile ? 8 : 10,
                         children: [
                           FilledButton.icon(
+                            style: actionStyle,
                             onPressed: hero.onPrimary,
                             icon: const Icon(Icons.play_arrow_rounded),
                             label: Text(hero.primaryLabel),
@@ -1025,8 +1063,8 @@ List<_HomeRailCardData> _buildLiveCards(
       imageUrl: item.iconUrl,
       icon: Icons.live_tv_rounded,
       badge: 'LIVE',
-      aspectRatio: 1,
-      imagePadding: const EdgeInsets.all(16),
+      aspectRatio: 16 / 9,
+      imagePadding: const EdgeInsets.all(18),
       fit: BoxFit.contain,
       onPressed: () => context.push(
         PlayerScreen.routePath,
@@ -1065,6 +1103,11 @@ class _HomeRailSection extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isLoading = state.isLoading && cards.isEmpty;
     final hasError = state.hasError && cards.isEmpty;
+    final prefersLandscape = cards.isNotEmpty && cards.first.aspectRatio >= 1.3;
+    final railHeight = _resolveRailHeight(
+      layout,
+      prefersLandscape: prefersLandscape,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1116,14 +1159,18 @@ class _HomeRailSection extends StatelessWidget {
         ),
         SizedBox(height: layout.sectionSpacing),
         if (isLoading)
-          _RailPlaceholder(layout: layout)
+          _RailPlaceholder(
+            layout: layout,
+            height: railHeight,
+            prefersLandscape: prefersLandscape,
+          )
         else if (hasError)
           _RailErrorCard(layout: layout, onPressed: onViewAll)
         else if (cards.isEmpty)
           _RailEmptyCard(layout: layout, onPressed: onViewAll)
         else
           SizedBox(
-            height: layout.isTv ? 314 : 278,
+            height: railHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: cards.length,
@@ -1143,6 +1190,16 @@ class _HomeRailSection extends StatelessWidget {
   }
 }
 
+double _resolveRailHeight(
+  DeviceLayout layout, {
+  required bool prefersLandscape,
+}) {
+  if (prefersLandscape) {
+    return layout.isTv ? 248 : 226;
+  }
+  return layout.isTv ? 314 : 278;
+}
+
 class _HomeRailCard extends StatelessWidget {
   const _HomeRailCard({
     required this.layout,
@@ -1157,8 +1214,16 @@ class _HomeRailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final cardWidth = layout.isTv ? 188.0 : 146.0;
-    final artworkAspectRatio = data.aspectRatio == 1
+    final isLandscapeCard = data.aspectRatio >= 1.3;
+    final cardWidth = switch ((layout.isTv, isLandscapeCard)) {
+      (true, true) => 296.0,
+      (true, false) => 188.0,
+      (false, true) => 236.0,
+      (false, false) => 146.0,
+    };
+    final artworkAspectRatio = isLandscapeCard
+        ? data.aspectRatio
+        : data.aspectRatio == 1
         ? 1.0
         : layout.isTv
         ? 0.82
@@ -1175,7 +1240,23 @@ class _HomeRailCard extends StatelessWidget {
             padding: EdgeInsets.all(layout.isTv ? 9 : 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),
-              color: colorScheme.surface.withValues(alpha: 0.9),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: focused
+                    ? [
+                        colorScheme.primary.withValues(alpha: 0.22),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.92,
+                        ),
+                      ]
+                    : [
+                        colorScheme.surface.withValues(alpha: 0.9),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.74,
+                        ),
+                      ],
+              ),
               border: Border.all(
                 color: focused
                     ? colorScheme.primary
@@ -1206,6 +1287,21 @@ class _HomeRailCard extends StatelessWidget {
                       fit: data.fit,
                       borderRadius: layout.isTv ? 16 : 14,
                     ),
+                    if (isLandscapeCard)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(
+                              layout.isTv ? 16 : 14,
+                            ),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0x00000000), Color(0xC0000000)],
+                            ),
+                          ),
+                        ),
+                      ),
                     if (data.badge != null)
                       Positioned(
                         top: 8,
@@ -1231,23 +1327,37 @@ class _HomeRailCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                    if (isLandscapeCard)
+                      Positioned(
+                        left: 10,
+                        right: 10,
+                        bottom: 8,
+                        child: Text(
+                          data.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                   ],
                 ),
                 SizedBox(height: layout.isTv ? 10 : 8),
-                Text(
-                  data.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: layout.isTv ? 18 : 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.12,
+                if (!isLandscapeCard)
+                  Text(
+                    data.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: layout.isTv ? 18 : 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.12,
+                    ),
                   ),
-                ),
                 SizedBox(height: layout.isTv ? 5 : 4),
                 Text(
                   data.subtitle,
-                  maxLines: layout.isTv ? 2 : 1,
+                  maxLines: isLandscapeCard ? 1 : (layout.isTv ? 2 : 1),
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.74),
@@ -1265,16 +1375,28 @@ class _HomeRailCard extends StatelessWidget {
 }
 
 class _RailPlaceholder extends StatelessWidget {
-  const _RailPlaceholder({required this.layout});
+  const _RailPlaceholder({
+    required this.layout,
+    required this.height,
+    required this.prefersLandscape,
+  });
 
   final DeviceLayout layout;
+  final double height;
+  final bool prefersLandscape;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final cardWidth = switch ((layout.isTv, prefersLandscape)) {
+      (true, true) => 296.0,
+      (true, false) => 188.0,
+      (false, true) => 236.0,
+      (false, false) => 146.0,
+    };
 
     return SizedBox(
-      height: layout.isTv ? 314 : 278,
+      height: height,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: layout.isTv ? 6 : 4,
@@ -1282,7 +1404,7 @@ class _RailPlaceholder extends StatelessWidget {
             SizedBox(width: layout.cardSpacing),
         itemBuilder: (context, index) {
           return Container(
-            width: layout.isTv ? 188 : 146,
+            width: cardWidth,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
