@@ -112,34 +112,43 @@ class HomeScreen extends ConsumerWidget {
 
     final tvNavigationItems = <_TvNavigationItem>[
       _TvNavigationItem(
+        label: 'TV ao vivo',
+        icon: Icons.live_tv_rounded,
+        interactiveKey: AppTestKeys.homeLiveCard,
+        testId: AppTestKeys.homeLiveCardId,
+        onTap: () => context.go(LiveCategoriesScreen.routePath),
+      ),
+      _TvNavigationItem(
+        label: 'Filmes',
+        icon: Icons.movie_creation_outlined,
+        interactiveKey: AppTestKeys.homeMoviesCard,
+        testId: AppTestKeys.homeMoviesCardId,
+        onTap: () => context.go(VodCategoriesScreen.routePath),
+      ),
+      _TvNavigationItem(
+        label: 'Series',
+        icon: Icons.tv_rounded,
+        interactiveKey: AppTestKeys.homeSeriesCard,
+        testId: AppTestKeys.homeSeriesCardId,
+        onTap: () => context.go(SeriesCategoriesScreen.routePath),
+      ),
+      _TvNavigationItem(
+        label: 'Conta',
+        icon: Icons.verified_user_rounded,
+        interactiveKey: AppTestKeys.homeAccountCard,
+        testId: AppTestKeys.homeAccountCardId,
+        onTap: () => context.push(AccountScreen.routePath),
+      ),
+      _TvNavigationItem(
         label: 'Inicio',
         icon: Icons.home_rounded,
         isCurrent: true,
         onTap: () {},
       ),
       _TvNavigationItem(
-        label: 'TV ao vivo',
-        icon: Icons.live_tv_rounded,
-        onTap: () => context.go(LiveCategoriesScreen.routePath),
-      ),
-      _TvNavigationItem(
-        label: 'Filmes',
-        icon: Icons.movie_creation_outlined,
-        onTap: () => context.go(VodCategoriesScreen.routePath),
-      ),
-      _TvNavigationItem(
-        label: 'Series',
-        icon: Icons.tv_rounded,
-        onTap: () => context.go(SeriesCategoriesScreen.routePath),
-      ),
-      _TvNavigationItem(
-        label: 'Conta',
-        icon: Icons.verified_user_rounded,
-        onTap: () => context.push(AccountScreen.routePath),
-      ),
-      _TvNavigationItem(
         label: 'Sair',
         icon: Icons.logout_rounded,
+        interactiveKey: AppTestKeys.homeLogoutButton,
         onTap: () => ref.read(authControllerProvider.notifier).logout(),
       ),
     ];
@@ -557,12 +566,16 @@ class _TvNavigationItem {
     required this.icon,
     required this.onTap,
     this.isCurrent = false,
+    this.interactiveKey,
+    this.testId,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
   final bool isCurrent;
+  final Key? interactiveKey;
+  final String? testId;
 }
 
 class _TvTopNavigationBar extends StatelessWidget {
@@ -622,6 +635,8 @@ class _TvTopNavigationButton extends StatelessWidget {
       child: TvFocusable(
         autofocus: autofocus,
         onPressed: item.onTap,
+        interactiveKey: item.interactiveKey,
+        testId: item.testId,
         builder: (context, focused) {
           final current = item.isCurrent;
           final active = focused;

@@ -291,7 +291,7 @@ class _HeaderBackButton extends StatelessWidget {
       width: 74,
       height: 74,
       child: TvFocusable(
-        autofocus: true,
+        autofocus: false,
         onPressed: onPressed,
         builder: (context, focused) {
           return AnimatedContainer(

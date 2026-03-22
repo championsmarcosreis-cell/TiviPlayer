@@ -604,7 +604,7 @@ class _RelatedVodSection extends StatelessWidget {
             ),
             SizedBox(height: layout.isTv ? 4 : 2),
             Text(
-              'Continue descobrindo no mesmo catálogo Xtream.',
+              'Continue descobrindo no mesmo catalogo.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(
                   context,
@@ -626,7 +626,7 @@ class _RelatedVodSection extends StatelessWidget {
                     child: _RelatedVodCard(
                       item: movie,
                       layout: layout,
-                      autofocus: index == 0,
+                      autofocus: !layout.isTv && index == 0,
                     ),
                   );
                 },
@@ -703,15 +703,15 @@ class _RelatedVodCard extends StatelessWidget {
             children: [
               BrandedArtwork(
                 imageUrl: item.coverUrl,
-                aspectRatio: 2 / 3,
+                aspectRatio: layout.isTv ? 2 / 3 : 0.74,
                 borderRadius: 16,
                 placeholderLabel: 'Poster indisponível',
                 icon: Icons.movie_creation_outlined,
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: layout.isTv ? 8 : 7),
               Text(
                 item.name,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontSize: layout.isTv ? 17 : 15,
@@ -720,7 +720,7 @@ class _RelatedVodCard extends StatelessWidget {
                 ),
               ),
               if (item.rating?.trim().isNotEmpty == true) ...[
-                const SizedBox(height: 5),
+                SizedBox(height: layout.isTv ? 4 : 3),
                 Text(
                   'Nota ${item.rating}',
                   maxLines: 1,

@@ -548,7 +548,7 @@ class _RelatedSeriesSection extends StatelessWidget {
             ),
             SizedBox(height: layout.isTv ? 4 : 2),
             Text(
-              'Descoberta rápida no mesmo catálogo Xtream.',
+              'Descoberta rapida no mesmo catalogo.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(
                   context,
@@ -570,7 +570,7 @@ class _RelatedSeriesSection extends StatelessWidget {
                     child: _RelatedSeriesCard(
                       item: series,
                       layout: layout,
-                      autofocus: index == 0,
+                      autofocus: !layout.isTv && index == 0,
                     ),
                   );
                 },

@@ -435,6 +435,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   void _scheduleOverlayHide() {
     _overlayHideTimer?.cancel();
+    final directionalNavigation =
+        MediaQuery.navigationModeOf(context) == NavigationMode.directional;
+    if (!directionalNavigation) {
+      return;
+    }
 
     final controller = _controller;
     final canHide =
