@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
@@ -9,6 +11,8 @@ import '../../../../core/errors/failure.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/testing/app_test_keys.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../domain/entities/playback_history_entry.dart';
+import '../controllers/playback_history_controller.dart';
 import '../../domain/entities/playback_context.dart';
 import '../../domain/entities/resolved_playback.dart';
 import '../providers/player_providers.dart';
@@ -51,20 +55,35 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   ResolvedPlayback? _resolvedPlayback;
   String? _errorMessage;
   bool _isInitializing = true;
+  bool _isDisposing = false;
+  bool _showPlaybackUi = true;
+  bool _lastKnownPlaying = false;
+  Timer? _overlayHideTimer;
+  DateTime? _lastProgressSaveAt;
+  Duration _lastSavedPosition = Duration.zero;
+  late final PlaybackHistoryController _playbackHistoryController;
 
   @override
   void initState() {
     super.initState();
+    _playbackHistoryController = ref.read(
+      playbackHistoryControllerProvider.notifier,
+    );
     if (widget.previewState != null) {
       _isInitializing = false;
       return;
     }
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     Future<void>.microtask(_initializePlayer);
   }
 
   @override
   void dispose() {
+    _isDisposing = true;
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
+    _overlayHideTimer?.cancel();
     _controller?.removeListener(_handleControllerUpdate);
+    _persistPlaybackProgress(force: true);
     _controller?.dispose();
     super.dispose();
   }
@@ -78,88 +97,105 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = DeviceLayout.of(context, constraints: constraints);
-          final previewState = widget.previewState;
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _revealPlaybackUi,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final layout = DeviceLayout.of(context, constraints: constraints);
+            final previewState = widget.previewState;
+            final showOverlayUi =
+                previewState != null ||
+                _showPlaybackUi ||
+                _isInitializing ||
+                _errorMessage != null ||
+                !(playerValue?.isPlaying ?? false);
 
-          if (previewState != null) {
+            if (previewState != null) {
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: Color(0xFF05080F)),
+                  _PlayerPreviewStage(
+                    previewState: previewState,
+                    layout: layout,
+                  ),
+                  const _PlayerOverlayGradients(),
+                  _PlayerTopBar(
+                    title: previewState.title,
+                    isLive: previewState.isLive,
+                    layout: layout,
+                    onBack: () => context.pop(),
+                  ),
+                  _PreviewControlDeck(
+                    previewState: previewState,
+                    layout: layout,
+                  ),
+                ],
+              );
+            }
+
             return Stack(
               fit: StackFit.expand,
               children: [
-                const ColoredBox(color: Color(0xFF05080F)),
-                _PlayerPreviewStage(previewState: previewState, layout: layout),
-                const _PlayerOverlayGradients(),
-                _PlayerTopBar(
-                  title: previewState.title,
-                  isLive: previewState.isLive,
-                  layout: layout,
-                  onBack: () => context.pop(),
-                ),
-                _PreviewControlDeck(previewState: previewState, layout: layout),
+                _PlayerSurface(controller: controller),
+                if (hasReadyVideo)
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    child: SizedBox(
+                      key: AppTestKeys.playerLoadedState,
+                      width: 1,
+                      height: 1,
+                    ),
+                  ),
+                if (showOverlayUi) const _PlayerOverlayGradients(),
+                if (_isInitializing) const Center(child: _LoadingPanel()),
+                if (!_isInitializing && _errorMessage != null)
+                  Center(
+                    child: _ErrorPanel(
+                      key: AppTestKeys.playerErrorState,
+                      message: _errorMessage!,
+                      onRetry: _initializePlayer,
+                    ),
+                  ),
+                if (!_isInitializing && _errorMessage == null && showOverlayUi)
+                  _PlayerTopBar(
+                    title:
+                        resolvedPlayback?.context.title ??
+                        widget.playbackContext?.title ??
+                        'Player',
+                    isLive: resolvedPlayback?.isLive ?? false,
+                    layout: layout,
+                    onBack: () => context.pop(),
+                  ),
+                if (!_isInitializing &&
+                    _errorMessage == null &&
+                    showOverlayUi &&
+                    hasReadyVideo &&
+                    controller != null &&
+                    resolvedPlayback != null)
+                  _PlayerControlDeck(
+                    controller: controller,
+                    resolvedPlayback: resolvedPlayback,
+                    layout: layout,
+                    title: resolvedPlayback.context.title,
+                    onTogglePlayback: _togglePlayPause,
+                    onSeekBackward: () =>
+                        _seekRelative(const Duration(seconds: -10)),
+                    onSeekForward: () =>
+                        _seekRelative(const Duration(seconds: 10)),
+                  ),
+                if (playerValue?.isBuffering == true && _errorMessage == null)
+                  Positioned(
+                    right: layout.pageHorizontalPadding,
+                    top: layout.pageTopPadding + 78,
+                    child: const _BufferingBadge(),
+                  ),
               ],
             );
-          }
-
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              _PlayerSurface(controller: controller),
-              if (hasReadyVideo)
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  child: SizedBox(
-                    key: AppTestKeys.playerLoadedState,
-                    width: 1,
-                    height: 1,
-                  ),
-                ),
-              const _PlayerOverlayGradients(),
-              if (_isInitializing) const Center(child: _LoadingPanel()),
-              if (!_isInitializing && _errorMessage != null)
-                Center(
-                  child: _ErrorPanel(
-                    key: AppTestKeys.playerErrorState,
-                    message: _errorMessage!,
-                    onRetry: _initializePlayer,
-                  ),
-                ),
-              if (!_isInitializing && _errorMessage == null)
-                _PlayerTopBar(
-                  title:
-                      resolvedPlayback?.context.title ??
-                      widget.playbackContext?.title ??
-                      'Player',
-                  isLive: resolvedPlayback?.isLive ?? false,
-                  layout: layout,
-                  onBack: () => context.pop(),
-                ),
-              if (!_isInitializing &&
-                  _errorMessage == null &&
-                  hasReadyVideo &&
-                  controller != null &&
-                  resolvedPlayback != null)
-                _PlayerControlDeck(
-                  controller: controller,
-                  resolvedPlayback: resolvedPlayback,
-                  layout: layout,
-                  title: resolvedPlayback.context.title,
-                  onTogglePlayback: _togglePlayPause,
-                  onSeekBackward: () =>
-                      _seekRelative(const Duration(seconds: -10)),
-                  onSeekForward: () =>
-                      _seekRelative(const Duration(seconds: 10)),
-                ),
-              if (playerValue?.isBuffering == true && _errorMessage == null)
-                Positioned(
-                  right: layout.pageHorizontalPadding,
-                  top: layout.pageTopPadding + 78,
-                  child: const _BufferingBadge(),
-                ),
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -201,6 +237,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
       final controller = VideoPlayerController.networkUrl(resolvedPlayback.uri);
       await controller.initialize();
+      final resumePosition = playbackContext.resumePosition;
+      if (resumePosition != null &&
+          resolvedPlayback.isSeekable &&
+          resumePosition > Duration.zero) {
+        final maxResume =
+            controller.value.duration - const Duration(seconds: 2);
+        final clampedResume = maxResume > Duration.zero
+            ? (resumePosition > maxResume ? maxResume : resumePosition)
+            : Duration.zero;
+        if (clampedResume > Duration.zero) {
+          await controller.seekTo(clampedResume);
+        }
+      }
       controller.addListener(_handleControllerUpdate);
       await controller.play();
 
@@ -214,6 +263,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _controller = controller;
         _isInitializing = false;
       });
+      _lastKnownPlaying = controller.value.isPlaying;
+      _revealPlaybackUi(autoHide: controller.value.isPlaying);
     } catch (error) {
       if (!mounted) {
         return;
@@ -229,7 +280,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   void _handleControllerUpdate() {
     final controller = _controller;
-    if (!mounted || controller == null) {
+    if (!mounted || _isDisposing || controller == null) {
       return;
     }
 
@@ -242,7 +293,78 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
 
+    if (value.isPlaying != _lastKnownPlaying) {
+      _lastKnownPlaying = value.isPlaying;
+      if (value.isPlaying) {
+        _scheduleOverlayHide();
+      } else {
+        _revealPlaybackUi(autoHide: false);
+      }
+    }
+
+    _persistPlaybackProgress();
     setState(() {});
+  }
+
+  void _persistPlaybackProgress({bool force = false}) {
+    final controller = _controller;
+    final resolved = _resolvedPlayback;
+    if (controller == null || resolved == null || !resolved.isSeekable) {
+      return;
+    }
+
+    final value = controller.value;
+    if (!value.isInitialized) {
+      return;
+    }
+
+    final duration = value.duration;
+    final position = value.position;
+    if (duration <= Duration.zero || position <= Duration.zero) {
+      return;
+    }
+
+    if (!force) {
+      final now = DateTime.now();
+      final enoughTime =
+          _lastProgressSaveAt == null ||
+          now.difference(_lastProgressSaveAt!) >= const Duration(seconds: 4);
+      final positionDelta =
+          (position - _lastSavedPosition).abs() >= const Duration(seconds: 4);
+
+      if (!enoughTime || !positionDelta) {
+        return;
+      }
+    }
+
+    _lastProgressSaveAt = DateTime.now();
+    _lastSavedPosition = position;
+
+    final isComplete =
+        position.inMilliseconds >= (duration.inMilliseconds * 0.95).round();
+    final contextData = resolved.context;
+
+    if (isComplete) {
+      unawaited(
+        _playbackHistoryController.remove(
+          contextData.contentType,
+          contextData.itemId,
+        ),
+      );
+      return;
+    }
+
+    final entry = PlaybackHistoryEntry(
+      contentType: contextData.contentType,
+      itemId: contextData.itemId,
+      title: contextData.title,
+      positionMs: position.inMilliseconds,
+      durationMs: duration.inMilliseconds,
+      updatedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+      containerExtension: contextData.containerExtension,
+      artworkUrl: contextData.artworkUrl,
+    );
+    unawaited(_playbackHistoryController.upsert(entry));
   }
 
   Future<void> _togglePlayPause() async {
@@ -250,6 +372,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (controller == null) {
       return;
     }
+    _revealPlaybackUi();
 
     if (controller.value.isPlaying) {
       await controller.pause();
@@ -267,6 +390,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         !resolvedPlayback.isSeekable) {
       return;
     }
+    _revealPlaybackUi();
 
     final position = controller.value.position;
     final duration = controller.value.duration;
@@ -279,6 +403,59 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : target;
 
     await controller.seekTo(clamped);
+  }
+
+  bool _handleHardwareKey(KeyEvent event) {
+    if (!mounted || _isDisposing || widget.previewState != null) {
+      return false;
+    }
+    if (event is KeyDownEvent) {
+      _revealPlaybackUi();
+    }
+    return false;
+  }
+
+  void _revealPlaybackUi({bool autoHide = true}) {
+    if (!mounted || widget.previewState != null) {
+      return;
+    }
+
+    if (!_showPlaybackUi) {
+      setState(() {
+        _showPlaybackUi = true;
+      });
+    }
+
+    if (autoHide) {
+      _scheduleOverlayHide();
+    } else {
+      _overlayHideTimer?.cancel();
+    }
+  }
+
+  void _scheduleOverlayHide() {
+    _overlayHideTimer?.cancel();
+
+    final controller = _controller;
+    final canHide =
+        !_isInitializing &&
+        _errorMessage == null &&
+        controller != null &&
+        controller.value.isInitialized &&
+        controller.value.isPlaying;
+
+    if (!canHide) {
+      return;
+    }
+
+    _overlayHideTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted || _isDisposing) {
+        return;
+      }
+      setState(() {
+        _showPlaybackUi = false;
+      });
+    });
   }
 }
 
@@ -383,22 +560,22 @@ class _PlayerOverlayGradients extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.8),
+                  Colors.black.withValues(alpha: 0.46),
                   Colors.transparent,
-                  Colors.black.withValues(alpha: 0.9),
+                  Colors.black.withValues(alpha: 0.58),
                 ],
-                stops: const [0, 0.34, 1],
+                stops: const [0, 0.36, 1],
               ),
             ),
           ),
           Align(
             alignment: Alignment.topRight,
             child: Container(
-              width: 360,
-              height: 260,
+              width: 280,
+              height: 180,
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  colors: [const Color(0x26FF6A1A), const Color(0x00FF6A1A)],
+                  colors: [const Color(0x16FFFFFF), const Color(0x00FFFFFF)],
                 ),
               ),
             ),
@@ -406,11 +583,11 @@ class _PlayerOverlayGradients extends StatelessWidget {
           Align(
             alignment: Alignment.bottomLeft,
             child: Container(
-              width: 380,
-              height: 260,
+              width: 330,
+              height: 210,
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  colors: [const Color(0x2216C7FF), const Color(0x0016C7FF)],
+                  colors: [const Color(0x1416C7FF), const Color(0x0016C7FF)],
                 ),
               ),
             ),
@@ -972,21 +1149,21 @@ class _PlayerDeckContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(layout.isTv ? 28 : 20),
+      borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(layout.isTv ? 28 : 20),
+            borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
             gradient: LinearGradient(
               colors: [
-                Colors.black.withValues(alpha: 0.72),
-                Colors.black.withValues(alpha: 0.58),
+                Colors.black.withValues(alpha: 0.62),
+                Colors.black.withValues(alpha: 0.48),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.35),
@@ -996,7 +1173,7 @@ class _PlayerDeckContainer extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.all(layout.isTv ? 20 : 14),
+            padding: EdgeInsets.all(layout.isTv ? 16 : 14),
             child: child,
           ),
         ),

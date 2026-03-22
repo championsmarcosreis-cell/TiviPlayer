@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../presentation/layout/device_layout.dart';
+import '../../core/tv/tv_focusable.dart';
 import 'brand_logo.dart';
 
 class AppScaffold extends StatelessWidget {
@@ -14,6 +15,7 @@ class AppScaffold extends StatelessWidget {
     this.showBack = false,
     this.onBack,
     this.decoratedHeader = true,
+    this.showBrand = true,
   });
 
   final String title;
@@ -23,6 +25,7 @@ class AppScaffold extends StatelessWidget {
   final bool showBack;
   final VoidCallback? onBack;
   final bool decoratedHeader;
+  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +84,7 @@ class AppScaffold extends StatelessWidget {
                           onBack: onBack,
                           layout: layout,
                           decoratedHeader: decoratedHeader,
+                          showBrand: showBrand,
                         ),
                         SizedBox(height: layout.sectionSpacing + 4),
                         Expanded(
@@ -116,6 +120,7 @@ class _AppScaffoldHeader extends StatelessWidget {
     required this.onBack,
     required this.layout,
     required this.decoratedHeader,
+    required this.showBrand,
   });
 
   final String title;
@@ -125,37 +130,40 @@ class _AppScaffoldHeader extends StatelessWidget {
   final VoidCallback? onBack;
   final DeviceLayout layout;
   final bool decoratedHeader;
+  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isWide = layout.isTv || layout.width >= 940;
+    final onBackPressed =
+        onBack ??
+        () {
+          if (context.canPop()) {
+            context.pop();
+          }
+        };
 
     final titleContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        BrandWordmark(
-          height: layout.isTv ? 44 : 34,
-          compact: !layout.isTv,
-          showTagline: layout.isTv,
-        ),
-        SizedBox(height: layout.isTv ? 14 : 10),
+        if (showBrand) ...[
+          BrandWordmark(
+            height: layout.isTv ? 38 : 34,
+            compact: !layout.isTv,
+            showTagline: false,
+          ),
+          SizedBox(height: layout.isTv ? 10 : 10),
+        ],
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (showBack)
               Padding(
                 padding: const EdgeInsets.only(right: 12),
-                child: IconButton.filledTonal(
-                  onPressed:
-                      onBack ??
-                      () {
-                        if (context.canPop()) {
-                          context.pop();
-                        }
-                      },
-                  padding: EdgeInsets.all(layout.isTv ? 15 : 11),
-                  icon: const Icon(Icons.arrow_back_rounded),
+                child: _HeaderBackButton(
+                  layout: layout,
+                  onPressed: onBackPressed,
                 ),
               ),
             Expanded(
@@ -257,6 +265,66 @@ class _AppScaffoldHeader extends StatelessWidget {
           children: actions,
         ),
       ],
+    );
+  }
+}
+
+class _HeaderBackButton extends StatelessWidget {
+  const _HeaderBackButton({required this.layout, required this.onPressed});
+
+  final DeviceLayout layout;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (!layout.isTv) {
+      return IconButton.filledTonal(
+        onPressed: onPressed,
+        padding: EdgeInsets.all(layout.isTv ? 15 : 11),
+        icon: const Icon(Icons.arrow_back_rounded),
+      );
+    }
+
+    return SizedBox(
+      width: 74,
+      height: 74,
+      child: TvFocusable(
+        autofocus: true,
+        onPressed: onPressed,
+        builder: (context, focused) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: focused
+                  ? const Color(0xFFFFF3E7)
+                  : colorScheme.primary.withValues(alpha: 0.2),
+              border: Border.all(
+                color: focused
+                    ? colorScheme.secondary
+                    : colorScheme.primary.withValues(alpha: 0.55),
+                width: focused ? 3 : 1.4,
+              ),
+              boxShadow: focused
+                  ? [
+                      BoxShadow(
+                        color: colorScheme.secondary.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              size: 36,
+              color: focused ? const Color(0xFF161005) : colorScheme.primary,
+            ),
+          );
+        },
+      ),
     );
   }
 }

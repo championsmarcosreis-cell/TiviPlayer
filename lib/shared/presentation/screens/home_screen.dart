@@ -11,6 +11,8 @@ import '../../../features/live/domain/entities/live_stream.dart';
 import '../../../features/live/presentation/providers/live_providers.dart';
 import '../../../features/live/presentation/screens/live_categories_screen.dart';
 import '../../../features/player/domain/entities/playback_context.dart';
+import '../../../features/player/domain/entities/playback_history_entry.dart';
+import '../../../features/player/presentation/controllers/playback_history_controller.dart';
 import '../../../features/player/presentation/screens/player_screen.dart';
 import '../../../features/series/domain/entities/series_item.dart';
 import '../../../features/series/presentation/providers/series_providers.dart';
@@ -33,6 +35,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final headerLayout = DeviceLayout.of(context);
     final session = ref.watch(currentSessionProvider);
     if (session == null) {
       return const AppScaffold(
@@ -46,6 +49,7 @@ class HomeScreen extends ConsumerWidget {
     final vodPreview = ref.watch(vodStreamsProvider(null));
     final seriesPreview = ref.watch(seriesItemsProvider(null));
     final vodCategories = ref.watch(vodCategoriesProvider);
+    final playbackHistory = ref.watch(playbackHistoryControllerProvider);
     final expiresAt = DisplayFormatters.humanizeDate(session.expirationDate);
 
     final hero = _resolveHero(
@@ -91,24 +95,60 @@ class HomeScreen extends ConsumerWidget {
       ),
     ];
 
+    final headerActions = <Widget>[
+      FilledButton.tonalIcon(
+        key: AppTestKeys.homeAccountAction,
+        onPressed: () => context.push(AccountScreen.routePath),
+        icon: const Icon(Icons.verified_user_rounded),
+        label: const Text('Conta'),
+      ),
+      FilledButton.tonalIcon(
+        key: AppTestKeys.homeLogoutButton,
+        onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text('Sair'),
+      ),
+    ];
+
+    final tvNavigationItems = <_TvNavigationItem>[
+      _TvNavigationItem(
+        label: 'Inicio',
+        icon: Icons.home_rounded,
+        isCurrent: true,
+        onTap: () {},
+      ),
+      _TvNavigationItem(
+        label: 'TV ao vivo',
+        icon: Icons.live_tv_rounded,
+        onTap: () => context.go(LiveCategoriesScreen.routePath),
+      ),
+      _TvNavigationItem(
+        label: 'Filmes',
+        icon: Icons.movie_creation_outlined,
+        onTap: () => context.go(VodCategoriesScreen.routePath),
+      ),
+      _TvNavigationItem(
+        label: 'Series',
+        icon: Icons.tv_rounded,
+        onTap: () => context.go(SeriesCategoriesScreen.routePath),
+      ),
+      _TvNavigationItem(
+        label: 'Conta',
+        icon: Icons.verified_user_rounded,
+        onTap: () => context.push(AccountScreen.routePath),
+      ),
+      _TvNavigationItem(
+        label: 'Sair',
+        icon: Icons.logout_rounded,
+        onTap: () => ref.read(authControllerProvider.notifier).logout(),
+      ),
+    ];
+
     return AppScaffold(
       title: 'Inicio',
       subtitle: 'TV, filmes e series em um fluxo unico.',
       decoratedHeader: false,
-      actions: [
-        FilledButton.tonalIcon(
-          key: AppTestKeys.homeAccountAction,
-          onPressed: () => context.push(AccountScreen.routePath),
-          icon: const Icon(Icons.verified_user_rounded),
-          label: const Text('Conta'),
-        ),
-        FilledButton.tonalIcon(
-          key: AppTestKeys.homeLogoutButton,
-          onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-          icon: const Icon(Icons.logout_rounded),
-          label: const Text('Sair'),
-        ),
-      ],
+      actions: headerLayout.isTv ? const [] : headerActions,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final layout = DeviceLayout.of(context, constraints: constraints);
@@ -122,15 +162,14 @@ class HomeScreen extends ConsumerWidget {
           final vodCards = _buildVodCards(resolvedVod, context);
           final seriesCards = _buildSeriesCards(resolvedSeries, context);
           final liveCards = _buildLiveCards(resolvedLive, context);
-          final continueItem = vodCards.isNotEmpty
-              ? vodCards.first
-              : (seriesCards.isNotEmpty ? seriesCards.first : null);
+          final continueItem = _resolveContinueItem(playbackHistory, context);
 
           final homeBody = layout.isTv
               ? _TvHomeExperience(
                   layout: layout,
                   hero: hero,
-                  quickActions: quickActions,
+                  navItems: tvNavigationItems,
+                  continueItem: continueItem,
                   liveCards: liveCards,
                   vodCards: vodCards,
                   seriesCards: seriesCards,
@@ -301,11 +340,79 @@ List<String> _resolveCategoryChips(List<VodCategory>? categories) {
   return names.take(10).toList();
 }
 
+_ContinueWatchingData? _resolveContinueItem(
+  List<PlaybackHistoryEntry> history,
+  BuildContext context,
+) {
+  if (history.isEmpty) {
+    return null;
+  }
+
+  final entry = history.first;
+  final safeDurationMs = entry.durationMs <= 0 ? 1 : entry.durationMs;
+  final safePositionMs = entry.positionMs.clamp(0, safeDurationMs).toInt();
+  final remainingMs = (safeDurationMs - safePositionMs).clamp(
+    0,
+    safeDurationMs,
+  );
+  final progress = (safePositionMs / safeDurationMs).clamp(0, 1).toDouble();
+
+  final remaining = Duration(milliseconds: remainingMs);
+  final resumeAt = Duration(milliseconds: safePositionMs);
+  final typeLabel = switch (entry.contentType) {
+    PlaybackContentType.vod => 'Filme',
+    PlaybackContentType.seriesEpisode => 'Episódio',
+    PlaybackContentType.live => 'Ao vivo',
+  };
+
+  return _ContinueWatchingData(
+    title: entry.title,
+    subtitle: '$typeLabel • Restando ${_formatRemaining(remaining)}',
+    progress: progress,
+    remainingLabel: _formatRemaining(remaining),
+    imageUrl: entry.artworkUrl,
+    icon: switch (entry.contentType) {
+      PlaybackContentType.vod => Icons.movie_creation_outlined,
+      PlaybackContentType.seriesEpisode => Icons.tv_rounded,
+      PlaybackContentType.live => Icons.live_tv_rounded,
+    },
+    onPressed: () => context.push(
+      PlayerScreen.routePath,
+      extra: PlaybackContext(
+        contentType: entry.contentType,
+        itemId: entry.itemId,
+        title: entry.title,
+        containerExtension: entry.containerExtension,
+        artworkUrl: entry.artworkUrl,
+        resumePosition: resumeAt,
+      ),
+    ),
+  );
+}
+
+String _formatRemaining(Duration remaining) {
+  final totalMinutes = remaining.inMinutes;
+  if (totalMinutes <= 0) {
+    return '< 1min';
+  }
+  if (totalMinutes < 60) {
+    return '${totalMinutes}min';
+  }
+
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  if (minutes == 0) {
+    return '${hours}h';
+  }
+  return '${hours}h ${minutes}min';
+}
+
 class _TvHomeExperience extends StatelessWidget {
   const _TvHomeExperience({
     required this.layout,
     required this.hero,
-    required this.quickActions,
+    required this.navItems,
+    required this.continueItem,
     required this.liveCards,
     required this.vodCards,
     required this.seriesCards,
@@ -316,7 +423,8 @@ class _TvHomeExperience extends StatelessWidget {
 
   final DeviceLayout layout;
   final _HomeHeroChoice hero;
-  final List<_HomeQuickAction> quickActions;
+  final List<_TvNavigationItem> navItems;
+  final _ContinueWatchingData? continueItem;
   final List<_HomeRailCardData> liveCards;
   final List<_HomeRailCardData> vodCards;
   final List<_HomeRailCardData> seriesCards;
@@ -329,10 +437,10 @@ class _TvHomeExperience extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _TvHubTabs(layout: layout, actions: quickActions),
-        SizedBox(height: layout.sectionSpacing + 8),
+        _TvTopNavigationBar(layout: layout, items: navItems),
+        SizedBox(height: layout.sectionSpacing + 4),
         _CinematicHeroCard(layout: layout, hero: hero, tvMode: true),
-        SizedBox(height: layout.sectionSpacing + 14),
+        SizedBox(height: layout.sectionSpacing + 8),
         _HomeRailSection(
           layout: layout,
           title: 'TV ao vivo em destaque',
@@ -342,7 +450,9 @@ class _TvHomeExperience extends StatelessWidget {
           cards: liveCards,
           state: liveState,
         ),
-        SizedBox(height: layout.sectionSpacing + 12),
+        SizedBox(height: layout.sectionSpacing + 10),
+        _ContinueWatchingCard(layout: layout, item: continueItem),
+        SizedBox(height: layout.sectionSpacing + 10),
         _HomeRailSection(
           layout: layout,
           title: 'Filmes para assistir agora',
@@ -352,7 +462,7 @@ class _TvHomeExperience extends StatelessWidget {
           cards: vodCards,
           state: vodState,
         ),
-        SizedBox(height: layout.sectionSpacing + 12),
+        SizedBox(height: layout.sectionSpacing + 10),
         _HomeRailSection(
           layout: layout,
           title: 'Series em alta',
@@ -386,7 +496,7 @@ class _MobileHomeExperience extends StatelessWidget {
   final _HomeHeroChoice hero;
   final List<_HomeQuickAction> quickActions;
   final List<String> categories;
-  final _HomeRailCardData? continueItem;
+  final _ContinueWatchingData? continueItem;
   final List<_HomeRailCardData> liveCards;
   final List<_HomeRailCardData> vodCards;
   final List<_HomeRailCardData> seriesCards;
@@ -413,9 +523,9 @@ class _MobileHomeExperience extends StatelessWidget {
         SizedBox(height: layout.sectionSpacing + 10),
         _ContinueWatchingCard(layout: layout, item: continueItem),
         SizedBox(height: layout.sectionSpacing + 10),
-        _CategoryChipRail(layout: layout, categories: categories),
-        SizedBox(height: layout.sectionSpacing + 10),
         _MobileHubPills(layout: layout, actions: quickActions),
+        SizedBox(height: layout.sectionSpacing + 10),
+        _CategoryChipRail(layout: layout, categories: categories),
         SizedBox(height: layout.sectionSpacing + 14),
         _HomeRailSection(
           layout: layout,
@@ -441,39 +551,154 @@ class _MobileHomeExperience extends StatelessWidget {
   }
 }
 
-class _TvHubTabs extends StatelessWidget {
-  const _TvHubTabs({required this.layout, required this.actions});
+class _TvNavigationItem {
+  const _TvNavigationItem({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.isCurrent = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isCurrent;
+}
+
+class _TvTopNavigationBar extends StatelessWidget {
+  const _TvTopNavigationBar({required this.layout, required this.items});
 
   final DeviceLayout layout;
-  final List<_HomeQuickAction> actions;
+  final List<_TvNavigationItem> items;
 
   @override
   Widget build(BuildContext context) {
-    final visibleActions = actions.take(4).toList();
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: EdgeInsets.all(layout.isTv ? 12 : 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 20 : 16),
-        color: colorScheme.surface.withValues(alpha: 0.7),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.36)),
+        borderRadius: BorderRadius.circular(18),
+        color: colorScheme.surface.withValues(alpha: 0.68),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.34)),
       ),
-      child: Row(
-        children: [
-          for (var index = 0; index < visibleActions.length; index++) ...[
-            Expanded(
-              child: _HubActionPill(
-                action: visibleActions[index],
-                autofocus: index == 0,
-                layout: layout,
-                showDescription: false,
+      child: SizedBox(
+        height: 58,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: items.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return _TvTopNavigationButton(
+              item: item,
+              layout: layout,
+              autofocus: index == 0,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _TvTopNavigationButton extends StatelessWidget {
+  const _TvTopNavigationButton({
+    required this.item,
+    required this.layout,
+    required this.autofocus,
+  });
+
+  final _TvNavigationItem item;
+  final DeviceLayout layout;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      width: layout.isTvCompact ? 170 : 184,
+      child: TvFocusable(
+        autofocus: autofocus,
+        onPressed: item.onTap,
+        builder: (context, focused) {
+          final current = item.isCurrent;
+          final active = focused;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: active
+                  ? LinearGradient(
+                      colors: [
+                        const Color(0xFFFFF3E7),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.9,
+                        ),
+                      ],
+                    )
+                  : current
+                  ? LinearGradient(
+                      colors: [
+                        colorScheme.primary.withValues(alpha: 0.2),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.82,
+                        ),
+                      ],
+                    )
+                  : LinearGradient(
+                      colors: [
+                        colorScheme.surface.withValues(alpha: 0.84),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.72,
+                        ),
+                      ],
+                    ),
+              border: Border.all(
+                color: active
+                    ? colorScheme.secondary
+                    : current
+                    ? colorScheme.primary.withValues(alpha: 0.72)
+                    : colorScheme.outline.withValues(alpha: 0.4),
+                width: active ? 2.6 : 1,
               ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: colorScheme.secondary.withValues(alpha: 0.24),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : const [],
             ),
-            if (index != visibleActions.length - 1)
-              SizedBox(width: layout.cardSpacing - 4),
-          ],
-        ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  item.icon,
+                  size: 21,
+                  color: active ? const Color(0xFF161005) : null,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: active ? const Color(0xFF161005) : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -628,7 +853,7 @@ class _CinematicHeroCard extends StatelessWidget {
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.44)),
       ),
       child: AspectRatio(
-        aspectRatio: tvMode ? 16 / 6.5 : 16 / 12,
+        aspectRatio: tvMode ? 16 / 4.2 : 16 / 12,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compactMobile = !tvMode && constraints.maxHeight < 260;
@@ -640,15 +865,54 @@ class _CinematicHeroCard extends StatelessWidget {
                       : (veryCompactMobile ? 0 : (compactMobile ? 1 : 2)),
                 )
                 .toList();
-            final titleFontSize = tvMode ? 46.0 : (compactMobile ? 27.0 : 32.0);
+            final titleFontSize = tvMode ? 34.0 : (compactMobile ? 27.0 : 32.0);
             final metadataFontSize = tvMode
-                ? 16.0
+                ? 14.0
                 : (compactMobile ? 13.0 : 14.0);
             final descriptionFontSize = tvMode
-                ? 14.5
+                ? 13.5
                 : (compactMobile ? 11.8 : 12.6);
             final actionStyle = tvMode
-                ? null
+                ? ButtonStyle(
+                    minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    backgroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.focused)) {
+                        return const Color(0xFFFFF3E7);
+                      }
+                      if (states.contains(WidgetState.pressed)) {
+                        return colorScheme.primary.withValues(alpha: 0.86);
+                      }
+                      return colorScheme.primary;
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.focused)) {
+                        return const Color(0xFF161005);
+                      }
+                      return colorScheme.onPrimary;
+                    }),
+                    side: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.focused)) {
+                        return BorderSide(
+                          color: colorScheme.secondary,
+                          width: 3,
+                        );
+                      }
+                      return BorderSide(
+                        color: colorScheme.primary.withValues(alpha: 0.9),
+                      );
+                    }),
+                    elevation: WidgetStateProperty.resolveWith((states) {
+                      return states.contains(WidgetState.focused) ? 11 : 2;
+                    }),
+                  )
                 : FilledButton.styleFrom(
                     minimumSize: Size(0, veryCompactMobile ? 42 : 46),
                     padding: EdgeInsets.symmetric(
@@ -691,7 +955,7 @@ class _CinematicHeroCard extends StatelessWidget {
                 ),
                 Padding(
                   padding: EdgeInsets.all(
-                    tvMode ? 28 : (compactMobile ? 14 : 16),
+                    tvMode ? 20 : (compactMobile ? 14 : 16),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,7 +980,7 @@ class _CinematicHeroCard extends StatelessWidget {
                               ),
                         ),
                       ),
-                      SizedBox(height: tvMode ? 14 : (compactMobile ? 6 : 8)),
+                      SizedBox(height: tvMode ? 10 : (compactMobile ? 6 : 8)),
                       Text(
                         hero.title,
                         maxLines: tvMode ? 2 : (veryCompactMobile ? 2 : 3),
@@ -729,7 +993,7 @@ class _CinematicHeroCard extends StatelessWidget {
                             ),
                       ),
                       if (showDescription) ...[
-                        SizedBox(height: tvMode ? 8 : 6),
+                        SizedBox(height: tvMode ? 6 : 6),
                         Text(
                           hero.description,
                           maxLines: veryCompactMobile ? 1 : 2,
@@ -744,7 +1008,7 @@ class _CinematicHeroCard extends StatelessWidget {
                         ),
                       ],
                       if (metadata.isNotEmpty) ...[
-                        SizedBox(height: tvMode ? 10 : (compactMobile ? 5 : 7)),
+                        SizedBox(height: tvMode ? 8 : (compactMobile ? 5 : 7)),
                         Text(
                           metadata.join('  •  '),
                           maxLines: 1,
@@ -759,7 +1023,7 @@ class _CinematicHeroCard extends StatelessWidget {
                               ),
                         ),
                       ],
-                      SizedBox(height: tvMode ? 14 : (compactMobile ? 8 : 10)),
+                      SizedBox(height: tvMode ? 10 : (compactMobile ? 8 : 10)),
                       Wrap(
                         spacing: compactMobile ? 10 : 12,
                         runSpacing: compactMobile ? 8 : 10,
@@ -790,11 +1054,31 @@ class _CinematicHeroCard extends StatelessWidget {
   }
 }
 
+class _ContinueWatchingData {
+  const _ContinueWatchingData({
+    required this.title,
+    required this.subtitle,
+    required this.progress,
+    required this.remainingLabel,
+    required this.icon,
+    required this.onPressed,
+    this.imageUrl,
+  });
+
+  final String title;
+  final String subtitle;
+  final double progress;
+  final String remainingLabel;
+  final String? imageUrl;
+  final IconData icon;
+  final VoidCallback onPressed;
+}
+
 class _ContinueWatchingCard extends StatelessWidget {
   const _ContinueWatchingCard({required this.layout, required this.item});
 
   final DeviceLayout layout;
-  final _HomeRailCardData? item;
+  final _ContinueWatchingData? item;
 
   @override
   Widget build(BuildContext context) {
@@ -807,34 +1091,77 @@ class _ContinueWatchingCard extends StatelessWidget {
           'Continuar assistindo',
           style: Theme.of(
             context,
-          ).textTheme.headlineSmall?.copyWith(fontSize: layout.isTv ? 34 : 30),
+          ).textTheme.headlineSmall?.copyWith(fontSize: layout.isTv ? 30 : 30),
         ),
         SizedBox(height: layout.sectionSpacing - 2),
-        Container(
-          padding: EdgeInsets.all(layout.isTv ? 16 : 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(layout.isTv ? 22 : 20),
-            gradient: LinearGradient(
-              colors: [
-                colorScheme.surface.withValues(alpha: 0.86),
-                colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        if (item == null)
+          Container(
+            padding: EdgeInsets.all(layout.isTv ? 14 : 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(layout.isTv ? 22 : 20),
+              gradient: LinearGradient(
+                colors: [
+                  colorScheme.surface.withValues(alpha: 0.86),
+                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.4),
+              ),
             ),
-            border: Border.all(
-              color: colorScheme.outline.withValues(alpha: 0.4),
+            child: Text(
+              'Nenhum titulo em andamento neste momento.',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-          ),
-          child: item == null
-              ? Text(
-                  'Nenhum titulo em andamento neste momento.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                )
-              : Row(
+          )
+        else
+          TvFocusable(
+            onPressed: item!.onPressed,
+            builder: (context, focused) {
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                padding: EdgeInsets.all(layout.isTv ? 14 : 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(layout.isTv ? 22 : 20),
+                  gradient: LinearGradient(
+                    colors: focused
+                        ? [
+                            colorScheme.primary.withValues(alpha: 0.24),
+                            colorScheme.surfaceContainerHighest.withValues(
+                              alpha: 0.9,
+                            ),
+                          ]
+                        : [
+                            colorScheme.surface.withValues(alpha: 0.86),
+                            colorScheme.surfaceContainerHighest.withValues(
+                              alpha: 0.72,
+                            ),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(
+                    color: focused
+                        ? colorScheme.primary
+                        : colorScheme.outline.withValues(alpha: 0.4),
+                    width: focused ? 2 : 1,
+                  ),
+                  boxShadow: focused
+                      ? [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(alpha: 0.18),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ]
+                      : const [],
+                ),
+                child: Row(
                   children: [
                     SizedBox(
-                      width: layout.isTv ? 210 : 150,
+                      width: layout.isTv ? 180 : 150,
                       child: BrandedArtwork(
                         imageUrl: item!.imageUrl,
                         aspectRatio: 16 / 9,
@@ -853,19 +1180,31 @@ class _ContinueWatchingCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontSize: layout.isTv ? 34 : 26),
+                                ?.copyWith(fontSize: layout.isTv ? 28 : 26),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            item!.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.82,
+                                  ),
+                                ),
                           ),
                           const SizedBox(height: 8),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(999),
                             child: LinearProgressIndicator(
-                              value: 0.62,
-                              minHeight: layout.isTv ? 10 : 8,
+                              value: item!.progress,
+                              minHeight: layout.isTv ? 9 : 8,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Restando: 24min',
+                            'Restando: ${item!.remainingLabel}',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: colorScheme.onSurface.withValues(
@@ -878,22 +1217,33 @@ class _ContinueWatchingCard extends StatelessWidget {
                     ),
                     Icon(
                       Icons.chevron_right_rounded,
-                      size: layout.isTv ? 44 : 36,
-                      color: colorScheme.onSurface.withValues(alpha: 0.56),
+                      size: layout.isTv ? 40 : 36,
+                      color: focused
+                          ? colorScheme.primary
+                          : colorScheme.onSurface.withValues(alpha: 0.56),
                     ),
                   ],
                 ),
-        ),
+              );
+            },
+          ),
       ],
     );
   }
 }
 
-class _CategoryChipRail extends StatelessWidget {
+class _CategoryChipRail extends StatefulWidget {
   const _CategoryChipRail({required this.layout, required this.categories});
 
   final DeviceLayout layout;
   final List<String> categories;
+
+  @override
+  State<_CategoryChipRail> createState() => _CategoryChipRailState();
+}
+
+class _CategoryChipRailState extends State<_CategoryChipRail> {
+  var _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -903,56 +1253,73 @@ class _CategoryChipRail extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Categorias',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontSize: layout.isTv ? 34 : 30),
+          'Categorias de filmes',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontSize: widget.layout.isTv ? 34 : 30,
+          ),
         ),
-        SizedBox(height: layout.sectionSpacing - 2),
+        SizedBox(height: widget.layout.sectionSpacing - 2),
         SizedBox(
-          height: layout.isTv ? 58 : 50,
+          height: widget.layout.isTv ? 58 : 50,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
+            itemCount: widget.categories.length,
             separatorBuilder: (context, index) =>
-                SizedBox(width: layout.cardSpacing - 4),
+                SizedBox(width: widget.layout.cardSpacing - 4),
             itemBuilder: (context, index) {
-              final selected = index == 0;
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: selected
-                      ? LinearGradient(
-                          colors: [
-                            colorScheme.primary.withValues(alpha: 0.45),
-                            colorScheme.secondary.withValues(alpha: 0.2),
-                          ],
-                        )
-                      : null,
-                  color: selected
-                      ? null
-                      : colorScheme.surface.withValues(alpha: 0.55),
-                  border: Border.all(
-                    color: selected
-                        ? colorScheme.primary.withValues(alpha: 0.7)
-                        : colorScheme.outline.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    categories[index],
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: selected
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurface.withValues(alpha: 0.88),
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              final selected = index == _selectedIndex;
+              return TvFocusable(
+                onPressed: () {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                builder: (context, focused) {
+                  final active = selected || focused;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
                     ),
-                  ),
-                ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: active
+                          ? LinearGradient(
+                              colors: [
+                                colorScheme.primary.withValues(alpha: 0.45),
+                                colorScheme.secondary.withValues(alpha: 0.2),
+                              ],
+                            )
+                          : null,
+                      color: active
+                          ? null
+                          : colorScheme.surface.withValues(alpha: 0.55),
+                      border: Border.all(
+                        color: active
+                            ? colorScheme.primary.withValues(alpha: 0.78)
+                            : colorScheme.outline.withValues(alpha: 0.35),
+                        width: active ? 1.8 : 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        widget.categories[index],
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: active
+                                  ? colorScheme.onPrimary
+                                  : colorScheme.onSurface.withValues(
+                                      alpha: 0.88,
+                                    ),
+                              fontWeight: active
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -1116,8 +1483,8 @@ class _HomeRailSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: layout.isTv ? 44 : 36,
-              height: layout.isTv ? 44 : 36,
+              width: layout.isTv ? 40 : 36,
+              height: layout.isTv ? 40 : 36,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: colorScheme.primary.withValues(alpha: 0.16),
@@ -1125,7 +1492,7 @@ class _HomeRailSection extends StatelessWidget {
               child: Icon(
                 icon,
                 color: colorScheme.primary,
-                size: layout.isTv ? 25 : 20,
+                size: layout.isTv ? 23 : 20,
               ),
             ),
             SizedBox(width: layout.isTv ? 12 : 10),
@@ -1136,7 +1503,7 @@ class _HomeRailSection extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: layout.isTv ? 30 : 23,
+                      fontSize: layout.isTv ? 26 : 23,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1144,7 +1511,7 @@ class _HomeRailSection extends StatelessWidget {
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.76),
-                      fontSize: layout.isTv ? 14 : 12.5,
+                      fontSize: layout.isTv ? 13.5 : 12.5,
                     ),
                   ),
                 ],
@@ -1195,9 +1562,9 @@ double _resolveRailHeight(
   required bool prefersLandscape,
 }) {
   if (prefersLandscape) {
-    return layout.isTv ? 248 : 226;
+    return layout.isTv ? 226 : 226;
   }
-  return layout.isTv ? 314 : 278;
+  return layout.isTv ? 352 : 304;
 }
 
 class _HomeRailCard extends StatelessWidget {
@@ -1219,15 +1586,13 @@ class _HomeRailCard extends StatelessWidget {
       (true, true) => 296.0,
       (true, false) => 188.0,
       (false, true) => 236.0,
-      (false, false) => 146.0,
+      (false, false) => 156.0,
     };
     final artworkAspectRatio = isLandscapeCard
         ? data.aspectRatio
-        : data.aspectRatio == 1
-        ? 1.0
         : layout.isTv
         ? 0.82
-        : 1.12;
+        : data.aspectRatio;
 
     return SizedBox(
       width: cardWidth,
@@ -1357,7 +1722,7 @@ class _HomeRailCard extends StatelessWidget {
                 SizedBox(height: layout.isTv ? 5 : 4),
                 Text(
                   data.subtitle,
-                  maxLines: isLandscapeCard ? 1 : (layout.isTv ? 2 : 1),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.74),
@@ -1392,7 +1757,7 @@ class _RailPlaceholder extends StatelessWidget {
       (true, true) => 296.0,
       (true, false) => 188.0,
       (false, true) => 236.0,
-      (false, false) => 146.0,
+      (false, false) => 156.0,
     };
 
     return SizedBox(

@@ -32,6 +32,7 @@ class _LiveCategoriesView extends ConsumerWidget {
       title: 'Ao vivo',
       subtitle: 'Escolha uma categoria para abrir os canais disponíveis.',
       showBack: true,
+      showBrand: false,
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,
@@ -61,8 +62,8 @@ class _LiveCategoriesView extends ConsumerWidget {
               final spacing = layout.cardSpacing;
               final columns = layout.columnsForWidth(
                 constraints.maxWidth,
-                minTileWidth: layout.isTv ? 330 : 280,
-                maxColumns: layout.isTv ? 3 : 2,
+                minTileWidth: layout.isTv ? 238 : 280,
+                maxColumns: layout.isTv ? 5 : 2,
               );
               final width = layout.itemWidth(
                 constraints.maxWidth,
@@ -80,20 +81,24 @@ class _LiveCategoriesView extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CategoryHubHero(
-                      layout: layout,
-                      totalItems: entries.length,
-                      title: 'Guia Live TV',
-                      subtitle:
-                          'Abra a grade ao vivo com foco rápido para controle remoto e navegação fluida no mobile.',
-                      highlights: heroNames,
-                      icon: Icons.live_tv_rounded,
-                    ),
-                    SizedBox(height: layout.sectionSpacing + 6),
+                    if (!layout.isTv) ...[
+                      _CategoryHubHero(
+                        layout: layout,
+                        totalItems: entries.length,
+                        title: 'Guia Live TV',
+                        subtitle:
+                            'Abra a grade ao vivo com foco rápido para controle remoto e navegação fluida no mobile.',
+                        highlights: heroNames,
+                        icon: Icons.live_tv_rounded,
+                      ),
+                      SizedBox(height: layout.sectionSpacing + 6),
+                    ],
                     _CategorySectionHeader(
                       layout: layout,
                       title: 'Categorias ao vivo',
-                      subtitle: 'Escolha uma categoria para abrir os canais.',
+                      subtitle: layout.isTv
+                          ? '${entries.length} categorias disponíveis'
+                          : 'Escolha uma categoria para abrir os canais.',
                     ),
                     SizedBox(height: layout.cardSpacing),
                     Wrap(
@@ -328,7 +333,7 @@ class _CategoryTile extends StatelessWidget {
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: EdgeInsets.all(layout.isTv ? 18 : 14),
+          padding: EdgeInsets.all(layout.isTv ? 14 : 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),
             gradient: LinearGradient(
@@ -365,15 +370,15 @@ class _CategoryTile extends StatelessWidget {
                 : const [],
           ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: layout.isTv ? 170 : 146),
+            constraints: BoxConstraints(minHeight: layout.isTv ? 128 : 146),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: layout.isTv ? 50 : 42,
-                      height: layout.isTv ? 50 : 42,
+                      width: layout.isTv ? 42 : 42,
+                      height: layout.isTv ? 42 : 42,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         color: colorScheme.primary.withValues(alpha: 0.18),
@@ -407,20 +412,20 @@ class _CategoryTile extends StatelessWidget {
                       ),
                   ],
                 ),
-                SizedBox(height: layout.isTv ? 18 : 14),
+                SizedBox(height: layout.isTv ? 12 : 14),
                 Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontSize: layout.isTv ? 28 : 22,
+                    fontSize: layout.isTv ? 22 : 22,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: layout.isTv ? 10 : 8),
+                SizedBox(height: layout.isTv ? 6 : 8),
                 Text(
                   description,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.82),

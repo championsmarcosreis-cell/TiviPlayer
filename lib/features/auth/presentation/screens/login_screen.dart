@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/presentation/controllers/interface_mode_controller.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
+import '../../../../shared/presentation/layout/interface_mode_scope.dart';
 import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/brand_logo.dart';
 import '../../domain/entities/xtream_credentials.dart';
@@ -66,6 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final authState = ref.watch(authControllerProvider);
     final isSubmitting = authState.status == AuthStatus.authenticating;
+    final interfaceMode = ref.watch(interfaceModeControllerProvider);
     final usesDirectionalNavigation =
         MediaQuery.navigationModeOf(context) == NavigationMode.directional;
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -147,6 +150,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                             .withValues(alpha: 0.86),
                                         fontSize: layout.isTv ? 24 : 18,
                                       ),
+                                ),
+                                SizedBox(height: layout.sectionSpacing + 8),
+                                _InterfaceModeSelector(
+                                  layout: layout,
+                                  mode: interfaceMode,
+                                  onChanged: (mode) {
+                                    ref
+                                        .read(
+                                          interfaceModeControllerProvider
+                                              .notifier,
+                                        )
+                                        .setMode(mode);
+                                  },
                                 ),
                                 SizedBox(height: layout.sectionSpacing + 8),
                                 _CredentialsCard(
@@ -300,6 +316,96 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     return _baseUrlController.text.trim();
+  }
+}
+
+class _InterfaceModeSelector extends StatelessWidget {
+  const _InterfaceModeSelector({
+    required this.layout,
+    required this.mode,
+    required this.onChanged,
+  });
+
+  final DeviceLayout layout;
+  final InterfaceMode mode;
+  final ValueChanged<InterfaceMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.cardPadding,
+        vertical: layout.isTv ? 14 : 12,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(layout.cardBorderRadius),
+        color: colorScheme.surface.withValues(alpha: 0.66),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.38)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Interface do app',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: layout.isTv ? 22 : 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Escolha como renderizar telas antes de entrar.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.78),
+            ),
+          ),
+          SizedBox(height: layout.sectionSpacing - 2),
+          SegmentedButton<InterfaceMode>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment<InterfaceMode>(
+                value: InterfaceMode.auto,
+                icon: Icon(Icons.tune_rounded),
+                label: Text('Auto'),
+              ),
+              ButtonSegment<InterfaceMode>(
+                value: InterfaceMode.mobile,
+                icon: Icon(Icons.smartphone_rounded),
+                label: Text('Mobile'),
+              ),
+              ButtonSegment<InterfaceMode>(
+                value: InterfaceMode.tv,
+                icon: Icon(Icons.tv_rounded),
+                label: Text('TV'),
+              ),
+            ],
+            selected: {mode},
+            onSelectionChanged: (selection) {
+              if (selection.isNotEmpty) {
+                onChanged(selection.first);
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            switch (mode) {
+              InterfaceMode.auto =>
+                'Auto (recomendado): detecta o dispositivo automaticamente.',
+              InterfaceMode.mobile =>
+                'Mobile: forca layout de celular/tablet nesta instalacao.',
+              InterfaceMode.tv =>
+                'TV: forca layout Android TV com foco por controle remoto.',
+            },
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.76),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

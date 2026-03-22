@@ -33,6 +33,7 @@ class SeriesItemsScreen extends ConsumerWidget {
           ? 'Catálogo completo'
           : 'Seleção disponível',
       showBack: true,
+      showBrand: false,
       child: AsyncStateBuilder(
         value: series,
         isEmpty: (items) => items.isEmpty,
@@ -48,8 +49,8 @@ class SeriesItemsScreen extends ConsumerWidget {
                 final spacing = layout.cardSpacing;
                 final columns = layout.columnsForWidth(
                   constraints.maxWidth,
-                  minTileWidth: 290,
-                  maxColumns: 4,
+                  minTileWidth: 220,
+                  maxColumns: 6,
                 );
                 final itemWidth = layout.itemWidth(
                   constraints.maxWidth,
@@ -62,12 +63,6 @@ class SeriesItemsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SeriesHeroShelf(
-                        layout: layout,
-                        item: featured,
-                        totalItems: items.length,
-                      ),
-                      SizedBox(height: layout.cardSpacing),
                       _SeriesCatalogHeader(
                         layout: layout,
                         totalItems: items.length,
@@ -345,7 +340,7 @@ class _SeriesCatalogHeader extends StatelessWidget {
             child: Text(
               'Todas as séries • $totalItems disponíveis',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontSize: layout.isTv ? 24 : 18,
+                fontSize: layout.isTv ? 21 : 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -431,7 +426,7 @@ class _SeriesTvPosterCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 18,
+                  fontSize: layout.isTv ? 16 : 18,
                   fontWeight: FontWeight.w700,
                   height: 1.12,
                 ),

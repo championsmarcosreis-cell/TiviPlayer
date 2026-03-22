@@ -33,6 +33,7 @@ class VodStreamsScreen extends ConsumerWidget {
           ? 'Catálogo completo'
           : 'Seleção disponível',
       showBack: true,
+      showBrand: false,
       child: AsyncStateBuilder(
         value: streams,
         isEmpty: (items) => items.isEmpty,
@@ -48,8 +49,8 @@ class VodStreamsScreen extends ConsumerWidget {
                 final spacing = layout.cardSpacing;
                 final columns = layout.columnsForWidth(
                   constraints.maxWidth,
-                  minTileWidth: 290,
-                  maxColumns: 4,
+                  minTileWidth: 220,
+                  maxColumns: 6,
                 );
                 final itemWidth = layout.itemWidth(
                   constraints.maxWidth,
@@ -62,12 +63,6 @@ class VodStreamsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _VodHeroShelf(
-                        layout: layout,
-                        item: featured,
-                        totalItems: items.length,
-                      ),
-                      SizedBox(height: layout.cardSpacing),
                       _CatalogHeader(layout: layout, totalItems: items.length),
                       SizedBox(height: layout.cardSpacing),
                       Wrap(
@@ -331,9 +326,9 @@ class _CatalogHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: EdgeInsets.all(layout.isTv ? 18 : 14),
+      padding: EdgeInsets.all(layout.isTv ? 14 : 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 20 : 16),
+        borderRadius: BorderRadius.circular(layout.isTv ? 16 : 16),
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.32)),
       ),
@@ -357,7 +352,7 @@ class _CatalogHeader extends StatelessWidget {
             child: Text(
               'Todos os títulos • $totalItems disponíveis',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontSize: layout.isTv ? 24 : 18,
+                fontSize: layout.isTv ? 20 : 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -395,9 +390,9 @@ class _VodTvPosterCard extends StatelessWidget {
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -439,7 +434,7 @@ class _VodTvPosterCard extends StatelessWidget {
                   BrandedArtwork(
                     imageUrl: item.coverUrl,
                     aspectRatio: 2 / 3,
-                    borderRadius: 16,
+                    borderRadius: 12,
                     placeholderLabel: 'Poster indisponível',
                     icon: Icons.movie_creation_outlined,
                   ),
@@ -468,26 +463,28 @@ class _VodTvPosterCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 item.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                   height: 1.12,
                 ),
               ),
-              const SizedBox(height: 5),
-              Text(
-                hasRating ? 'Nota $rating' : 'Filme disponível no catálogo',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.76),
+              if (hasRating) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Nota $rating',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.76),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         );

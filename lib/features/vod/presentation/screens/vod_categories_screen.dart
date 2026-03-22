@@ -24,6 +24,7 @@ class VodCategoriesScreen extends ConsumerWidget {
       title: 'Filmes',
       subtitle: 'Escolha uma coleção para abrir o catálogo sob demanda.',
       showBack: true,
+      showBrand: false,
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,
@@ -53,40 +54,24 @@ class VodCategoriesScreen extends ConsumerWidget {
               final spacing = layout.cardSpacing;
               final columns = layout.columnsForWidth(
                 constraints.maxWidth,
-                minTileWidth: layout.isTv ? 330 : 280,
-                maxColumns: layout.isTv ? 3 : 2,
+                minTileWidth: layout.isTv ? 238 : 280,
+                maxColumns: layout.isTv ? 5 : 2,
               );
               final width = layout.itemWidth(
                 constraints.maxWidth,
                 columns: columns,
                 spacing: spacing,
               );
-              final heroNames = entries
-                  .skip(1)
-                  .map((item) => item.title)
-                  .take(layout.isTv ? 5 : 3)
-                  .join('  •  ');
 
               return SingleChildScrollView(
                 padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CategoryHubHero(
-                      layout: layout,
-                      totalItems: entries.length,
-                      title: 'Biblioteca VOD',
-                      subtitle:
-                          'Navegue por coleções no estilo hub, com foco otimizado para TV e fluxo rápido no mobile.',
-                      highlights: heroNames,
-                      icon: Icons.movie_creation_outlined,
-                    ),
-                    SizedBox(height: layout.sectionSpacing + 6),
                     _CategorySectionHeader(
                       layout: layout,
-                      title: 'Coleções disponíveis',
-                      subtitle:
-                          'Selecione uma categoria para abrir o catálogo.',
+                      title: 'Coleções',
+                      subtitle: '${entries.length} categorias disponíveis',
                     ),
                     SizedBox(height: layout.cardSpacing),
                     Wrap(
@@ -141,124 +126,6 @@ class _CategoryItem {
   final String id;
   final String title;
   final String description;
-}
-
-class _CategoryHubHero extends StatelessWidget {
-  const _CategoryHubHero({
-    required this.layout,
-    required this.totalItems,
-    required this.title,
-    required this.subtitle,
-    required this.highlights,
-    required this.icon,
-  });
-
-  final DeviceLayout layout;
-  final int totalItems;
-  final String title;
-  final String subtitle;
-  final String highlights;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      padding: EdgeInsets.all(layout.isTv ? 22 : 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 24 : 18),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF0E182C),
-            colorScheme.surfaceContainerHighest.withValues(alpha: 0.82),
-            const Color(0xFF17263E),
-          ],
-        ),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.38)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: layout.isTv ? 54 : 44,
-                height: layout.isTv ? 54 : 44,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: colorScheme.primary.withValues(alpha: 0.18),
-                ),
-                child: Icon(icon, color: colorScheme.primary),
-              ),
-              SizedBox(width: layout.isTv ? 12 : 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontSize: layout.isTv ? 34 : 26,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              _HeroStatChip(layout: layout, label: '$totalItems coleções'),
-            ],
-          ),
-          SizedBox(height: layout.isTv ? 10 : 8),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.84),
-            ),
-          ),
-          if (highlights.trim().isNotEmpty) ...[
-            SizedBox(height: layout.isTv ? 10 : 8),
-            Text(
-              highlights,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.72),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroStatChip extends StatelessWidget {
-  const _HeroStatChip({required this.layout, required this.label});
-
-  final DeviceLayout layout;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: layout.isTv ? 12 : 10,
-        vertical: layout.isTv ? 7 : 6,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.black.withValues(alpha: 0.35),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          letterSpacing: 0.7,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
 }
 
 class _CategorySectionHeader extends StatelessWidget {
@@ -333,7 +200,7 @@ class _CategoryTile extends StatelessWidget {
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: EdgeInsets.all(layout.isTv ? 18 : 14),
+          padding: EdgeInsets.all(layout.isTv ? 14 : 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),
             gradient: LinearGradient(
@@ -370,15 +237,15 @@ class _CategoryTile extends StatelessWidget {
                 : const [],
           ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: layout.isTv ? 170 : 146),
+            constraints: BoxConstraints(minHeight: layout.isTv ? 128 : 146),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: layout.isTv ? 50 : 42,
-                      height: layout.isTv ? 50 : 42,
+                      width: layout.isTv ? 42 : 42,
+                      height: layout.isTv ? 42 : 42,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         color: colorScheme.secondary.withValues(alpha: 0.18),
@@ -410,20 +277,20 @@ class _CategoryTile extends StatelessWidget {
                       ),
                   ],
                 ),
-                SizedBox(height: layout.isTv ? 18 : 14),
+                SizedBox(height: layout.isTv ? 12 : 14),
                 Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontSize: layout.isTv ? 28 : 22,
+                    fontSize: layout.isTv ? 22 : 22,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: layout.isTv ? 10 : 8),
+                SizedBox(height: layout.isTv ? 6 : 8),
                 Text(
                   description,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.82),

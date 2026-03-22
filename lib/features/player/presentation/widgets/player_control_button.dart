@@ -42,12 +42,16 @@ class PlayerControlButton extends StatelessWidget {
           PlayerControlButtonKind.primary => (
             background: focused
                 ? colorScheme.primary
-                : colorScheme.primary.withValues(alpha: 0.88),
-            iconColor: colorScheme.onPrimary,
-            textColor: colorScheme.onPrimary,
+                : Colors.white.withValues(alpha: 0.14),
+            iconColor: focused
+                ? colorScheme.onPrimary
+                : Colors.white.withValues(alpha: 0.92),
+            textColor: focused
+                ? colorScheme.onPrimary
+                : Colors.white.withValues(alpha: 0.92),
             borderColor: focused
-                ? colorScheme.secondary.withValues(alpha: 0.7)
-                : colorScheme.primary.withValues(alpha: 0.95),
+                ? Colors.white.withValues(alpha: 0.9)
+                : Colors.white.withValues(alpha: 0.24),
           ),
           PlayerControlButtonKind.secondary => (
             background: focused
@@ -88,16 +92,16 @@ class PlayerControlButton extends StatelessWidget {
             ),
             border: Border.all(
               color: palette.borderColor,
-              width: focused ? 2.2 : 1,
+              width: focused ? 2.8 : 1,
             ),
             boxShadow: focused
                 ? [
                     BoxShadow(
                       color: kind == PlayerControlButtonKind.primary
-                          ? colorScheme.primary.withValues(alpha: 0.36)
+                          ? colorScheme.primary.withValues(alpha: 0.5)
                           : Colors.black.withValues(alpha: 0.28),
-                      blurRadius: prominent ? 18 : 12,
-                      offset: Offset(0, prominent ? 7 : 5),
+                      blurRadius: prominent ? 22 : 14,
+                      offset: Offset(0, prominent ? 8 : 6),
                     ),
                   ]
                 : const [],

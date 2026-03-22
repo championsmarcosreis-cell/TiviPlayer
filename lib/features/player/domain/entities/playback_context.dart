@@ -6,6 +6,8 @@ class PlaybackContext {
     required this.itemId,
     required this.title,
     this.containerExtension,
+    this.artworkUrl,
+    this.resumePosition,
     this.notes,
   });
 
@@ -13,6 +15,8 @@ class PlaybackContext {
   final String itemId;
   final String title;
   final String? containerExtension;
+  final String? artworkUrl;
+  final Duration? resumePosition;
   final String? notes;
 
   bool get isLive => contentType == PlaybackContentType.live;

@@ -34,6 +34,7 @@ class LiveStreamsScreen extends ConsumerWidget {
           ? 'Todos os canais'
           : 'Grade selecionada',
       showBack: true,
+      showBrand: false,
       child: AsyncStateBuilder(
         value: streams,
         isEmpty: (items) => items.isEmpty,
@@ -49,8 +50,8 @@ class LiveStreamsScreen extends ConsumerWidget {
                 final spacing = layout.cardSpacing;
                 final columns = layout.columnsForWidth(
                   constraints.maxWidth,
-                  minTileWidth: 340,
-                  maxColumns: 3,
+                  minTileWidth: 260,
+                  maxColumns: 5,
                 );
                 final itemWidth = layout.itemWidth(
                   constraints.maxWidth,
@@ -63,13 +64,6 @@ class LiveStreamsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _LiveHeroShelf(
-                        layout: layout,
-                        item: featured,
-                        totalItems: items.length,
-                        onPlay: () => _openLivePlayer(context, featured),
-                      ),
-                      SizedBox(height: layout.cardSpacing),
                       _LiveCatalogHeader(
                         layout: layout,
                         totalItems: items.length,
@@ -195,6 +189,43 @@ class _LiveHeroShelf extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final image = BrandedArtwork.normalizeArtworkUrl(item.iconUrl);
+    final playButtonStyle = layout.isTv
+        ? ButtonStyle(
+            minimumSize: WidgetStatePropertyAll(Size(0, layout.isTv ? 60 : 52)),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
+                return const Color(0xFFFFF3E7);
+              }
+              if (states.contains(WidgetState.pressed)) {
+                return colorScheme.primary.withValues(alpha: 0.86);
+              }
+              return colorScheme.primary;
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
+                return const Color(0xFF161005);
+              }
+              return colorScheme.onPrimary;
+            }),
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
+                return BorderSide(color: colorScheme.secondary, width: 2.8);
+              }
+              return BorderSide(
+                color: colorScheme.primary.withValues(alpha: 0.9),
+              );
+            }),
+            elevation: WidgetStateProperty.resolveWith((states) {
+              return states.contains(WidgetState.focused) ? 11 : 2;
+            }),
+          )
+        : null;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -297,6 +328,7 @@ class _LiveHeroShelf extends StatelessWidget {
                         SizedBox(height: layout.isTv ? 14 : 10),
                         FilledButton.icon(
                           onPressed: onPlay,
+                          style: playButtonStyle,
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('Assistir agora'),
                         ),
@@ -397,7 +429,7 @@ class _LiveCatalogHeader extends StatelessWidget {
                 Text(
                   'Canais disponíveis • $totalItems',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: layout.isTv ? 24 : 18,
+                    fontSize: layout.isTv ? 21 : 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
