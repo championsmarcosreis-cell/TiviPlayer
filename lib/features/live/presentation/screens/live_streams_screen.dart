@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/tv/tv_focusable.dart';
 import '../../../../features/live/domain/entities/live_stream.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
@@ -44,6 +45,57 @@ class LiveStreamsScreen extends ConsumerWidget {
           return LayoutBuilder(
             builder: (context, constraints) {
               final layout = DeviceLayout.of(context, constraints: constraints);
+              if (layout.isTv) {
+                final spacing = layout.cardSpacing;
+                final columns = layout.columnsForWidth(
+                  constraints.maxWidth,
+                  minTileWidth: 340,
+                  maxColumns: 3,
+                );
+                final itemWidth = layout.itemWidth(
+                  constraints.maxWidth,
+                  columns: columns,
+                  spacing: spacing,
+                );
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _LiveHeroShelf(
+                        layout: layout,
+                        item: featured,
+                        totalItems: items.length,
+                        onPlay: () => _openLivePlayer(context, featured),
+                      ),
+                      SizedBox(height: layout.cardSpacing),
+                      _LiveCatalogHeader(
+                        layout: layout,
+                        totalItems: items.length,
+                      ),
+                      SizedBox(height: layout.cardSpacing),
+                      Wrap(
+                        spacing: spacing,
+                        runSpacing: spacing,
+                        children: [
+                          for (var index = 0; index < items.length; index++)
+                            SizedBox(
+                              width: itemWidth,
+                              child: _LiveTvChannelCard(
+                                layout: layout,
+                                item: items[index],
+                                autofocus: index == 0,
+                                onPressed: () =>
+                                    _openLivePlayer(context, items[index]),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }
 
               return ListView.separated(
                 padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
@@ -362,6 +414,133 @@ class _LiveCatalogHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LiveTvChannelCard extends StatelessWidget {
+  const _LiveTvChannelCard({
+    required this.layout,
+    required this.item,
+    required this.onPressed,
+    this.autofocus = false,
+  });
+
+  final DeviceLayout layout;
+  final LiveStream item;
+  final VoidCallback onPressed;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final subtitle = item.hasArchive ? 'Replay disponível' : 'Canal ao vivo';
+
+    return TvFocusable(
+      autofocus: autofocus,
+      onPressed: onPressed,
+      builder: (context, focused) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: focused
+                  ? [
+                      colorScheme.primary.withValues(alpha: 0.22),
+                      colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.92,
+                      ),
+                    ]
+                  : [
+                      colorScheme.surface.withValues(alpha: 0.9),
+                      colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.74,
+                      ),
+                    ],
+            ),
+            border: Border.all(
+              color: focused
+                  ? colorScheme.primary
+                  : colorScheme.outline.withValues(alpha: 0.44),
+              width: focused ? 2 : 1,
+            ),
+            boxShadow: focused
+                ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.2),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  BrandedArtwork(
+                    imageUrl: item.iconUrl,
+                    aspectRatio: 16 / 9,
+                    fit: BoxFit.contain,
+                    imagePadding: const EdgeInsets.all(16),
+                    borderRadius: 16,
+                    placeholderLabel: 'Canal',
+                    icon: Icons.live_tv_rounded,
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: item.hasArchive
+                            ? const Color(0xCC1FB7E7)
+                            : const Color(0xCCFF4A57),
+                      ),
+                      child: Text(
+                        item.hasArchive ? 'REPLAY' : 'LIVE',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                item.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  height: 1.12,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.76),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
