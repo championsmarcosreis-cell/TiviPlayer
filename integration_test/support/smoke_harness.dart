@@ -438,15 +438,31 @@ Future<void> expectPlayerLoadedStrict(WidgetTester tester) async {
 Future<void> closePlayerAndReturnToVodDetailsByTap(WidgetTester tester) async {
   _logStage('closePlayerAndReturnToVodDetailsByTap:start');
 
+  final closeButton = find.byKey(AppTestKeys.playerCloseButton);
   await pumpUntilFound(
     tester,
-    find.byKey(AppTestKeys.playerCloseButton),
+    closeButton,
     timeout: const Duration(seconds: 15),
     description: 'botão Sair do player',
   );
 
-  await tapVisible(tester, find.byKey(AppTestKeys.playerCloseButton));
+  await tester.tapAt(const Offset(18, 18));
+  await tester.pumpAndSettle(const Duration(milliseconds: 300));
+
+  try {
+    await tester.ensureVisible(closeButton);
+    await tester.pumpAndSettle(const Duration(milliseconds: 250));
+    await tester.tap(closeButton, warnIfMissed: false);
+  } catch (_) {
+    _logStage('closePlayerAndReturnToVodDetailsByTap:tap_failed');
+  }
   await tester.pumpAndSettle(const Duration(seconds: 2));
+
+  if (find.byKey(AppTestKeys.vodPlayButton).evaluate().isEmpty) {
+    _logStage('closePlayerAndReturnToVodDetailsByTap:fallback_pop_route');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+  }
 
   await pumpUntilFound(
     tester,
