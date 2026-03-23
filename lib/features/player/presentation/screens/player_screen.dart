@@ -670,6 +670,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       tracks: tracks,
       currentSelection: _selectedAudioTrack ?? tracks.first,
       allowOff: false,
+      helperText:
+          'Selecao de faixa ainda nao e aplicada diretamente no stream nesta versao.',
     );
     if (!mounted || selected == null) {
       return;
@@ -677,7 +679,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     setState(() {
       _selectedAudioTrack = selected;
     });
-    _showInteractionMessage('Audio: $selected');
+    _showInteractionMessage('Audio marcado: $selected');
   }
 
   Future<void> _selectSubtitleTrack() async {
@@ -692,6 +694,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       tracks: tracks,
       currentSelection: _selectedSubtitleTrack,
       allowOff: true,
+      helperText:
+          'Selecao de faixa ainda nao e aplicada diretamente no stream nesta versao.',
     );
     if (!mounted || selected == null) {
       return;
@@ -702,7 +706,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _showInteractionMessage(
       selected == _offTrackLabel
           ? 'Legendas desativadas'
-          : 'Legenda: $selected',
+          : 'Legenda marcada: $selected',
     );
   }
 
@@ -711,6 +715,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     required List<String> tracks,
     required String? currentSelection,
     required bool allowOff,
+    String? helperText,
   }) async {
     return showModalBottomSheet<String>(
       context: context,
@@ -736,6 +741,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (helperText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    helperText,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 for (final option in options)
                   ListTile(

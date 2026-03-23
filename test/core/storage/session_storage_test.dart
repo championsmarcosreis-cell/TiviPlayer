@@ -23,7 +23,7 @@ void main() {
     expect(preferences.getString('session.password'), isNull);
   });
 
-  test('não grava fallback em SharedPreferences quando secure falha', () async {
+  test('grava fallback em SharedPreferences quando secure falha', () async {
     final preferences = await _preferencesWith({});
     final secureStore = _FakeSecureSessionStore(throwOnWrite: true);
     final storage = SessionStorage(preferences, secureStore);
@@ -36,10 +36,10 @@ void main() {
       ),
     );
 
-    expect(preferences.getString('session.payload'), isNull);
-    expect(preferences.getString('session.baseUrl'), isNull);
-    expect(preferences.getString('session.username'), isNull);
-    expect(preferences.getString('session.password'), isNull);
+    expect(preferences.getString('session.payload'), isNotNull);
+    expect(preferences.getString('session.baseUrl'), 'http://example.com');
+    expect(preferences.getString('session.username'), 'sergio');
+    expect(preferences.getString('session.password'), '123456');
     expect(secureStore.values, isEmpty);
   });
 

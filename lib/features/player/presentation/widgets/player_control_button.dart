@@ -120,14 +120,20 @@ class PlayerControlButton extends StatelessWidget {
                     : (layout.isTv ? 27 : 21),
               ),
               SizedBox(width: layout.isTv ? 10 : 8),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: palette.textColor,
-                  fontSize: prominent
-                      ? (layout.isTv ? 20 : 16)
-                      : (layout.isTv ? 18 : 14.5),
-                  fontWeight: FontWeight.w700,
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: layout.isTv ? 260 : 156),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: palette.textColor,
+                    fontSize: prominent
+                        ? (layout.isTv ? 20 : 16)
+                        : (layout.isTv ? 18 : 14.5),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],

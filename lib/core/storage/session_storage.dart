@@ -63,7 +63,12 @@ class SessionStorage {
     final writtenSecurely = await _writeSecurePayload(session);
     if (writtenSecurely) {
       await _clearLegacyPayload();
+      return;
     }
+
+    // Fallback defensivo: mantém sessão funcional quando o secure storage
+    // não está disponível no device/bridge.
+    await _writeLegacyPayload(session);
   }
 
   Future<void> clear() async {
@@ -133,6 +138,16 @@ class SessionStorage {
     await _preferences.remove(_baseUrlKey);
     await _preferences.remove(_usernameKey);
     await _preferences.remove(_passwordKey);
+  }
+
+  Future<void> _writeLegacyPayload(SavedSessionData session) async {
+    await _preferences.setString(
+      _sessionPayloadKey,
+      jsonEncode(session.toJson()),
+    );
+    await _preferences.setString(_baseUrlKey, session.baseUrl);
+    await _preferences.setString(_usernameKey, session.username);
+    await _preferences.setString(_passwordKey, session.password);
   }
 
   SavedSessionData? _decodePayload(String? payload) {
