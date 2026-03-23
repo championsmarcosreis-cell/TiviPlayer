@@ -1,5 +1,6 @@
 import '../../../auth/domain/entities/xtream_session.dart';
 import '../../domain/entities/live_category.dart';
+import '../../domain/entities/live_epg_entry.dart';
 import '../../domain/entities/live_stream.dart';
 import '../../domain/repositories/live_repository.dart';
 import '../datasources/live_remote_data_source.dart';
@@ -47,6 +48,30 @@ class LiveRepositoryImpl implements LiveRepository {
             epgChannelId: item.epgChannelId,
             hasArchive: item.tvArchive,
             isAdult: item.isAdult,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<LiveEpgEntry>> getShortEpg(
+    XtreamSession session, {
+    required String streamId,
+    int limit = 3,
+  }) async {
+    final items = await _remoteDataSource.getShortEpg(
+      session,
+      streamId: streamId,
+      limit: limit,
+    );
+
+    return items
+        .map(
+          (item) => LiveEpgEntry(
+            title: item.title,
+            startAt: item.startAt,
+            endAt: item.endAt,
+            description: item.description,
           ),
         )
         .toList();

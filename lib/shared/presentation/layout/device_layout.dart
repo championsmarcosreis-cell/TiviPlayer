@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'interface_mode_scope.dart';
+
 enum DeviceClass { mobilePortrait, mobileLandscape, tablet, tvCompact, tvLarge }
 
 class DeviceLayout {
@@ -15,13 +17,36 @@ class DeviceLayout {
   factory DeviceLayout.of(BuildContext context, {BoxConstraints? constraints}) {
     final mediaQuery = MediaQuery.of(context);
     final navigationMode = MediaQuery.navigationModeOf(context);
-    final resolvedWidth = constraints?.maxWidth ?? mediaQuery.size.width;
-    final resolvedHeight = constraints?.maxHeight ?? mediaQuery.size.height;
-    final shortestSide = math.min(resolvedWidth, resolvedHeight);
+    final viewportWidth = mediaQuery.size.width;
+    final viewportHeight = mediaQuery.size.height;
+    final constrainedWidth = constraints?.maxWidth ?? viewportWidth;
+    final constrainedHeight = constraints?.maxHeight ?? viewportHeight;
+    final resolvedWidth = constrainedWidth.isFinite
+        ? constrainedWidth
+        : viewportWidth;
+    final resolvedHeight = constrainedHeight.isFinite
+        ? constrainedHeight
+        : viewportHeight;
+    final longestSide = math.max(viewportWidth, viewportHeight);
+    final shortestSide = math.min(viewportWidth, viewportHeight);
     final directionalNavigation = navigationMode == NavigationMode.directional;
-    final isTv = directionalNavigation && shortestSide >= 480;
+    final interfaceMode = InterfaceModeScope.maybeOf(context);
+    final hdTvFallback =
+        viewportWidth > viewportHeight &&
+        longestSide >= 900 &&
+        shortestSide >= 500;
+    final largeScreenTvFallback = longestSide >= 1500 && shortestSide >= 850;
+    final autoTv =
+        (directionalNavigation && shortestSide >= 480) ||
+        hdTvFallback ||
+        largeScreenTvFallback;
+    final isTv = switch (interfaceMode) {
+      InterfaceMode.tv => true,
+      InterfaceMode.mobile => false,
+      InterfaceMode.auto => autoTv,
+    };
 
-    final deviceClass = switch ((isTv, resolvedWidth, resolvedHeight)) {
+    final deviceClass = switch ((isTv, viewportWidth, viewportHeight)) {
       (true, < 1280, _) => DeviceClass.tvCompact,
       (true, _, _) => DeviceClass.tvLarge,
       (false, < 680, >= 680) => DeviceClass.mobilePortrait,

@@ -4,13 +4,13 @@ class AppTheme {
   const AppTheme._();
 
   static ThemeData dark() {
-    const background = Color(0xFF070B11);
-    const surface = Color(0xFF101825);
-    const surfaceContainer = Color(0xFF172133);
-    const outline = Color(0xFF314157);
+    const background = Color(0xFF070C14);
+    const surface = Color(0xFF121B2A);
+    const surfaceContainer = Color(0xFF1A273B);
+    const outline = Color(0xFF3A4A62);
     const primary = Color(0xFFFF6A1A);
     const secondary = Color(0xFF16C7FF);
-    const tertiary = Color(0xFFE33DFF);
+    const tertiary = Color(0xFF4BD38A);
 
     final colorScheme = const ColorScheme.dark(
       primary: primary,
@@ -18,7 +18,7 @@ class AppTheme {
       tertiary: tertiary,
       surface: surface,
       surfaceContainer: surfaceContainer,
-      surfaceContainerHighest: Color(0xFF202D42),
+      surfaceContainerHighest: Color(0xFF22324A),
       error: Color(0xFFFF5D73),
       onPrimary: Colors.black,
       onSecondary: Colors.black,
@@ -35,12 +35,12 @@ class AppTheme {
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 38,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.8,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.9,
         ),
         headlineMedium: TextStyle(
           fontSize: 32,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           letterSpacing: -0.5,
         ),
         titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
@@ -75,7 +75,7 @@ class AppTheme {
         color: surface,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -90,7 +90,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 52),
-          side: const BorderSide(color: outline),
+          side: const BorderSide(color: outline, width: 1.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),

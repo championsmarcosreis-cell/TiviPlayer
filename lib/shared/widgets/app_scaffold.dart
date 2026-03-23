@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../presentation/layout/device_layout.dart';
+import '../../core/tv/tv_focusable.dart';
 import 'brand_logo.dart';
 
 class AppScaffold extends StatelessWidget {
@@ -13,6 +14,8 @@ class AppScaffold extends StatelessWidget {
     this.actions = const [],
     this.showBack = false,
     this.onBack,
+    this.decoratedHeader = true,
+    this.showBrand = true,
   });
 
   final String title;
@@ -21,6 +24,8 @@ class AppScaffold extends StatelessWidget {
   final List<Widget> actions;
   final bool showBack;
   final VoidCallback? onBack;
+  final bool decoratedHeader;
+  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +33,7 @@ class AppScaffold extends StatelessWidget {
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF05080D), Color(0xFF0A1120), Color(0xFF05080D)],
+            colors: [Color(0xFF03060D), Color(0xFF0A1321), Color(0xFF060B13)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -36,21 +41,22 @@ class AppScaffold extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              top: -140,
-              right: -120,
+              top: -210,
+              right: -180,
               child: _GlowOrb(
-                size: 320,
-                colors: const [Color(0x33FF6A1A), Color(0x00FF6A1A)],
+                size: 460,
+                colors: const [Color(0x26FF6A1A), Color(0x00FF6A1A)],
               ),
             ),
             Positioned(
-              bottom: -180,
-              left: -120,
+              bottom: -260,
+              left: -150,
               child: _GlowOrb(
-                size: 360,
-                colors: const [Color(0x3316C7FF), Color(0x00E33DFF)],
+                size: 520,
+                colors: const [Color(0x1E16C7FF), Color(0x00E33DFF)],
               ),
             ),
+            const Positioned.fill(child: _ScaffoldTexture()),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -77,8 +83,10 @@ class AppScaffold extends StatelessWidget {
                           showBack: showBack,
                           onBack: onBack,
                           layout: layout,
+                          decoratedHeader: decoratedHeader,
+                          showBrand: showBrand,
                         ),
-                        SizedBox(height: layout.sectionSpacing + 6),
+                        SizedBox(height: layout.sectionSpacing + 4),
                         Expanded(
                           child: Align(
                             alignment: Alignment.topCenter,
@@ -111,6 +119,8 @@ class _AppScaffoldHeader extends StatelessWidget {
     required this.showBack,
     required this.onBack,
     required this.layout,
+    required this.decoratedHeader,
+    required this.showBrand,
   });
 
   final String title;
@@ -119,110 +129,114 @@ class _AppScaffoldHeader extends StatelessWidget {
   final bool showBack;
   final VoidCallback? onBack;
   final DeviceLayout layout;
+  final bool decoratedHeader;
+  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final iconSize = layout.headerIconContainer;
     final isWide = layout.isTv || layout.width >= 940;
+    final onBackPressed =
+        onBack ??
+        () {
+          if (context.canPop()) {
+            context.pop();
+          }
+        };
 
-    final backButton = showBack
-        ? Padding(
-            padding: EdgeInsets.only(
-              right: layout.isMobilePortrait ? 8 : 12,
-              top: 2,
-            ),
-            child: IconButton.filledTonal(
-              onPressed:
-                  onBack ??
-                  () {
-                    if (context.canPop()) {
-                      context.pop();
-                    }
-                  },
-              padding: EdgeInsets.all(layout.isTv ? 16 : 12),
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-          )
-        : const SizedBox.shrink();
-
-    final titleBlock = Row(
+    final titleContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        backButton,
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: iconSize,
-                height: iconSize,
-                padding: EdgeInsets.all(layout.isTv ? 10 : 8),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.82,
-                  ),
-                  borderRadius: BorderRadius.circular(layout.isTv ? 20 : 16),
-                  border: Border.all(
-                    color: colorScheme.outline.withValues(alpha: 0.55),
-                  ),
-                ),
-                child: const BrandLogo(
-                  variant: BrandLogoVariant.icon,
-                  width: 32,
-                  height: 32,
-                ),
-              ),
-              SizedBox(width: layout.isMobilePortrait ? 12 : 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          (layout.isMobilePortrait
-                                  ? Theme.of(context).textTheme.headlineMedium
-                                  : Theme.of(context).textTheme.headlineLarge)
-                              ?.copyWith(
-                                fontSize: switch (layout.deviceClass) {
-                                  DeviceClass.mobilePortrait => 30,
-                                  DeviceClass.mobileLandscape => 34,
-                                  DeviceClass.tablet => 36,
-                                  DeviceClass.tvCompact => 40,
-                                  DeviceClass.tvLarge => 44,
-                                },
-                                height: 1.05,
-                              ),
-                    ),
-                    if (subtitle != null) ...[
-                      SizedBox(height: layout.isTv ? 8 : 6),
-                      Text(
-                        subtitle!,
-                        maxLines: layout.isMobilePortrait ? 3 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.84),
-                          fontSize: switch (layout.deviceClass) {
-                            DeviceClass.mobilePortrait => 14,
-                            DeviceClass.mobileLandscape => 15,
-                            DeviceClass.tablet => 16,
-                            DeviceClass.tvCompact => 18,
-                            DeviceClass.tvLarge => 19,
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+        if (showBrand) ...[
+          BrandWordmark(
+            height: layout.isTv ? 38 : 34,
+            compact: !layout.isTv,
+            showTagline: false,
           ),
+          SizedBox(height: layout.isTv ? 10 : 10),
+        ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showBack)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _HeaderBackButton(
+                  layout: layout,
+                  onPressed: onBackPressed,
+                ),
+              ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        (layout.isMobilePortrait
+                                ? Theme.of(context).textTheme.headlineMedium
+                                : Theme.of(context).textTheme.headlineLarge)
+                            ?.copyWith(
+                              fontSize: switch (layout.deviceClass) {
+                                DeviceClass.mobilePortrait => 30,
+                                DeviceClass.mobileLandscape => 34,
+                                DeviceClass.tablet => 36,
+                                DeviceClass.tvCompact => 40,
+                                DeviceClass.tvLarge => 44,
+                              },
+                              height: 1.02,
+                            ),
+                  ),
+                  if (subtitle != null) ...[
+                    SizedBox(height: layout.isTv ? 8 : 6),
+                    Text(
+                      subtitle!,
+                      maxLines: layout.isMobilePortrait ? 3 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.82),
+                        fontSize: switch (layout.deviceClass) {
+                          DeviceClass.mobilePortrait => 14,
+                          DeviceClass.mobileLandscape => 15,
+                          DeviceClass.tablet => 16,
+                          DeviceClass.tvCompact => 18,
+                          DeviceClass.tvLarge => 19,
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
+
+    final titleBlock = decoratedHeader
+        ? Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.isTv ? 18 : 14,
+              vertical: layout.isTv ? 14 : 12,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),
+              color: colorScheme.surface.withValues(alpha: 0.68),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.38),
+              ),
+            ),
+            child: titleContent,
+          )
+        : Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.isTv ? 4 : 0,
+              vertical: layout.isTv ? 4 : 0,
+            ),
+            child: titleContent,
+          );
 
     if (actions.isEmpty) {
       return titleBlock;
@@ -255,6 +269,66 @@ class _AppScaffoldHeader extends StatelessWidget {
   }
 }
 
+class _HeaderBackButton extends StatelessWidget {
+  const _HeaderBackButton({required this.layout, required this.onPressed});
+
+  final DeviceLayout layout;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (!layout.isTv) {
+      return IconButton.filledTonal(
+        onPressed: onPressed,
+        padding: EdgeInsets.all(layout.isTv ? 15 : 11),
+        icon: const Icon(Icons.arrow_back_rounded),
+      );
+    }
+
+    return SizedBox(
+      width: 74,
+      height: 74,
+      child: TvFocusable(
+        autofocus: false,
+        onPressed: onPressed,
+        builder: (context, focused) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: focused
+                  ? const Color(0xFFFFF3E7)
+                  : colorScheme.primary.withValues(alpha: 0.2),
+              border: Border.all(
+                color: focused
+                    ? colorScheme.secondary
+                    : colorScheme.primary.withValues(alpha: 0.55),
+                width: focused ? 3 : 1.4,
+              ),
+              boxShadow: focused
+                  ? [
+                      BoxShadow(
+                        color: colorScheme.secondary.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              size: 36,
+              color: focused ? const Color(0xFF161005) : colorScheme.primary,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _GlowOrb extends StatelessWidget {
   const _GlowOrb({required this.size, required this.colors});
 
@@ -274,4 +348,50 @@ class _GlowOrb extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ScaffoldTexture extends StatelessWidget {
+  const _ScaffoldTexture();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Opacity(
+        opacity: 0.22,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.02),
+                Colors.transparent,
+                Colors.white.withValues(alpha: 0.015),
+              ],
+              stops: const [0, 0.45, 1],
+            ),
+          ),
+          child: CustomPaint(painter: _TexturePainter()),
+        ),
+      ),
+    );
+  }
+}
+
+class _TexturePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = Colors.white.withValues(alpha: 0.035)
+      ..strokeWidth = 1;
+
+    for (var index = 0; index < 18; index++) {
+      final y = (size.height / 18) * index;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y + 22), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

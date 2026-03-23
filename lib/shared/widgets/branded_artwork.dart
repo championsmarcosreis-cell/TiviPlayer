@@ -52,6 +52,7 @@ class BrandedArtwork extends StatelessWidget {
               : Image.network(
                   normalizedUrl,
                   fit: fit,
+                  headers: const {'Accept-Encoding': 'identity'},
                   filterQuality: FilterQuality.medium,
                   frameBuilder:
                       (context, child, frame, wasSynchronouslyLoaded) {
@@ -163,39 +164,50 @@ class _ArtworkFallback extends StatelessWidget {
               ),
               Padding(
                 padding: EdgeInsets.all(contentPadding),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    BrandLogo(
-                      variant: BrandLogoVariant.icon,
-                      width: logoSize,
-                      height: logoSize,
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: compact ? 80 : 150),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          BrandLogo(
+                            variant: BrandLogoVariant.icon,
+                            width: logoSize,
+                            height: logoSize,
+                          ),
+                          if (showLabel) ...[
+                            SizedBox(height: labelSpacing),
+                            Text(
+                              label ?? 'Imagem indisponível',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.72,
+                                    ),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                          if (loading) ...[
+                            SizedBox(height: loadingSpacing),
+                            SizedBox(
+                              width: compact ? 18 : 24,
+                              height: compact ? 18 : 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: compact ? 2 : 2.4,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                    if (showLabel) ...[
-                      SizedBox(height: labelSpacing),
-                      Text(
-                        label ?? 'Imagem indisponível',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    if (loading) ...[
-                      SizedBox(height: loadingSpacing),
-                      SizedBox(
-                        width: compact ? 18 : 24,
-                        height: compact ? 18 : 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: compact ? 2 : 2.4,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ],

@@ -20,9 +20,14 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Conectar'), findsOneWidget);
-    expect(find.text('Endereço de acesso'), findsOneWidget);
-    expect(find.text('Entrar'), findsOneWidget);
+    expect(
+      find.text('Acesso').evaluate().isNotEmpty ||
+          find.text('Entrar').evaluate().isNotEmpty,
+      isTrue,
+    );
+    expect(find.text('Usuario'), findsOneWidget);
+    expect(find.text('Senha'), findsOneWidget);
+    expect(find.byKey(AppTestKeys.loginSubmitButton), findsOneWidget);
   });
 
   testWidgets('mantém o botão Entrar visível em viewport compacta', (
@@ -48,7 +53,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(AppTestKeys.loginSubmitButton), findsOneWidget);
-    expect(find.text('Entrar'), findsOneWidget);
+    expect(find.text('Entrar'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

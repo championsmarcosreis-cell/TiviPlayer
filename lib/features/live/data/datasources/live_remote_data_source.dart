@@ -4,6 +4,7 @@ import '../../../../core/network/xtream_client.dart';
 import '../../../../core/network/xtream_parsers.dart';
 import '../../../auth/domain/entities/xtream_session.dart';
 import '../models/live_category_dto.dart';
+import '../models/live_epg_dto.dart';
 import '../models/live_stream_dto.dart';
 
 class LiveRemoteDataSource {
@@ -43,5 +44,21 @@ class LiveRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         .map(LiveStreamDto.fromApi)
         .toList();
+  }
+
+  Future<List<LiveEpgDto>> getShortEpg(
+    XtreamSession session, {
+    required String streamId,
+    int limit = 3,
+  }) async {
+    final payload = await _client.fetchObject(
+      baseUrl: session.credentials.normalizedBaseUrl,
+      username: session.credentials.username,
+      password: session.credentials.password,
+      action: 'get_short_epg',
+      query: {'stream_id': streamId, 'limit': limit},
+    );
+
+    return LiveEpgDto.fromApi(payload);
   }
 }

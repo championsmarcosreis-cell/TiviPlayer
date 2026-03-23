@@ -10,6 +10,7 @@ class TvFocusable extends StatefulWidget {
     this.focusNode,
     this.testId,
     this.interactiveKey,
+    this.onFocusChanged,
   });
 
   final Widget Function(BuildContext context, bool focused) builder;
@@ -18,6 +19,7 @@ class TvFocusable extends StatefulWidget {
   final FocusNode? focusNode;
   final String? testId;
   final Key? interactiveKey;
+  final ValueChanged<bool>? onFocusChanged;
 
   @override
   State<TvFocusable> createState() => _TvFocusableState();
@@ -79,7 +81,7 @@ class _TvFocusableState extends State<TvFocusable> {
   Widget build(BuildContext context) {
     final usesDirectionalNavigation =
         MediaQuery.navigationModeOf(context) == NavigationMode.directional;
-    final focusedScale = usesDirectionalNavigation ? 1.028 : 1.01;
+    final focusedScale = usesDirectionalNavigation ? 1.014 : 1.008;
 
     return FocusableActionDetector(
       autofocus: widget.autofocus,
@@ -94,6 +96,7 @@ class _TvFocusableState extends State<TvFocusable> {
             _focused = focused;
           });
         }
+        widget.onFocusChanged?.call(focused);
       },
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),

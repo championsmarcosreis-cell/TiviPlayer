@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/tv/tv_focusable.dart';
 import '../../../../shared/presentation/screens/home_screen.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
-import '../../../../shared/widgets/section_card.dart';
 import '../providers/live_providers.dart';
 import 'live_streams_screen.dart';
 
@@ -32,6 +32,7 @@ class _LiveCategoriesView extends ConsumerWidget {
       title: 'Ao vivo',
       subtitle: 'Escolha uma categoria para abrir os canais disponíveis.',
       showBack: true,
+      showBrand: false,
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,
@@ -61,33 +62,70 @@ class _LiveCategoriesView extends ConsumerWidget {
               final spacing = layout.cardSpacing;
               final columns = layout.columnsForWidth(
                 constraints.maxWidth,
-                minTileWidth: layout.isTv ? 330 : 280,
-                maxColumns: layout.isTv ? 3 : 2,
+                minTileWidth: layout.isTv ? 238 : 280,
+                maxColumns: layout.isTv ? 5 : 2,
               );
               final width = layout.itemWidth(
                 constraints.maxWidth,
                 columns: columns,
                 spacing: spacing,
               );
+              final heroNames = entries
+                  .skip(1)
+                  .map((item) => item.title)
+                  .take(layout.isTv ? 5 : 3)
+                  .join('  •  ');
 
               return SingleChildScrollView(
-                child: Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
+                padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (var index = 0; index < entries.length; index++)
-                      SizedBox(
-                        width: width,
-                        child: SectionCard(
-                          autofocus: index == 0,
-                          title: entries[index].title,
-                          description: entries[index].description,
-                          icon: Icons.folder_open_rounded,
-                          onPressed: () => context.push(
-                            LiveStreamsScreen.buildLocation(entries[index].id),
-                          ),
-                        ),
+                    if (!layout.isTv) ...[
+                      _CategoryHubHero(
+                        layout: layout,
+                        totalItems: entries.length,
+                        title: 'Guia Live TV',
+                        subtitle:
+                            'Abra a grade ao vivo com foco rápido para controle remoto e navegação fluida no mobile.',
+                        highlights: heroNames,
+                        icon: Icons.live_tv_rounded,
                       ),
+                      SizedBox(height: layout.sectionSpacing + 6),
+                    ],
+                    _CategorySectionHeader(
+                      layout: layout,
+                      title: 'Categorias ao vivo',
+                      subtitle: layout.isTv
+                          ? '${entries.length} categorias disponíveis'
+                          : 'Escolha uma categoria para abrir os canais.',
+                    ),
+                    SizedBox(height: layout.cardSpacing),
+                    Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        for (var index = 0; index < entries.length; index++)
+                          SizedBox(
+                            width: width,
+                            child: _CategoryTile(
+                              layout: layout,
+                              autofocus: index == 0,
+                              title: entries[index].title,
+                              description: entries[index].description,
+                              icon: Icons.live_tv_rounded,
+                              badge: entries[index].id == 'all'
+                                  ? 'GRADE'
+                                  : null,
+                              onPressed: () => context.push(
+                                LiveStreamsScreen.buildLocation(
+                                  entries[index].id,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               );
@@ -109,4 +147,295 @@ class _CategoryItem {
   final String id;
   final String title;
   final String description;
+}
+
+class _CategoryHubHero extends StatelessWidget {
+  const _CategoryHubHero({
+    required this.layout,
+    required this.totalItems,
+    required this.title,
+    required this.subtitle,
+    required this.highlights,
+    required this.icon,
+  });
+
+  final DeviceLayout layout;
+  final int totalItems;
+  final String title;
+  final String subtitle;
+  final String highlights;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      padding: EdgeInsets.all(layout.isTv ? 22 : 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(layout.isTv ? 24 : 18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF0A1528),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.82),
+            const Color(0xFF10253C),
+          ],
+        ),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.38)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: layout.isTv ? 54 : 44,
+                height: layout.isTv ? 54 : 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: colorScheme.secondary.withValues(alpha: 0.18),
+                ),
+                child: Icon(icon, color: colorScheme.secondary),
+              ),
+              SizedBox(width: layout.isTv ? 12 : 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontSize: layout.isTv ? 34 : 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _HeroStatChip(layout: layout, label: '$totalItems categorias'),
+            ],
+          ),
+          SizedBox(height: layout.isTv ? 10 : 8),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.84),
+            ),
+          ),
+          if (highlights.trim().isNotEmpty) ...[
+            SizedBox(height: layout.isTv ? 10 : 8),
+            Text(
+              highlights,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStatChip extends StatelessWidget {
+  const _HeroStatChip({required this.layout, required this.label});
+
+  final DeviceLayout layout;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.isTv ? 12 : 10,
+        vertical: layout.isTv ? 7 : 6,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.black.withValues(alpha: 0.35),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          letterSpacing: 0.7,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySectionHeader extends StatelessWidget {
+  const _CategorySectionHeader({
+    required this.layout,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final DeviceLayout layout;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontSize: layout.isTv ? 30 : 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        SizedBox(height: layout.isTv ? 4 : 2),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.75),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.layout,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.onPressed,
+    this.badge,
+    this.autofocus = false,
+  });
+
+  final DeviceLayout layout;
+  final String title;
+  final String description;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? badge;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return TvFocusable(
+      autofocus: autofocus,
+      onPressed: onPressed,
+      builder: (context, focused) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: EdgeInsets.all(layout.isTv ? 14 : 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: focused
+                  ? [
+                      colorScheme.secondary.withValues(alpha: 0.2),
+                      colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.92,
+                      ),
+                    ]
+                  : [
+                      colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.78,
+                      ),
+                      colorScheme.surface.withValues(alpha: 0.92),
+                    ],
+            ),
+            border: Border.all(
+              color: focused
+                  ? colorScheme.secondary
+                  : colorScheme.outline.withValues(alpha: 0.52),
+              width: focused ? 2 : 1,
+            ),
+            boxShadow: focused
+                ? [
+                    BoxShadow(
+                      color: colorScheme.secondary.withValues(alpha: 0.18),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: layout.isTv ? 128 : 146),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: layout.isTv ? 42 : 42,
+                      height: layout.isTv ? 42 : 42,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: colorScheme.primary.withValues(alpha: 0.18),
+                      ),
+                      child: Icon(icon, color: colorScheme.primary),
+                    ),
+                    const Spacer(),
+                    if (badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: colorScheme.secondary.withValues(alpha: 0.16),
+                          border: Border.all(
+                            color: colorScheme.secondary.withValues(
+                              alpha: 0.42,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                letterSpacing: 0.7,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(height: layout.isTv ? 12 : 14),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontSize: layout.isTv ? 22 : 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: layout.isTv ? 6 : 8),
+                Text(
+                  description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.82),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

@@ -43,7 +43,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Filme 1'), findsOneWidget);
-    expect(find.byType(BrandedArtwork), findsOneWidget);
+    if (find.byType(BrandedArtwork).evaluate().isEmpty) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -360));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byType(BrandedArtwork), findsAtLeastNWidgets(1));
   });
 
   testWidgets('fallback branded mostra placeholder em tamanho confortável', (

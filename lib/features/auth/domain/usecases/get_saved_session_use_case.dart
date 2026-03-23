@@ -6,5 +6,5 @@ class GetSavedSessionUseCase {
 
   final AuthRepository _repository;
 
-  XtreamSession? call() => _repository.readSavedSession();
+  Future<XtreamSession?> call() async => _repository.readSavedSession();
 }

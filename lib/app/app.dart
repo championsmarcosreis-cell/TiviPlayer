@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../shared/presentation/controllers/interface_mode_controller.dart';
+import '../shared/presentation/layout/interface_mode_scope.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -9,11 +11,16 @@ class TiviPlayerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp.router(
-      title: 'TiviPlayer',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
-      routerConfig: ref.watch(appRouterProvider),
+    final interfaceMode = ref.watch(interfaceModeControllerProvider);
+
+    return InterfaceModeScope(
+      mode: interfaceMode,
+      child: MaterialApp.router(
+        title: 'TiviPlayer',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.dark(),
+        routerConfig: ref.watch(appRouterProvider),
+      ),
     );
   }
 }

@@ -47,8 +47,8 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  XtreamSession? readSavedSession() {
-    final saved = _sessionStorage.load();
+  Future<XtreamSession?> readSavedSession() async {
+    final saved = await _sessionStorage.load();
 
     if (saved == null ||
         saved.baseUrl.trim().isEmpty ||

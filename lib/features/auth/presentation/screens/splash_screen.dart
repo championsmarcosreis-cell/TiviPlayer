@@ -66,7 +66,11 @@ class SplashScreen extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      BrandLogo(width: layout.isTv ? 280 : 220),
+                      BrandWordmark(
+                        height: layout.isTv ? 84 : 60,
+                        compact: !layout.isTv,
+                        showTagline: layout.isTv,
+                      ),
                       SizedBox(height: layout.sectionSpacing + 10),
                       const CircularProgressIndicator(),
                       SizedBox(height: layout.sectionSpacing + 4),
