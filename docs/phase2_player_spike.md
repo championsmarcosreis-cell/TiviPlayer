@@ -47,6 +47,11 @@ Plataforma alvo:
 - áudio/legenda deixam de depender de parsing local em `player_screen`
 - qualidade marcada na UI passa a usar lista estruturada de variantes
 
+6. Adapter inicial integrado:
+- interface `PlayerEngineAdapter` criada
+- implementação atual `VideoPlayerEngineAdapter` plugada por provider
+- `PlayerScreen` agora aplica seleções via adapter (resultado de runtime)
+
 ## Limites atuais (intencionais)
 
 - troca de áudio/legenda/qualidade ainda não é aplicada no stream em runtime
@@ -55,12 +60,10 @@ Plataforma alvo:
 
 ## Próximos incrementos (ordem recomendada)
 
-1. Criar interface `PlayerEngineAdapter` no domínio/apresentação.
-2. Implementar adapter Media3 com API de:
+1. Implementar adapter Media3 com API de:
 `setAudioTrack`, `setSubtitleTrack`, `setQualityVariant`, `setAutoQuality`.
-3. Conectar o adapter ao `PlayerScreen` por provider.
-4. Implementar classificação de erros/reconexão para live (rede, timeout, stream offline).
-5. Fechar suíte real em device:
+2. Implementar classificação de erros/reconexão para live (rede, timeout, stream offline).
+3. Fechar suíte real em device:
 - 30 minutos live estável
 - seek repetido em VOD sem travar
 - troca de faixa sem reinício completo quando suportado

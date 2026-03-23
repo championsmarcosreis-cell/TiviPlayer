@@ -14,6 +14,7 @@ import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/playback_history_entry.dart';
 import '../controllers/playback_history_controller.dart';
 import '../../domain/entities/playback_context.dart';
+import '../../domain/engine/player_engine_adapter.dart';
 import '../../domain/entities/playback_manifest.dart';
 import '../../domain/entities/player_recovery_policy.dart';
 import '../../domain/entities/resolved_playback.dart';
@@ -81,6 +82,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   String? _selectedSubtitleTrack;
   String? _selectedQualityProfile;
   late final PlaybackHistoryController _playbackHistoryController;
+  late final PlayerEngineAdapter _playerEngineAdapter;
 
   @override
   void initState() {
@@ -88,6 +90,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _playbackHistoryController = ref.read(
       playbackHistoryControllerProvider.notifier,
     );
+    _playerEngineAdapter = ref.read(playerEngineAdapterProvider);
     if (widget.previewState != null) {
       _isInitializing = false;
       return;
@@ -688,16 +691,40 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       tracks: tracks,
       currentSelection: _selectedAudioTrack ?? tracks.first,
       allowOff: false,
-      helperText:
-          'Selecao de faixa ainda nao e aplicada diretamente no stream nesta versao.',
+      helperText: _playerEngineAdapter.supportsAudioTrackSelection
+          ? null
+          : 'A engine atual nao aplica troca de audio em runtime.',
     );
     if (!mounted || selected == null) {
       return;
     }
+
+    final resolvedPlayback = _resolvedPlayback;
+    if (resolvedPlayback == null) {
+      _showInteractionMessage('Playback indisponivel');
+      return;
+    }
+    final track = _resolveTrackByLabel(
+      resolvedPlayback.manifest.audioTracks,
+      selected,
+    );
+    if (track == null) {
+      _showInteractionMessage('Faixa de audio invalida');
+      return;
+    }
+
     setState(() {
       _selectedAudioTrack = selected;
     });
-    _showInteractionMessage('Audio marcado: $selected');
+
+    final result = await _playerEngineAdapter.selectAudioTrack(
+      playback: resolvedPlayback,
+      track: track,
+    );
+    if (!mounted || _isDisposing) {
+      return;
+    }
+    _showInteractionMessage(_audioSelectionMessage(selected, result));
   }
 
   Future<void> _selectSubtitleTrack() async {
@@ -712,19 +739,50 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       tracks: tracks,
       currentSelection: _selectedSubtitleTrack,
       allowOff: true,
-      helperText:
-          'Selecao de faixa ainda nao e aplicada diretamente no stream nesta versao.',
+      helperText: _playerEngineAdapter.supportsSubtitleTrackSelection
+          ? null
+          : 'A engine atual nao aplica troca de legenda em runtime.',
     );
     if (!mounted || selected == null) {
       return;
     }
+
+    final resolvedPlayback = _resolvedPlayback;
+    if (resolvedPlayback == null) {
+      _showInteractionMessage('Playback indisponivel');
+      return;
+    }
+
+    final disableSubtitles = selected == _offTrackLabel;
+    PlaybackTrack? track;
+    if (!disableSubtitles) {
+      track = _resolveTrackByLabel(
+        resolvedPlayback.manifest.subtitleTracks,
+        selected,
+      );
+      if (track == null) {
+        _showInteractionMessage('Faixa de legenda invalida');
+        return;
+      }
+    }
+
     setState(() {
-      _selectedSubtitleTrack = selected == _offTrackLabel ? null : selected;
+      _selectedSubtitleTrack = disableSubtitles ? null : selected;
     });
+
+    final result = await _playerEngineAdapter.selectSubtitleTrack(
+      playback: resolvedPlayback,
+      track: track,
+    );
+    if (!mounted || _isDisposing) {
+      return;
+    }
     _showInteractionMessage(
-      selected == _offTrackLabel
-          ? 'Legendas desativadas'
-          : 'Legenda marcada: $selected',
+      _subtitleSelectionMessage(
+        selectedLabel: selected,
+        disabled: disableSubtitles,
+        result: result,
+      ),
     );
   }
 
@@ -740,17 +798,40 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       tracks: profiles,
       currentSelection: _selectedQualityProfile ?? profiles.first,
       allowOff: false,
-      helperText:
-          'A troca manual de qualidade sera aplicada apos migracao da engine na Fase 2.',
+      helperText: _playerEngineAdapter.supportsQualitySelection
+          ? null
+          : 'A engine atual nao aplica troca manual de qualidade.',
     );
     if (!mounted || selected == null) {
+      return;
+    }
+
+    final resolvedPlayback = _resolvedPlayback;
+    if (resolvedPlayback == null) {
+      _showInteractionMessage('Playback indisponivel');
+      return;
+    }
+    final variant = _resolveVariantByLabel(
+      resolvedPlayback.manifest.variants,
+      selected,
+    );
+    if (variant == null) {
+      _showInteractionMessage('Perfil de qualidade invalido');
       return;
     }
 
     setState(() {
       _selectedQualityProfile = selected;
     });
-    _showInteractionMessage('Qualidade marcada: $selected');
+
+    final result = await _playerEngineAdapter.selectQualityVariant(
+      playback: resolvedPlayback,
+      variant: variant,
+    );
+    if (!mounted || _isDisposing) {
+      return;
+    }
+    _showInteractionMessage(_qualitySelectionMessage(selected, result));
   }
 
   Future<String?> _chooseTrack({
@@ -2260,6 +2341,88 @@ String? _resolveDefaultQualityProfileLabel(PlaybackManifest manifest) {
   }
 
   return null;
+}
+
+PlaybackTrack? _resolveTrackByLabel(List<PlaybackTrack> tracks, String label) {
+  final normalized = label.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return null;
+  }
+
+  for (final track in tracks) {
+    if (track.label.trim().toLowerCase() == normalized) {
+      return track;
+    }
+  }
+
+  return null;
+}
+
+PlaybackVariant? _resolveVariantByLabel(
+  List<PlaybackVariant> variants,
+  String label,
+) {
+  final normalized = label.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return null;
+  }
+
+  for (final variant in variants) {
+    if (variant.label.trim().toLowerCase() == normalized) {
+      return variant;
+    }
+  }
+
+  return null;
+}
+
+String _audioSelectionMessage(
+  String selected,
+  PlayerSelectionApplyResult result,
+) {
+  return switch (result) {
+    PlayerSelectionApplyResult.applied => 'Audio aplicado: $selected',
+    PlayerSelectionApplyResult.notSupported =>
+      'Audio marcado: $selected (aplicacao pendente)',
+    PlayerSelectionApplyResult.failed =>
+      'Falha ao aplicar audio. Marcado: $selected',
+  };
+}
+
+String _subtitleSelectionMessage({
+  required String selectedLabel,
+  required bool disabled,
+  required PlayerSelectionApplyResult result,
+}) {
+  if (disabled) {
+    return switch (result) {
+      PlayerSelectionApplyResult.applied => 'Legendas desativadas',
+      PlayerSelectionApplyResult.notSupported =>
+        'Legendas desativadas (aplicacao pendente)',
+      PlayerSelectionApplyResult.failed => 'Falha ao desativar legendas.',
+    };
+  }
+
+  return switch (result) {
+    PlayerSelectionApplyResult.applied => 'Legenda aplicada: $selectedLabel',
+    PlayerSelectionApplyResult.notSupported =>
+      'Legenda marcada: $selectedLabel (aplicacao pendente)',
+    PlayerSelectionApplyResult.failed =>
+      'Falha ao aplicar legenda. Marcada: $selectedLabel',
+  };
+}
+
+String _qualitySelectionMessage(
+  String selected,
+  PlayerSelectionApplyResult result,
+) {
+  return switch (result) {
+    PlayerSelectionApplyResult.applied => 'Qualidade aplicada: $selected',
+    PlayerSelectionApplyResult.notSupported =>
+      'Qualidade marcada: $selected (aplicacao pendente)',
+    PlayerSelectionApplyResult.failed =>
+      'Falha ao aplicar qualidade. Marcada: $selected',
+  };
 }
 
 _PlayerStreamMetrics _deriveStreamMetrics(
