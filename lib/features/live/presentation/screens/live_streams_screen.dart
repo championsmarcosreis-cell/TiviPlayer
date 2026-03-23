@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/tv/tv_focusable.dart';
+import '../../../../features/live/domain/entities/live_epg_entry.dart';
 import '../../../../features/live/domain/entities/live_stream.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
@@ -115,32 +116,9 @@ class LiveStreamsScreen extends ConsumerWidget {
                   }
 
                   final item = items[index - 2];
-                  final subtitle = item.hasArchive
-                      ? 'Canal com replay disponível'
-                      : 'Canal disponível para assistir';
-                  final metadata = <String>[
-                    'Ao vivo',
-                    if (item.hasArchive) 'Replay',
-                    if (item.isAdult) '18+' else 'Livre',
-                    if (item.epgChannelId?.trim().isNotEmpty == true) 'EPG',
-                    if (item.containerExtension?.trim().isNotEmpty == true)
-                      item.containerExtension!.trim().toUpperCase(),
-                  ];
-
-                  return ContentListTile(
+                  return _LiveMobileChannelTile(
+                    item: item,
                     autofocus: index == 2,
-                    overline: 'Canal ao vivo',
-                    title: item.name,
-                    subtitle: subtitle,
-                    metadata: metadata,
-                    badge: item.hasArchive ? 'REPLAY' : 'LIVE',
-                    icon: Icons.live_tv_rounded,
-                    imageUrl: item.iconUrl,
-                    thumbnailAspectRatio: 1,
-                    thumbnailWidth: layout.isTv ? 82 : 64,
-                    thumbnailFit: BoxFit.contain,
-                    imagePadding: EdgeInsets.all(layout.isTv ? 12 : 14),
-                    thumbnailLabel: 'Canal',
                     onPressed: () => _openLivePlayer(context, item),
                   );
                 },
@@ -172,7 +150,7 @@ void _openLivePlayer(BuildContext context, LiveStream item) {
   );
 }
 
-class _LiveHeroShelf extends StatelessWidget {
+class _LiveHeroShelf extends ConsumerWidget {
   const _LiveHeroShelf({
     required this.layout,
     required this.item,
@@ -186,9 +164,10 @@ class _LiveHeroShelf extends StatelessWidget {
   final VoidCallback onPlay;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final image = BrandedArtwork.normalizeArtworkUrl(item.iconUrl);
+    final epgState = ref.watch(liveShortEpgProvider(item.id));
     final playButtonStyle = layout.isTv
         ? ButtonStyle(
             minimumSize: WidgetStatePropertyAll(Size(0, layout.isTv ? 60 : 52)),
@@ -332,6 +311,12 @@ class _LiveHeroShelf extends StatelessWidget {
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('Assistir agora'),
                         ),
+                        SizedBox(height: layout.isTv ? 14 : 10),
+                        _LiveEpgPanel(
+                          asyncEntries: epgState,
+                          compact: false,
+                          layout: layout,
+                        ),
                       ],
                     ),
                   ),
@@ -450,7 +435,226 @@ class _LiveCatalogHeader extends StatelessWidget {
   }
 }
 
-class _LiveTvChannelCard extends StatelessWidget {
+class _LiveMobileChannelTile extends ConsumerWidget {
+  const _LiveMobileChannelTile({
+    required this.item,
+    required this.autofocus,
+    required this.onPressed,
+  });
+
+  final LiveStream item;
+  final bool autofocus;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final epgAsync = ref.watch(liveShortEpgProvider(item.id));
+    final epgState = epgAsync.value == null
+        ? null
+        : _resolveEpgState(epgAsync.value!);
+
+    final defaultSubtitle = item.hasArchive
+        ? 'Canal com replay disponível'
+        : 'Canal disponível para assistir';
+    final subtitle = epgState?.current != null
+        ? 'Agora: ${epgState!.current!.title}'
+        : defaultSubtitle;
+    final metadata = <String>[
+      'Ao vivo',
+      if (item.hasArchive) 'Replay',
+      if (item.isAdult) '18+' else 'Livre',
+      if (item.epgChannelId?.trim().isNotEmpty == true) 'EPG',
+      if (item.containerExtension?.trim().isNotEmpty == true)
+        item.containerExtension!.trim().toUpperCase(),
+      if (epgState?.next != null) 'Prox: ${epgState!.next!.title}',
+    ];
+
+    return ContentListTile(
+      autofocus: autofocus,
+      overline: 'Canal ao vivo',
+      title: item.name,
+      subtitle: subtitle,
+      metadata: metadata,
+      badge: item.hasArchive ? 'REPLAY' : 'LIVE',
+      icon: Icons.live_tv_rounded,
+      imageUrl: item.iconUrl,
+      thumbnailAspectRatio: 1,
+      thumbnailWidth: DeviceLayout.of(context).isTv ? 82 : 64,
+      thumbnailFit: BoxFit.contain,
+      imagePadding: EdgeInsets.all(DeviceLayout.of(context).isTv ? 12 : 14),
+      thumbnailLabel: 'Canal',
+      onPressed: onPressed,
+    );
+  }
+}
+
+class _LiveEpgPanel extends StatelessWidget {
+  const _LiveEpgPanel({
+    required this.asyncEntries,
+    required this.compact,
+    required this.layout,
+  });
+
+  final AsyncValue<List<LiveEpgEntry>> asyncEntries;
+  final bool compact;
+  final DeviceLayout layout;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return asyncEntries.when(
+      loading: () => Text(
+        compact ? 'Carregando guia...' : 'Carregando programacao ao vivo...',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurface.withValues(alpha: 0.72),
+        ),
+      ),
+      error: (error, stackTrace) => Text(
+        compact ? 'Guia indisponivel' : 'Programacao indisponivel no momento',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurface.withValues(alpha: 0.72),
+        ),
+      ),
+      data: (entries) {
+        final state = _resolveEpgState(entries);
+        if (state.current == null && state.next == null) {
+          return Text(
+            compact ? 'Sem EPG para este canal' : 'Sem guia de programacao',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          );
+        }
+
+        final current = state.current;
+        final next = state.next;
+        final progress = current == null
+            ? null
+            : _epgProgress(current, now: DateTime.now());
+
+        if (compact) {
+          return Text(
+            current != null
+                ? 'Agora: ${current.title}'
+                : 'Proximo: ${next!.title}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.82),
+            ),
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(layout.isTv ? 12 : 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(layout.isTv ? 14 : 12),
+            color: Colors.black.withValues(alpha: 0.28),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (current != null) ...[
+                Text(
+                  'Agora: ${current.title}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: 0.94),
+                  ),
+                ),
+                if (progress != null) ...[
+                  SizedBox(height: layout.isTv ? 7 : 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: layout.isTv ? 8 : 6,
+                      backgroundColor: Colors.white.withValues(alpha: 0.22),
+                      valueColor: AlwaysStoppedAnimation(
+                        Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+              if (next != null) ...[
+                SizedBox(height: layout.isTv ? 8 : 7),
+                Text(
+                  'Proximo: ${next.title}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.82),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ResolvedEpgState {
+  const _ResolvedEpgState({this.current, this.next});
+
+  final LiveEpgEntry? current;
+  final LiveEpgEntry? next;
+}
+
+_ResolvedEpgState _resolveEpgState(List<LiveEpgEntry> entries) {
+  if (entries.isEmpty) {
+    return const _ResolvedEpgState();
+  }
+
+  final now = DateTime.now();
+  LiveEpgEntry? current;
+  LiveEpgEntry? next;
+
+  for (final entry in entries) {
+    if (entry.isOnAirAt(now)) {
+      current = entry;
+      continue;
+    }
+    if (entry.startAt.isAfter(now)) {
+      next = entry;
+      break;
+    }
+  }
+
+  if (current != null && next == null) {
+    final currentIndex = entries.indexOf(current);
+    if (currentIndex >= 0 && currentIndex + 1 < entries.length) {
+      next = entries[currentIndex + 1];
+    }
+  }
+
+  return _ResolvedEpgState(current: current, next: next);
+}
+
+double? _epgProgress(LiveEpgEntry entry, {required DateTime now}) {
+  final total = entry.endAt.difference(entry.startAt).inMilliseconds;
+  if (total <= 0) {
+    return null;
+  }
+  final elapsed = now.difference(entry.startAt).inMilliseconds;
+  final progress = elapsed / total;
+  return progress.clamp(0.0, 1.0);
+}
+
+class _LiveTvChannelCard extends ConsumerStatefulWidget {
   const _LiveTvChannelCard({
     required this.layout,
     required this.item,
@@ -464,13 +668,32 @@ class _LiveTvChannelCard extends StatelessWidget {
   final bool autofocus;
 
   @override
+  ConsumerState<_LiveTvChannelCard> createState() => _LiveTvChannelCardState();
+}
+
+class _LiveTvChannelCardState extends ConsumerState<_LiveTvChannelCard> {
+  var _requestEpg = false;
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final item = widget.item;
+    final layout = widget.layout;
     final subtitle = item.hasArchive ? 'Replay disponível' : 'Canal ao vivo';
+    final epgState = _requestEpg
+        ? ref.watch(liveShortEpgProvider(item.id))
+        : const AsyncValue<List<LiveEpgEntry>>.data(<LiveEpgEntry>[]);
 
     return TvFocusable(
-      autofocus: autofocus,
-      onPressed: onPressed,
+      autofocus: widget.autofocus,
+      onPressed: widget.onPressed,
+      onFocusChanged: (focused) {
+        if (!_requestEpg && focused) {
+          setState(() {
+            _requestEpg = true;
+          });
+        }
+      },
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
@@ -569,6 +792,14 @@ class _LiveTvChannelCard extends StatelessWidget {
                   color: colorScheme.onSurface.withValues(alpha: 0.76),
                 ),
               ),
+              if (_requestEpg || focused) ...[
+                const SizedBox(height: 8),
+                _LiveEpgPanel(
+                  asyncEntries: epgState,
+                  compact: true,
+                  layout: layout,
+                ),
+              ],
             ],
           ),
         );
