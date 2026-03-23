@@ -204,6 +204,24 @@ void main() {
       step: const Duration(milliseconds: 20),
     );
     expect(fakePlatform.playCalls, greaterThan(playCallsAfterInit));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
+    await _waitFor(
+      tester,
+      condition: () => fakePlatform.volumeRequests.contains(0),
+      timeout: const Duration(seconds: 1),
+      step: const Duration(milliseconds: 20),
+    );
+    expect(fakePlatform.volumeRequests.last, 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
+    await _waitFor(
+      tester,
+      condition: () => fakePlatform.volumeRequests.last > 0,
+      timeout: const Duration(seconds: 1),
+      step: const Duration(milliseconds: 20),
+    );
+    expect(fakePlatform.volumeRequests.last, greaterThan(0));
   });
 }
 
@@ -340,6 +358,7 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   final List<int> initializedEventPlayerIds = <int>[];
   final List<int> initializationErrorPlayerIds = <int>[];
   final List<Duration> seekRequests = <Duration>[];
+  final List<double> volumeRequests = <double>[];
   int playCalls = 0;
   int pauseCalls = 0;
   int _nextPlayerId = 1;
@@ -454,7 +473,9 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   Future<void> setLooping(int playerId, bool looping) async {}
 
   @override
-  Future<void> setVolume(int playerId, double volume) async {}
+  Future<void> setVolume(int playerId, double volume) async {
+    volumeRequests.add(volume);
+  }
 
   @override
   Future<void> setPlaybackSpeed(int playerId, double speed) async {}

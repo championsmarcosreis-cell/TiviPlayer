@@ -71,6 +71,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   int _runtimeRecoveryAttempts = 0;
   int _initializationVersion = 0;
   String? _interactionMessage;
+  bool _isMuted = false;
+  double _lastVolumeBeforeMute = 1;
+  List<String> _audioTracks = const [];
+  List<String> _subtitleTracks = const [];
+  String? _selectedAudioTrack;
+  String? _selectedSubtitleTrack;
   late final PlaybackHistoryController _playbackHistoryController;
 
   @override
@@ -105,6 +111,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final controller = _controller;
     final playerValue = controller?.value;
     final hasReadyVideo = playerValue?.isInitialized == true;
+    final streamMetrics =
+        resolvedPlayback != null && hasReadyVideo && playerValue != null
+        ? _deriveStreamMetrics(playerValue, isLive: resolvedPlayback.isLive)
+        : null;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -196,11 +206,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     resolvedPlayback: resolvedPlayback,
                     layout: layout,
                     title: resolvedPlayback.context.title,
+                    isMuted: _isMuted,
+                    selectedAudioTrack:
+                        _selectedAudioTrack ??
+                        (_audioTracks.isEmpty ? null : _audioTracks.first),
+                    selectedSubtitleTrack: _selectedSubtitleTrack,
+                    qualityLabel: streamMetrics?.qualityLabel,
+                    liveLatencyLabel: streamMetrics?.liveLatencyLabel,
                     onTogglePlayback: _togglePlayPause,
                     onSeekBackward: () =>
                         _seekRelative(const Duration(seconds: -10)),
                     onSeekForward: () =>
                         _seekRelative(const Duration(seconds: 10)),
+                    onToggleMute: _toggleMute,
+                    onSelectAudioTrack: _selectAudioTrack,
+                    onSelectSubtitleTrack: _selectSubtitleTrack,
                   ),
                 if (!_isInitializing &&
                     _errorMessage == null &&
@@ -223,7 +243,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       child: _InteractionToast(message: _interactionMessage!),
                     ),
                   ),
-                if (playerValue?.isBuffering == true && _errorMessage == null)
+                if (resolvedPlayback?.isLive == true &&
+                    hasReadyVideo &&
+                    streamMetrics != null &&
+                    _errorMessage == null)
+                  Positioned(
+                    right: layout.pageHorizontalPadding,
+                    top: layout.pageTopPadding + 78,
+                    child: _LiveSignalBadge(
+                      qualityLabel: streamMetrics.qualityLabel,
+                      liveLatencyLabel: streamMetrics.liveLatencyLabel,
+                      isBuffering: playerValue?.isBuffering == true,
+                      recovering: _isRecoveringRuntime,
+                    ),
+                  ),
+                if (resolvedPlayback?.isLive != true &&
+                    playerValue?.isBuffering == true &&
+                    _errorMessage == null)
                   Positioned(
                     right: layout.pageHorizontalPadding,
                     top: layout.pageTopPadding + 78,
@@ -248,6 +284,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       setState(() {
         _isInitializing = false;
         _errorMessage = 'Contexto de playback ausente.';
+        _audioTracks = const [];
+        _subtitleTracks = const [];
+        _selectedAudioTrack = null;
+        _selectedSubtitleTrack = null;
       });
       return;
     }
@@ -288,6 +328,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _resolvedPlayback = null;
         _isInitializing = false;
         _errorMessage = 'Sessao indisponivel.';
+        _audioTracks = const [];
+        _subtitleTracks = const [];
+        _selectedAudioTrack = null;
+        _selectedSubtitleTrack = null;
       });
       return;
     }
@@ -346,6 +390,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             await controller.seekTo(clampedResume);
           }
         }
+        final targetVolume = _isMuted
+            ? 0.0
+            : _lastVolumeBeforeMute.clamp(0.0, 1.0);
+        await controller.setVolume(targetVolume);
+        final trackMetadata = _parseTrackMetadata(playbackContext.notes);
         controller.addListener(_handleControllerUpdate);
         await controller.play();
 
@@ -364,6 +413,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           _statusMessage = null;
           _interactionMessage = null;
           _isRecoveringRuntime = false;
+          _audioTracks = trackMetadata.audioTracks;
+          _subtitleTracks = trackMetadata.subtitleTracks;
+          _selectedAudioTrack = trackMetadata.initialAudioTrack;
+          _selectedSubtitleTrack = trackMetadata.initialSubtitleTrack;
         });
         _runtimeRecoveryAttempts = 0;
         _lastKnownPlaying = controller.value.isPlaying;
@@ -389,6 +442,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _isRecoveringRuntime = false;
       _statusMessage = null;
       _interactionMessage = null;
+      _audioTracks = const [];
+      _subtitleTracks = const [];
+      _selectedAudioTrack = null;
+      _selectedSubtitleTrack = null;
       _errorMessage = Failure.fromError(
         lastError ?? StateError('Falha ao carregar stream.'),
       ).message;
@@ -565,6 +622,144 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _showInteractionMessage(wasPlaying ? 'Pausado' : 'Reproduzindo');
   }
 
+  Future<void> _toggleMute() async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    _revealPlaybackUi();
+
+    if (_isMuted) {
+      final restoredVolume = _lastVolumeBeforeMute <= 0
+          ? 1.0
+          : _lastVolumeBeforeMute.clamp(0.0, 1.0);
+      await controller.setVolume(restoredVolume);
+      if (!mounted || _isDisposing) {
+        return;
+      }
+      setState(() {
+        _isMuted = false;
+      });
+      _showInteractionMessage('Som ativado');
+      return;
+    }
+
+    final currentVolume = controller.value.volume;
+    if (currentVolume > 0) {
+      _lastVolumeBeforeMute = currentVolume;
+    }
+    await controller.setVolume(0);
+    if (!mounted || _isDisposing) {
+      return;
+    }
+    setState(() {
+      _isMuted = true;
+    });
+    _showInteractionMessage('Sem som');
+  }
+
+  Future<void> _selectAudioTrack() async {
+    final tracks = _audioTracks;
+    if (tracks.isEmpty) {
+      _showInteractionMessage('Audio indisponivel');
+      return;
+    }
+
+    final selected = await _chooseTrack(
+      title: 'Faixa de audio',
+      tracks: tracks,
+      currentSelection: _selectedAudioTrack ?? tracks.first,
+      allowOff: false,
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      _selectedAudioTrack = selected;
+    });
+    _showInteractionMessage('Audio: $selected');
+  }
+
+  Future<void> _selectSubtitleTrack() async {
+    final tracks = _subtitleTracks;
+    if (tracks.isEmpty) {
+      _showInteractionMessage('Legendas indisponiveis');
+      return;
+    }
+
+    final selected = await _chooseTrack(
+      title: 'Legendas',
+      tracks: tracks,
+      currentSelection: _selectedSubtitleTrack,
+      allowOff: true,
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      _selectedSubtitleTrack = selected == _offTrackLabel ? null : selected;
+    });
+    _showInteractionMessage(
+      selected == _offTrackLabel
+          ? 'Legendas desativadas'
+          : 'Legenda: $selected',
+    );
+  }
+
+  Future<String?> _chooseTrack({
+    required String title,
+    required List<String> tracks,
+    required String? currentSelection,
+    required bool allowOff,
+  }) async {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFF101826),
+      builder: (context) {
+        final options = [if (allowOff) _offTrackLabel, ...tracks];
+        final effectiveCurrent = allowOff
+            ? (currentSelection ?? _offTrackLabel)
+            : (currentSelection ?? tracks.first);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final option in options)
+                  ListTile(
+                    dense: true,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    title: Text(
+                      option,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    trailing: option == effectiveCurrent
+                        ? const Icon(Icons.check_rounded, color: Colors.white)
+                        : null,
+                    onTap: () => Navigator.of(context).pop(option),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _seekRelative(Duration offset) async {
     final controller = _controller;
     final resolvedPlayback = _resolvedPlayback;
@@ -625,6 +820,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     if (_isActivationKey(key)) {
       unawaited(_togglePlayPause());
+      return true;
+    }
+
+    if (_isMuteKey(key)) {
+      unawaited(_toggleMute());
       return true;
     }
 
@@ -737,6 +937,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return key == LogicalKeyboardKey.escape ||
         key == LogicalKeyboardKey.goBack ||
         key == LogicalKeyboardKey.browserBack;
+  }
+
+  bool _isMuteKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.keyM ||
+        key == LogicalKeyboardKey.audioVolumeMute;
   }
 }
 
@@ -1012,18 +1217,34 @@ class _PlayerControlDeck extends StatelessWidget {
     required this.resolvedPlayback,
     required this.layout,
     required this.title,
+    required this.isMuted,
+    required this.selectedAudioTrack,
+    required this.selectedSubtitleTrack,
+    required this.onToggleMute,
+    required this.onSelectAudioTrack,
+    required this.onSelectSubtitleTrack,
     required this.onTogglePlayback,
     required this.onSeekBackward,
     required this.onSeekForward,
+    this.qualityLabel,
+    this.liveLatencyLabel,
   });
 
   final VideoPlayerController controller;
   final ResolvedPlayback resolvedPlayback;
   final DeviceLayout layout;
   final String title;
+  final bool isMuted;
+  final String? selectedAudioTrack;
+  final String? selectedSubtitleTrack;
+  final VoidCallback onToggleMute;
+  final VoidCallback onSelectAudioTrack;
+  final VoidCallback onSelectSubtitleTrack;
   final VoidCallback onTogglePlayback;
   final VoidCallback onSeekBackward;
   final VoidCallback onSeekForward;
+  final String? qualityLabel;
+  final String? liveLatencyLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1190,6 +1411,50 @@ class _PlayerControlDeck extends StatelessWidget {
                           ],
                         ),
                 ),
+                SizedBox(height: layout.isTv ? 10 : 8),
+                _ControlsPanel(
+                  layout: layout,
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      PlayerControlButton(
+                        icon: isMuted
+                            ? Icons.volume_off_rounded
+                            : Icons.volume_up_rounded,
+                        label: isMuted ? 'Som desligado' : 'Som ligado',
+                        onPressed: onToggleMute,
+                        kind: PlayerControlButtonKind.subtle,
+                      ),
+                      PlayerControlButton(
+                        icon: Icons.audiotrack_rounded,
+                        label: selectedAudioTrack == null
+                            ? 'Audio: auto'
+                            : 'Audio: $selectedAudioTrack',
+                        onPressed: onSelectAudioTrack,
+                        kind: PlayerControlButtonKind.subtle,
+                      ),
+                      PlayerControlButton(
+                        icon: Icons.subtitles_rounded,
+                        label: selectedSubtitleTrack == null
+                            ? 'Legenda: off'
+                            : 'Legenda: $selectedSubtitleTrack',
+                        onPressed: onSelectSubtitleTrack,
+                        kind: PlayerControlButtonKind.subtle,
+                      ),
+                      if (qualityLabel != null)
+                        _OverlayInfoChip(
+                          icon: Icons.hd_rounded,
+                          label: qualityLabel!,
+                        ),
+                      if (resolvedPlayback.isLive && liveLatencyLabel != null)
+                        _OverlayInfoChip(
+                          icon: Icons.speed_rounded,
+                          label: liveLatencyLabel!,
+                        ),
+                    ],
+                  ),
+                ),
                 if (isSeekable && layout.isTv) ...[
                   SizedBox(height: layout.isTv ? 10 : 8),
                   Text(
@@ -1213,6 +1478,121 @@ class _PlayerControlDeck extends StatelessWidget {
       color: Colors.white.withValues(alpha: 0.86),
       fontSize: layout.isTv ? 15 : 12.5,
       fontWeight: FontWeight.w600,
+    );
+  }
+}
+
+class _OverlayInfoChip extends StatelessWidget {
+  const _OverlayInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white.withValues(alpha: 0.86), size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.88),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveSignalBadge extends StatelessWidget {
+  const _LiveSignalBadge({
+    required this.qualityLabel,
+    required this.liveLatencyLabel,
+    required this.isBuffering,
+    required this.recovering,
+  });
+
+  final String qualityLabel;
+  final String? liveLatencyLabel;
+  final bool isBuffering;
+  final bool recovering;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = recovering
+        ? 'Reconectando'
+        : (isBuffering ? 'Instavel' : 'Estavel');
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: recovering
+              ? [const Color(0xCC2A1C3A), const Color(0xAA1B1028)]
+              : [const Color(0xCC0F1D30), const Color(0xAA0A141F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: recovering
+              ? const Color(0xFFBC8FFF)
+              : Colors.white.withValues(alpha: 0.26),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isBuffering || recovering) ...[
+              const SizedBox(
+                height: 14,
+                width: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              'LIVE • $qualityLabel',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              statusLabel,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.84),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (liveLatencyLabel != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                liveLatencyLabel!,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.84),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1725,6 +2105,135 @@ class _ErrorPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+const _offTrackLabel = 'Desativadas';
+
+class _TrackMetadata {
+  const _TrackMetadata({
+    required this.audioTracks,
+    required this.subtitleTracks,
+    required this.initialAudioTrack,
+    required this.initialSubtitleTrack,
+  });
+
+  final List<String> audioTracks;
+  final List<String> subtitleTracks;
+  final String? initialAudioTrack;
+  final String? initialSubtitleTrack;
+}
+
+class _PlayerStreamMetrics {
+  const _PlayerStreamMetrics({
+    required this.qualityLabel,
+    required this.liveLatencyLabel,
+  });
+
+  final String qualityLabel;
+  final String? liveLatencyLabel;
+}
+
+_TrackMetadata _parseTrackMetadata(String? notes) {
+  final audioTracks = _parseTracksFromNotes(
+    notes,
+    keys: const ['audio', 'audios', 'audio_tracks', 'audio-track', 'lang'],
+  );
+  final subtitleTracks = _parseTracksFromNotes(
+    notes,
+    keys: const ['subtitle', 'subtitles', 'subs', 'legenda', 'legendas', 'cc'],
+  );
+
+  return _TrackMetadata(
+    audioTracks: audioTracks,
+    subtitleTracks: subtitleTracks,
+    initialAudioTrack: audioTracks.isEmpty ? null : audioTracks.first,
+    initialSubtitleTrack: null,
+  );
+}
+
+List<String> _parseTracksFromNotes(
+  String? notes, {
+  required List<String> keys,
+}) {
+  final raw = notes?.trim();
+  if (raw == null || raw.isEmpty) {
+    return const [];
+  }
+
+  final loweredKeys = keys.map((value) => value.toLowerCase()).toSet();
+  final segments = raw.split(RegExp(r'[\n;]'));
+  final tracks = <String>{};
+
+  for (final segment in segments) {
+    final separatorIndex = segment.indexOf(RegExp(r'[:=]'));
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    final rawKey = segment.substring(0, separatorIndex).trim().toLowerCase();
+    if (!loweredKeys.contains(rawKey)) {
+      continue;
+    }
+    final values = segment
+        .substring(separatorIndex + 1)
+        .split(RegExp(r'[,|/]'))
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty);
+    tracks.addAll(values);
+  }
+
+  return tracks.toList(growable: false);
+}
+
+_PlayerStreamMetrics _deriveStreamMetrics(
+  VideoPlayerValue value, {
+  required bool isLive,
+}) {
+  final width = value.size.width.round();
+  final height = value.size.height.round();
+  final quality = _qualityLabel(height);
+  final qualityLabel = width > 0 && height > 0
+      ? '$quality • ${width}x$height'
+      : quality;
+
+  String? liveLatencyLabel;
+  if (isLive) {
+    final duration = value.duration;
+    final position = value.position;
+    if (duration > Duration.zero &&
+        position >= Duration.zero &&
+        duration >= position) {
+      final lag = duration - position;
+      final lagSeconds = lag.inSeconds.clamp(0, 120);
+      liveLatencyLabel = 'Atraso ~${lagSeconds}s';
+    }
+  }
+
+  return _PlayerStreamMetrics(
+    qualityLabel: qualityLabel,
+    liveLatencyLabel: liveLatencyLabel,
+  );
+}
+
+String _qualityLabel(int height) {
+  if (height <= 0) {
+    return 'AUTO';
+  }
+  if (height >= 2160) {
+    return '4K';
+  }
+  if (height >= 1440) {
+    return 'QHD';
+  }
+  if (height >= 1080) {
+    return 'FHD';
+  }
+  if (height >= 720) {
+    return 'HD';
+  }
+  if (height >= 480) {
+    return 'SD';
+  }
+  return 'LD';
 }
 
 String _formatDuration(Duration value) {
