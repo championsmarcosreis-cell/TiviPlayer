@@ -94,14 +94,27 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> bootstrap() async {
-    final session = _getSavedSessionUseCase();
+    try {
+      final session = await _getSavedSessionUseCase();
+      if (!ref.mounted) {
+        return;
+      }
 
-    if (session == null) {
-      state = const AuthState.unauthenticated();
-      return;
+      if (session == null) {
+        state = const AuthState.unauthenticated();
+        return;
+      }
+
+      state = AuthState.authenticated(session);
+    } catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
+
+      state = AuthState.unauthenticated(
+        errorMessage: Failure.fromError(error).message,
+      );
     }
-
-    state = AuthState.authenticated(session);
   }
 
   Future<void> login(XtreamCredentials credentials) async {

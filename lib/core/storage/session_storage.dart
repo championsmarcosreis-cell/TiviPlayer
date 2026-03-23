@@ -1,34 +1,116 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+abstract class SecureSessionStore {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+
+class FlutterSecureSessionStore implements SecureSessionStore {
+  FlutterSecureSessionStore([FlutterSecureStorage? storage])
+    : _storage = storage ?? const FlutterSecureStorage();
+
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) {
+    return _storage.write(key: key, value: value);
+  }
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
+}
+
 class SessionStorage {
-  SessionStorage(this._preferences);
+  SessionStorage(this._preferences, this._secureStorage);
 
   final SharedPreferences _preferences;
+  final SecureSessionStore _secureStorage;
 
+  static const _securePayloadKey = 'session.payload.secure';
   static const _sessionPayloadKey = 'session.payload';
   static const _baseUrlKey = 'session.baseUrl';
   static const _usernameKey = 'session.username';
   static const _passwordKey = 'session.password';
 
-  SavedSessionData? load() {
-    final payload = _preferences.getString(_sessionPayloadKey);
-    if (payload != null) {
-      try {
-        final data = jsonDecode(payload);
-        if (data is Map<String, dynamic>) {
-          return SavedSessionData.fromJson(data);
-        }
+  Future<SavedSessionData?> load() async {
+    final securePayload = await _readSecurePayload();
+    if (securePayload != null) {
+      return securePayload;
+    }
 
-        if (data is Map) {
-          return SavedSessionData.fromJson(
-            data.map((key, value) => MapEntry(key.toString(), value)),
-          );
-        }
-      } on FormatException {
-        // Fall back to the legacy keys below.
-      }
+    final legacyPayload = _readLegacyPayload();
+    if (legacyPayload == null) {
+      return null;
+    }
+
+    final migrated = await _writeSecurePayload(legacyPayload);
+    if (migrated) {
+      await _clearLegacyPayload();
+    }
+
+    return legacyPayload;
+  }
+
+  Future<void> save(SavedSessionData session) async {
+    final writtenSecurely = await _writeSecurePayload(session);
+    if (writtenSecurely) {
+      await _clearLegacyPayload();
+    }
+  }
+
+  Future<void> clear() async {
+    await _deleteSecurePayload();
+    await _clearLegacyPayload();
+  }
+
+  Future<SavedSessionData?> _readSecurePayload() async {
+    try {
+      final payload = await _secureStorage.read(_securePayloadKey);
+      return _decodePayload(payload);
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<bool> _writeSecurePayload(SavedSessionData session) async {
+    try {
+      await _secureStorage.write(
+        _securePayloadKey,
+        jsonEncode(session.toJson()),
+      );
+      return true;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  Future<void> _deleteSecurePayload() async {
+    try {
+      await _secureStorage.delete(_securePayloadKey);
+    } on PlatformException {
+      // Ignora falhas de bridge para manter logout funcional.
+    } on MissingPluginException {
+      // Ignora falhas quando o plugin não está disponível.
+    }
+  }
+
+  SavedSessionData? _readLegacyPayload() {
+    final payload = _preferences.getString(_sessionPayloadKey);
+    final decoded = _decodePayload(payload);
+    if (decoded != null) {
+      return decoded;
     }
 
     final baseUrl = _preferences.getString(_baseUrlKey);
@@ -46,18 +128,34 @@ class SessionStorage {
     );
   }
 
-  Future<void> save(SavedSessionData session) async {
-    await _preferences.setString(_sessionPayloadKey, jsonEncode(session));
-    await _preferences.setString(_baseUrlKey, session.baseUrl);
-    await _preferences.setString(_usernameKey, session.username);
-    await _preferences.setString(_passwordKey, session.password);
-  }
-
-  Future<void> clear() async {
+  Future<void> _clearLegacyPayload() async {
     await _preferences.remove(_sessionPayloadKey);
     await _preferences.remove(_baseUrlKey);
     await _preferences.remove(_usernameKey);
     await _preferences.remove(_passwordKey);
+  }
+
+  SavedSessionData? _decodePayload(String? payload) {
+    if (payload == null || payload.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return SavedSessionData.fromJson(decoded);
+      }
+
+      if (decoded is Map) {
+        return SavedSessionData.fromJson(
+          decoded.map((key, value) => MapEntry(key.toString(), value)),
+        );
+      }
+    } on FormatException {
+      return null;
+    }
+
+    return null;
   }
 }
 

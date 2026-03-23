@@ -129,6 +129,8 @@ Sem reabrir arquitetura de foco.
 - `api.txt` continua local e ignorado pelo Git
 - o app não lê `api.txt` automaticamente
 - o build não embute segredos por padrão
+- a URL padrão do servidor vem de `--dart-define` (`XTREAM_BASE_URL` / `TIVIPLAYER_BASE_URL`), sem hardcode no app
+- sessão e credenciais usam armazenamento seguro (`flutter_secure_storage`); payload legado em `SharedPreferences` é lido apenas para migração e não recebe novas gravações
 - o pacote deste PR não inclui segredos locais
 
 ## Como rodar

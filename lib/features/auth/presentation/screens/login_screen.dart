@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/app_config.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../shared/presentation/controllers/interface_mode_controller.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/presentation/layout/interface_mode_scope.dart';
@@ -20,19 +22,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  static const _embeddedBaseUrlFromApi = 'http://179.42.145.74:8080';
-  static const _embeddedBaseUrlPrimary = String.fromEnvironment(
-    'XTREAM_BASE_URL',
-    defaultValue: _embeddedBaseUrlFromApi,
-  );
-  static const _embeddedBaseUrlFallback = String.fromEnvironment(
-    'TIVIPLAYER_BASE_URL',
-    defaultValue: _embeddedBaseUrlFromApi,
-  );
 
   late final TextEditingController _baseUrlController;
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
+  late final AppConfig _appConfig;
 
   var _showAdvancedServer = false;
   var _obscurePassword = true;
@@ -40,9 +34,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _baseUrlController = TextEditingController(text: _embeddedBaseUrl);
-    _usernameController = TextEditingController();
-    _passwordController = TextEditingController();
+    _appConfig = ref.read(appConfigProvider);
+    _baseUrlController = TextEditingController(text: _defaultBaseUrl);
+    _usernameController = TextEditingController(
+      text: _appConfig.defaultUsername,
+    );
+    _passwordController = TextEditingController(
+      text: _appConfig.defaultPassword,
+    );
+    _showAdvancedServer =
+        _appConfig.allowAdvancedServer && !_appConfig.hasDefaultBaseUrl;
   }
 
   @override
@@ -175,7 +176,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       usesDirectionalNavigation,
                                   isSubmitting: isSubmitting,
                                   showAdvancedServer: _showAdvancedServer,
-                                  embeddedBaseUrl: _embeddedBaseUrl,
+                                  allowAdvancedServer:
+                                      _appConfig.allowAdvancedServer,
+                                  embeddedBaseUrl: _defaultBaseUrl,
                                   obscurePassword: _obscurePassword,
                                   onToggleAdvancedServer: _toggleAdvancedServer,
                                   onUseEmbeddedServer: _useEmbeddedServer,
@@ -201,28 +204,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  static String get _embeddedBaseUrl {
-    final primary = _embeddedBaseUrlPrimary.trim();
-    if (primary.isNotEmpty) {
-      return primary;
-    }
-
-    return _embeddedBaseUrlFallback.trim();
-  }
+  String get _defaultBaseUrl => _appConfig.defaultBaseUrl.trim();
 
   void _toggleAdvancedServer() {
+    if (!_appConfig.allowAdvancedServer) {
+      return;
+    }
+
     setState(() {
       _showAdvancedServer = !_showAdvancedServer;
       if (_showAdvancedServer &&
           _baseUrlController.text.trim().isEmpty &&
-          _embeddedBaseUrl.isNotEmpty) {
-        _baseUrlController.text = _embeddedBaseUrl;
+          _defaultBaseUrl.isNotEmpty) {
+        _baseUrlController.text = _defaultBaseUrl;
       }
     });
   }
 
   void _useEmbeddedServer() {
-    final embedded = _embeddedBaseUrl;
+    final embedded = _defaultBaseUrl;
     if (embedded.isEmpty) {
       return;
     }
@@ -245,6 +245,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final text = value?.trim() ?? '';
     final uri = Uri.tryParse(text);
+    final normalizedScheme = uri?.scheme.toLowerCase();
 
     if (text.isEmpty) {
       return null;
@@ -252,7 +253,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (uri == null ||
         !uri.hasScheme ||
-        (uri.host.isEmpty && uri.path.isEmpty)) {
+        (normalizedScheme != 'http' && normalizedScheme != 'https') ||
+        uri.host.trim().isEmpty) {
       return 'Use um endereco completo, por exemplo http://acesso.seuservico.com.';
     }
 
@@ -274,20 +276,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final resolvedBaseUrl = _resolveBaseUrl();
     if (resolvedBaseUrl.isEmpty) {
-      if (!_showAdvancedServer) {
+      if (_appConfig.allowAdvancedServer && !_showAdvancedServer) {
         setState(() {
           _showAdvancedServer = true;
         });
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Servidor nao configurado. Abra "Servidor avancado" para informar a URL.',
-            ),
-          ),
-        );
+        ..showSnackBar(SnackBar(content: Text(_serverMissingMessage)));
       return;
     }
 
@@ -303,19 +299,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String _resolveBaseUrl() {
-    if (_showAdvancedServer) {
+    if (_appConfig.allowAdvancedServer && _showAdvancedServer) {
       final custom = _baseUrlController.text.trim();
       if (custom.isNotEmpty) {
         return custom;
       }
     }
 
-    final embedded = _embeddedBaseUrl;
+    final embedded = _defaultBaseUrl;
     if (embedded.isNotEmpty) {
       return embedded;
     }
 
     return _baseUrlController.text.trim();
+  }
+
+  String get _serverMissingMessage {
+    if (_appConfig.allowAdvancedServer) {
+      return 'Servidor nao configurado. Abra "Servidor avancado" para informar a URL.';
+    }
+
+    return 'Servidor nao configurado nesta build. Defina XTREAM_BASE_URL no ambiente.';
   }
 }
 
@@ -419,6 +423,7 @@ class _CredentialsCard extends StatelessWidget {
     required this.usesDirectionalNavigation,
     required this.isSubmitting,
     required this.showAdvancedServer,
+    required this.allowAdvancedServer,
     required this.embeddedBaseUrl,
     required this.obscurePassword,
     required this.onToggleAdvancedServer,
@@ -437,6 +442,7 @@ class _CredentialsCard extends StatelessWidget {
   final bool usesDirectionalNavigation;
   final bool isSubmitting;
   final bool showAdvancedServer;
+  final bool allowAdvancedServer;
   final String embeddedBaseUrl;
   final bool obscurePassword;
   final VoidCallback onToggleAdvancedServer;
@@ -538,92 +544,107 @@ class _CredentialsCard extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: layout.sectionSpacing),
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(4),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: onToggleAdvancedServer,
-                        icon: Icon(
-                          showAdvancedServer
-                              ? Icons.expand_less_rounded
-                              : Icons.tune_rounded,
-                          size: 18,
-                        ),
-                        label: Text(
-                          showAdvancedServer
-                              ? 'Ocultar servidor avancado'
-                              : 'Servidor avancado',
+                  if (allowAdvancedServer) ...[
+                    FocusTraversalOrder(
+                      order: const NumericFocusOrder(4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: onToggleAdvancedServer,
+                          icon: Icon(
+                            showAdvancedServer
+                                ? Icons.expand_less_rounded
+                                : Icons.tune_rounded,
+                            size: 18,
+                          ),
+                          label: Text(
+                            showAdvancedServer
+                                ? 'Ocultar servidor avancado'
+                                : 'Servidor avancado',
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    child: showAdvancedServer
-                        ? Padding(
-                            key: const ValueKey('advanced-server-visible'),
-                            padding: EdgeInsets.only(
-                              top: layout.sectionSpacing - 2,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Use apenas quando precisar trocar o servidor desta instalacao.',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: colorScheme.onSurface.withValues(
-                                          alpha: 0.74,
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      child: showAdvancedServer
+                          ? Padding(
+                              key: const ValueKey('advanced-server-visible'),
+                              padding: EdgeInsets.only(
+                                top: layout.sectionSpacing - 2,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Use apenas quando precisar trocar o servidor desta instalacao.',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: colorScheme.onSurface
+                                              .withValues(alpha: 0.74),
+                                        ),
+                                  ),
+                                  SizedBox(height: layout.sectionSpacing - 4),
+                                  FocusTraversalOrder(
+                                    order: const NumericFocusOrder(5),
+                                    child: TextFormField(
+                                      key: AppTestKeys.loginBaseUrlField,
+                                      controller: baseUrlController,
+                                      keyboardType: TextInputType.url,
+                                      textInputAction: TextInputAction.done,
+                                      autofillHints: const [AutofillHints.url],
+                                      decoration: const InputDecoration(
+                                        labelText: 'Servidor',
+                                        hintText:
+                                            'http://acesso.seuservico.com',
+                                        prefixIcon: Icon(Icons.public_rounded),
+                                      ),
+                                      validator: validateBaseUrl,
+                                    ),
+                                  ),
+                                  if (hasEmbeddedServer)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 10),
+                                      child: TextButton(
+                                        onPressed: onUseEmbeddedServer,
+                                        child: const Text(
+                                          'Usar servidor padrao',
                                         ),
                                       ),
-                                ),
-                                SizedBox(height: layout.sectionSpacing - 4),
-                                FocusTraversalOrder(
-                                  order: const NumericFocusOrder(5),
-                                  child: TextFormField(
-                                    key: AppTestKeys.loginBaseUrlField,
-                                    controller: baseUrlController,
-                                    keyboardType: TextInputType.url,
-                                    textInputAction: TextInputAction.done,
-                                    autofillHints: const [AutofillHints.url],
-                                    decoration: const InputDecoration(
-                                      labelText: 'Servidor',
-                                      hintText: 'http://acesso.seuservico.com',
-                                      prefixIcon: Icon(Icons.public_rounded),
                                     ),
-                                    validator: validateBaseUrl,
-                                  ),
-                                ),
-                                if (hasEmbeddedServer)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 10),
-                                    child: TextButton(
-                                      onPressed: onUseEmbeddedServer,
-                                      child: const Text('Usar servidor padrao'),
+                                ],
+                              ),
+                            )
+                          : Padding(
+                              key: const ValueKey('advanced-server-hidden'),
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                hasEmbeddedServer
+                                    ? 'Servidor padrao configurado no app.'
+                                    : 'Servidor padrao nao configurado nesta build.',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.72,
+                                      ),
                                     ),
-                                  ),
-                              ],
+                              ),
                             ),
-                          )
-                        : Padding(
-                            key: const ValueKey('advanced-server-hidden'),
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              hasEmbeddedServer
-                                  ? 'Servidor padrao configurado no app.'
-                                  : 'Servidor padrao nao configurado nesta build.',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurface.withValues(
-                                      alpha: 0.72,
-                                    ),
-                                  ),
-                            ),
-                          ),
-                  ),
+                    ),
+                  ] else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        hasEmbeddedServer
+                            ? 'Servidor padrao configurado no app.'
+                            : 'Servidor desta build nao permite configuracao manual.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.72),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
