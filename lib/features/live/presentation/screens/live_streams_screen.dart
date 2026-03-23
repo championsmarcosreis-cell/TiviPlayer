@@ -65,6 +65,13 @@ class LiveStreamsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _LiveHeroShelf(
+                        layout: layout,
+                        item: featured,
+                        totalItems: items.length,
+                        onPlay: () => _openLivePlayer(context, featured),
+                      ),
+                      SizedBox(height: layout.cardSpacing),
                       _LiveCatalogHeader(
                         layout: layout,
                         totalItems: items.length,
@@ -213,7 +220,7 @@ class _LiveHeroShelf extends ConsumerWidget {
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.45)),
       ),
       child: AspectRatio(
-        aspectRatio: layout.isTv ? 16 / 4.4 : 16 / 8.4,
+        aspectRatio: layout.isTv ? 16 / 5.8 : 16 / 8.4,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -256,86 +263,98 @@ class _LiveHeroShelf extends ConsumerWidget {
             ),
             Padding(
               padding: EdgeInsets.all(layout.isTv ? 24 : 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Canal em destaque',
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                letterSpacing: 1,
-                                color: colorScheme.secondary,
-                              ),
-                        ),
-                        SizedBox(height: layout.isTv ? 8 : 6),
-                        Text(
-                          item.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(
-                                fontSize: layout.isTv ? 34 : 24,
-                                height: 1.02,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                        SizedBox(height: layout.isTv ? 8 : 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final denseTv = layout.isTv && constraints.maxHeight < 280;
+                  final verticalGap = denseTv ? 6.0 : (layout.isTv ? 8.0 : 6.0);
+                  final sectionGap = denseTv
+                      ? 10.0
+                      : (layout.isTv ? 14.0 : 10.0);
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            _LiveHeroChip(
-                              label: '$totalItems canais',
+                            Text(
+                              'Canal em destaque',
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    letterSpacing: 1,
+                                    color: colorScheme.secondary,
+                                  ),
+                            ),
+                            SizedBox(height: verticalGap),
+                            Text(
+                              item.name,
+                              maxLines: denseTv ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    fontSize: denseTv
+                                        ? 29
+                                        : (layout.isTv ? 34 : 24),
+                                    height: 1.02,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            SizedBox(height: verticalGap),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _LiveHeroChip(
+                                  label: '$totalItems canais',
+                                  layout: layout,
+                                ),
+                                _LiveHeroChip(
+                                  label: 'Grade Xtream',
+                                  layout: layout,
+                                ),
+                                if (!denseTv && item.hasArchive)
+                                  _LiveHeroChip(
+                                    label: 'Com replay',
+                                    layout: layout,
+                                  ),
+                              ],
+                            ),
+                            SizedBox(height: sectionGap),
+                            FilledButton.icon(
+                              onPressed: onPlay,
+                              style: playButtonStyle,
+                              icon: const Icon(Icons.play_arrow_rounded),
+                              label: const Text('Assistir agora'),
+                            ),
+                            SizedBox(height: sectionGap),
+                            _LiveEpgPanel(
+                              asyncEntries: epgState,
+                              compact: denseTv,
                               layout: layout,
                             ),
-                            _LiveHeroChip(
-                              label: 'Grade Xtream',
-                              layout: layout,
-                            ),
-                            if (item.hasArchive)
-                              _LiveHeroChip(
-                                label: 'Com replay',
-                                layout: layout,
-                              ),
                           ],
                         ),
-                        SizedBox(height: layout.isTv ? 14 : 10),
-                        FilledButton.icon(
-                          onPressed: onPlay,
-                          style: playButtonStyle,
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Assistir agora'),
-                        ),
-                        SizedBox(height: layout.isTv ? 14 : 10),
-                        _LiveEpgPanel(
-                          asyncEntries: epgState,
-                          compact: false,
-                          layout: layout,
+                      ),
+                      if (layout.isTv && !denseTv) ...[
+                        const SizedBox(width: 20),
+                        SizedBox(
+                          width: 132,
+                          child: BrandedArtwork(
+                            imageUrl: item.iconUrl,
+                            aspectRatio: 1,
+                            fit: BoxFit.contain,
+                            imagePadding: const EdgeInsets.all(14),
+                            icon: Icons.live_tv_rounded,
+                            placeholderLabel: 'Canal',
+                            borderRadius: 16,
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                  if (layout.isTv) ...[
-                    const SizedBox(width: 20),
-                    SizedBox(
-                      width: 132,
-                      child: BrandedArtwork(
-                        imageUrl: item.iconUrl,
-                        aspectRatio: 1,
-                        fit: BoxFit.contain,
-                        imagePadding: const EdgeInsets.all(14),
-                        icon: Icons.live_tv_rounded,
-                        placeholderLabel: 'Canal',
-                        borderRadius: 16,
-                      ),
-                    ),
-                  ],
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ],

@@ -62,16 +62,29 @@ class VodCategoriesScreen extends ConsumerWidget {
                 columns: columns,
                 spacing: spacing,
               );
+              final heroNames = entries
+                  .skip(1)
+                  .map((item) => item.title)
+                  .take(layout.isTv ? 5 : 3)
+                  .join('  •  ');
 
               return SingleChildScrollView(
                 padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _VodCategoryHubHero(
+                      layout: layout,
+                      totalItems: entries.length,
+                      highlights: heroNames,
+                    ),
+                    SizedBox(height: layout.sectionSpacing + 4),
                     _CategorySectionHeader(
                       layout: layout,
-                      title: 'Coleções',
-                      subtitle: '${entries.length} categorias disponíveis',
+                      title: 'Coleções VOD',
+                      subtitle: layout.isTv
+                          ? '${entries.length} categorias disponíveis'
+                          : 'Escolha uma coleção para abrir o catálogo.',
                     ),
                     SizedBox(height: layout.cardSpacing),
                     Wrap(
@@ -126,6 +139,121 @@ class _CategoryItem {
   final String id;
   final String title;
   final String description;
+}
+
+class _VodCategoryHubHero extends StatelessWidget {
+  const _VodCategoryHubHero({
+    required this.layout,
+    required this.totalItems,
+    required this.highlights,
+  });
+
+  final DeviceLayout layout;
+  final int totalItems;
+  final String highlights;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      padding: EdgeInsets.all(layout.isTv ? 22 : 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(layout.isTv ? 24 : 18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1A0B07),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+            const Color(0xFF28150D),
+          ],
+        ),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.38)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: layout.isTv ? 54 : 44,
+                height: layout.isTv ? 54 : 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: colorScheme.primary.withValues(alpha: 0.2),
+                ),
+                child: Icon(
+                  Icons.movie_creation_outlined,
+                  color: colorScheme.primary,
+                ),
+              ),
+              SizedBox(width: layout.isTv ? 12 : 10),
+              Expanded(
+                child: Text(
+                  'Hub de Filmes',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontSize: layout.isTv ? 34 : 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _HeroStatChip(layout: layout, label: '$totalItems coleções'),
+            ],
+          ),
+          SizedBox(height: layout.isTv ? 10 : 8),
+          Text(
+            'Organize o catálogo por coleção e abra os títulos com navegação otimizada para controle remoto e toque.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.84),
+            ),
+          ),
+          if (highlights.trim().isNotEmpty) ...[
+            SizedBox(height: layout.isTv ? 10 : 8),
+            Text(
+              highlights,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStatChip extends StatelessWidget {
+  const _HeroStatChip({required this.layout, required this.label});
+
+  final DeviceLayout layout;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.isTv ? 12 : 10,
+        vertical: layout.isTv ? 7 : 6,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.black.withValues(alpha: 0.35),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          letterSpacing: 0.7,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }
 
 class _CategorySectionHeader extends StatelessWidget {
@@ -294,6 +422,15 @@ class _CategoryTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.82),
+                  ),
+                ),
+                SizedBox(height: layout.isTv ? 10 : 12),
+                Text(
+                  'Abrir coleção',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    letterSpacing: 0.5,
+                    color: colorScheme.primary.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

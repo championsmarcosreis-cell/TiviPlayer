@@ -71,8 +71,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Agora: Jornal da Noite'), findsOneWidget);
-    expect(streamCalls['stream-1'], 1);
+    expect(find.text('Agora: Jornal da Noite'), findsWidgets);
+    expect(streamCalls['stream-1'] ?? 0, greaterThanOrEqualTo(1));
   });
 }
 

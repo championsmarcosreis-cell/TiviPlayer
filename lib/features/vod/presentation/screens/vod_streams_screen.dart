@@ -63,6 +63,12 @@ class VodStreamsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _VodHeroShelf(
+                        layout: layout,
+                        item: featured,
+                        totalItems: items.length,
+                      ),
+                      SizedBox(height: layout.cardSpacing),
                       _CatalogHeader(layout: layout, totalItems: items.length),
                       SizedBox(height: layout.cardSpacing),
                       Wrap(
@@ -115,6 +121,7 @@ class VodStreamsScreen extends ConsumerWidget {
                   final item = items[index - 2];
                   final metadata = <String>[
                     'Filme',
+                    'Xtream VOD',
                     if (item.rating?.trim().isNotEmpty == true)
                       'Nota ${item.rating}',
                   ];
@@ -123,9 +130,11 @@ class VodStreamsScreen extends ConsumerWidget {
                     interactiveKey: AppTestKeys.vodItem(item.id),
                     autofocus: index == 2,
                     testId: AppTestKeys.vodItemId(item.id),
-                    overline: 'Catalogo VOD',
+                    overline: 'Filme sob demanda',
                     title: item.name,
-                    subtitle: 'Abra para ver detalhes e reproduzir.',
+                    subtitle: item.rating?.trim().isNotEmpty == true
+                        ? 'Nota ${item.rating} no catálogo. Abra para ver detalhes e reproduzir.'
+                        : 'Abra para ver detalhes e reproduzir.',
                     metadata: metadata,
                     badge: item.rating?.trim().isNotEmpty == true
                         ? '★ ${item.rating}'
@@ -169,6 +178,43 @@ class _VodHeroShelf extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final image = BrandedArtwork.normalizeArtworkUrl(item.coverUrl);
+    final playButtonStyle = layout.isTv
+        ? ButtonStyle(
+            minimumSize: WidgetStatePropertyAll(Size(0, layout.isTv ? 60 : 52)),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
+                return const Color(0xFFFFF3E7);
+              }
+              if (states.contains(WidgetState.pressed)) {
+                return colorScheme.primary.withValues(alpha: 0.86);
+              }
+              return colorScheme.primary;
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
+                return const Color(0xFF161005);
+              }
+              return colorScheme.onPrimary;
+            }),
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
+                return BorderSide(color: colorScheme.secondary, width: 2.8);
+              }
+              return BorderSide(
+                color: colorScheme.primary.withValues(alpha: 0.9),
+              );
+            }),
+            elevation: WidgetStateProperty.resolveWith((states) {
+              return states.contains(WidgetState.focused) ? 11 : 2;
+            }),
+          )
+        : null;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -177,17 +223,33 @@ class _VodHeroShelf extends StatelessWidget {
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.45)),
       ),
       child: AspectRatio(
-        aspectRatio: layout.isTv ? 16 / 4.6 : 16 / 10.2,
+        aspectRatio: layout.isTv ? 16 / 5.6 : 16 / 10.2,
         child: Stack(
           fit: StackFit.expand,
           children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF090A10),
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.84),
+                    const Color(0xFF1A120A),
+                  ],
+                ),
+              ),
+            ),
             if (image != null)
-              Image.network(
-                image,
-                fit: BoxFit.cover,
-                headers: const {'Accept-Encoding': 'identity'},
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox.shrink(),
+              Opacity(
+                opacity: 0.86,
+                child: Image.network(
+                  image,
+                  fit: BoxFit.cover,
+                  headers: const {'Accept-Encoding': 'identity'},
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
+                ),
               ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -195,9 +257,9 @@ class _VodHeroShelf extends StatelessWidget {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    const Color(0xEE04080F),
-                    const Color(0xCC04080F),
-                    const Color(0x3304080F),
+                    const Color(0xEF070A12),
+                    const Color(0xC8070A12),
+                    const Color(0x33070A12),
                   ],
                 ),
               ),
@@ -241,11 +303,12 @@ class _VodHeroShelf extends StatelessWidget {
                               label: '$totalItems títulos',
                               layout: layout,
                             ),
-                            if (layout.isTv)
-                              _HeroChip(
-                                label: 'Streaming sob demanda',
-                                layout: layout,
-                              ),
+                            _HeroChip(
+                              label: layout.isTv
+                                  ? 'Streaming sob demanda'
+                                  : 'Contrato Xtream',
+                              layout: layout,
+                            ),
                             if (item.rating?.trim().isNotEmpty == true)
                               _HeroChip(
                                 label: 'Nota ${item.rating}',
@@ -258,8 +321,9 @@ class _VodHeroShelf extends StatelessWidget {
                           onPressed: () => context.push(
                             VodDetailsScreen.buildLocation(item.id),
                           ),
+                          style: playButtonStyle,
                           icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Abrir destaque'),
+                          label: const Text('Abrir detalhes'),
                         ),
                       ],
                     ),
@@ -326,9 +390,9 @@ class _CatalogHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: EdgeInsets.all(layout.isTv ? 14 : 14),
+      padding: EdgeInsets.all(layout.isTv ? 18 : 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 16 : 16),
+        borderRadius: BorderRadius.circular(layout.isTv ? 20 : 16),
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.32)),
       ),
@@ -349,12 +413,25 @@ class _CatalogHeader extends StatelessWidget {
           ),
           SizedBox(width: layout.isTv ? 12 : 10),
           Expanded(
-            child: Text(
-              'Todos os títulos • $totalItems disponíveis',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontSize: layout.isTv ? 20 : 18,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Todos os títulos • $totalItems disponíveis',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: layout.isTv ? 21 : 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: layout.isTv ? 4 : 2),
+                Text(
+                  'Navegue pelo catálogo VOD com foco otimizado para TV.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.76),
+                    fontSize: layout.isTv ? 13 : 12,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -390,9 +467,9 @@ class _VodTvPosterCard extends StatelessWidget {
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -400,7 +477,7 @@ class _VodTvPosterCard extends StatelessWidget {
                   ? [
                       colorScheme.primary.withValues(alpha: 0.24),
                       colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.92,
+                        alpha: 0.94,
                       ),
                     ]
                   : [
@@ -434,7 +511,7 @@ class _VodTvPosterCard extends StatelessWidget {
                   BrandedArtwork(
                     imageUrl: item.coverUrl,
                     aspectRatio: 2 / 3,
-                    borderRadius: 12,
+                    borderRadius: 14,
                     placeholderLabel: 'Poster indisponível',
                     icon: Icons.movie_creation_outlined,
                   ),
@@ -463,28 +540,59 @@ class _VodTvPosterCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 item.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 16,
+                  fontSize: 17,
                   fontWeight: FontWeight.w700,
                   height: 1.12,
                 ),
               ),
-              if (hasRating) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Nota $rating',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.76),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  if (hasRating)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: colorScheme.primary.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: colorScheme.primary.withValues(alpha: 0.42),
+                        ),
+                      ),
+                      child: Text(
+                        'Nota $rating',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.82),
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      'Sem nota',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.76),
+                      ),
+                    ),
+                  const Spacer(),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: focused
+                        ? colorScheme.primary
+                        : colorScheme.onSurface.withValues(alpha: 0.74),
                   ),
-                ),
-              ],
+                ],
+              ),
             ],
           ),
         );
