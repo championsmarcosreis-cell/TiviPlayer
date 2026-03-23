@@ -35,6 +35,9 @@ class PlaybackHistoryController extends Notifier<List<PlaybackHistoryEntry>> {
       return;
     }
     await repository.upsert(entry);
+    if (!ref.mounted) {
+      return;
+    }
     state = repository.getAll();
   }
 
@@ -44,6 +47,9 @@ class PlaybackHistoryController extends Notifier<List<PlaybackHistoryEntry>> {
       return;
     }
     await repository.remove(contentType, itemId);
+    if (!ref.mounted) {
+      return;
+    }
     state = repository.getAll();
   }
 }

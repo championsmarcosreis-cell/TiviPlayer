@@ -65,10 +65,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _lastKnownPlaying = false;
   DateTime? _bufferingSince;
   Timer? _overlayHideTimer;
+  Timer? _interactionMessageTimer;
   DateTime? _lastProgressSaveAt;
   Duration _lastSavedPosition = Duration.zero;
   int _runtimeRecoveryAttempts = 0;
   int _initializationVersion = 0;
+  String? _interactionMessage;
   late final PlaybackHistoryController _playbackHistoryController;
 
   @override
@@ -90,6 +92,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _isDisposing = true;
     HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _overlayHideTimer?.cancel();
+    _interactionMessageTimer?.cancel();
     _controller?.removeListener(_handleControllerUpdate);
     _persistPlaybackProgress(force: true);
     _controller?.dispose();
@@ -207,6 +210,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     top: layout.pageTopPadding + 84,
                     child: _StatusBanner(message: _statusMessage!),
                   ),
+                if (!_isInitializing &&
+                    _errorMessage == null &&
+                    _interactionMessage != null)
+                  Positioned(
+                    left: layout.pageHorizontalPadding,
+                    right: layout.pageHorizontalPadding,
+                    bottom:
+                        layout.pageBottomPadding + (layout.isTv ? 156 : 140),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: _InteractionToast(message: _interactionMessage!),
+                    ),
+                  ),
                 if (playerValue?.isBuffering == true && _errorMessage == null)
                   Positioned(
                     right: layout.pageHorizontalPadding,
@@ -246,6 +262,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     setState(() {
       _isInitializing = true;
       _errorMessage = null;
+      _interactionMessage = null;
       _statusMessage = wasRecoveringRuntime
           ? widget.recoveryPolicy.runtimeRecoveryLabel(
               attemptNumber: _runtimeRecoveryAttempts,
@@ -288,6 +305,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
 
       if (attempt > 0) {
+        _interactionMessageTimer?.cancel();
         setState(() {
           _statusMessage = widget.recoveryPolicy.initializationRetryLabel(
             attemptNumber: attempt + 1,
@@ -344,6 +362,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           _isInitializing = false;
           _errorMessage = null;
           _statusMessage = null;
+          _interactionMessage = null;
           _isRecoveringRuntime = false;
         });
         _runtimeRecoveryAttempts = 0;
@@ -369,6 +388,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _isInitializing = false;
       _isRecoveringRuntime = false;
       _statusMessage = null;
+      _interactionMessage = null;
       _errorMessage = Failure.fromError(
         lastError ?? StateError('Falha ao carregar stream.'),
       ).message;
@@ -449,10 +469,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     _runtimeRecoveryAttempts = nextAttempt;
     final currentAttempt = nextAttempt;
+    _interactionMessageTimer?.cancel();
     setState(() {
       _showPlaybackUi = true;
       _isRecoveringRuntime = true;
       _errorMessage = null;
+      _interactionMessage = null;
       _statusMessage = widget.recoveryPolicy.runtimeRecoveryLabel(
         attemptNumber: currentAttempt,
         isLive: playbackContext.isLive,
@@ -534,11 +556,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     _revealPlaybackUi();
 
+    final wasPlaying = controller.value.isPlaying;
     if (controller.value.isPlaying) {
       await controller.pause();
     } else {
       await controller.play();
     }
+    _showInteractionMessage(wasPlaying ? 'Pausado' : 'Reproduzindo');
   }
 
   Future<void> _seekRelative(Duration offset) async {
@@ -563,15 +587,62 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : target;
 
     await controller.seekTo(clamped);
+    final direction = offset.isNegative ? '-' : '+';
+    final seconds = offset.inSeconds.abs();
+    _showInteractionMessage('$direction${seconds}s');
   }
 
   bool _handleHardwareKey(KeyEvent event) {
     if (!mounted || _isDisposing || widget.previewState != null) {
       return false;
     }
-    if (event is KeyDownEvent) {
-      _revealPlaybackUi();
+    if (event is! KeyDownEvent) {
+      return false;
     }
+    final key = event.logicalKey;
+
+    if (_isBackKey(key)) {
+      if (context.canPop()) {
+        context.pop();
+        return true;
+      }
+      return false;
+    }
+
+    _revealPlaybackUi();
+
+    if (_isInitializing) {
+      return false;
+    }
+
+    if (_errorMessage != null) {
+      if (_isActivationKey(key)) {
+        unawaited(_initializePlayer());
+        return true;
+      }
+      return false;
+    }
+
+    if (_isActivationKey(key)) {
+      unawaited(_togglePlayPause());
+      return true;
+    }
+
+    final resolved = _resolvedPlayback;
+    if (resolved == null || !resolved.isSeekable) {
+      return false;
+    }
+
+    if (_isLeftKey(key)) {
+      unawaited(_seekRelative(const Duration(seconds: -10)));
+      return true;
+    }
+
+    if (_isRightKey(key)) {
+      unawaited(_seekRelative(const Duration(seconds: 10)));
+      return true;
+    }
+
     return false;
   }
 
@@ -622,6 +693,50 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _showPlaybackUi = false;
       });
     });
+  }
+
+  void _showInteractionMessage(String message) {
+    if (!mounted || _isDisposing) {
+      return;
+    }
+
+    _interactionMessageTimer?.cancel();
+    setState(() {
+      _interactionMessage = message;
+    });
+
+    _interactionMessageTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (!mounted || _isDisposing) {
+        return;
+      }
+      setState(() {
+        _interactionMessage = null;
+      });
+      _scheduleOverlayHide();
+    });
+  }
+
+  bool _isActivationKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.gameButtonA ||
+        key == LogicalKeyboardKey.mediaPlayPause;
+  }
+
+  bool _isLeftKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.arrowLeft;
+  }
+
+  bool _isRightKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.arrowRight;
+  }
+
+  bool _isBackKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.browserBack;
   }
 }
 
@@ -1530,6 +1645,34 @@ class _StatusBanner extends StatelessWidget {
               ).textTheme.bodySmall?.copyWith(color: Colors.white),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InteractionToast extends StatelessWidget {
+  const _InteractionToast({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xDD0E1624),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        child: Text(
+          message,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: Colors.white.withValues(alpha: 0.94),
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4,
+          ),
         ),
       ),
     );

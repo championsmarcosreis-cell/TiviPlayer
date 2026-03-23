@@ -156,6 +156,55 @@ void main() {
     expect(find.byKey(AppTestKeys.playerLoadedState), findsOneWidget);
     expect(find.byKey(AppTestKeys.playerErrorState), findsNothing);
   });
+
+  testWidgets('handles remote keyboard shortcuts for seek and play pause', (
+    tester,
+  ) async {
+    final fakePlatform = _FakeVideoPlayerPlatform(
+      initializationOutcomes: [_InitOutcome.success],
+    );
+    VideoPlayerPlatform.instance = fakePlatform;
+
+    await _pumpPlayer(
+      tester,
+      recoveryPolicy: const PlayerRecoveryPolicy(
+        maxInitializationRetries: 0,
+        maxRuntimeRecoveries: 0,
+        initializationBaseDelay: Duration(milliseconds: 1),
+        initializationStepDelay: Duration.zero,
+      ),
+    );
+
+    final loaded = await _waitForPlayerLoaded(tester);
+    expect(loaded, isTrue, reason: 'player não carregou para testar atalhos');
+
+    final playCallsAfterInit = fakePlatform.playCalls;
+    expect(playCallsAfterInit, greaterThanOrEqualTo(1));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(fakePlatform.seekRequests, isNotEmpty);
+    expect(fakePlatform.seekRequests.last, const Duration(seconds: 10));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await _waitFor(
+      tester,
+      condition: () => fakePlatform.pauseCalls >= 1,
+      timeout: const Duration(seconds: 1),
+      step: const Duration(milliseconds: 20),
+    );
+    expect(fakePlatform.pauseCalls, greaterThanOrEqualTo(1));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await _waitFor(
+      tester,
+      condition: () => fakePlatform.playCalls > playCallsAfterInit,
+      timeout: const Duration(seconds: 1),
+      step: const Duration(milliseconds: 20),
+    );
+    expect(fakePlatform.playCalls, greaterThan(playCallsAfterInit));
+  });
 }
 
 Future<void> _pumpPlayer(
@@ -290,6 +339,9 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   final List<int> listenedPlayerIds = <int>[];
   final List<int> initializedEventPlayerIds = <int>[];
   final List<int> initializationErrorPlayerIds = <int>[];
+  final List<Duration> seekRequests = <Duration>[];
+  int playCalls = 0;
+  int pauseCalls = 0;
   int _nextPlayerId = 1;
   int? latestCreatedPlayerId;
 
@@ -360,6 +412,7 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> play(int playerId) async {
+    playCalls += 1;
     final shouldFail = _playFailures.isNotEmpty && _playFailures.removeFirst();
     if (shouldFail) {
       throw PlatformException(
@@ -377,6 +430,7 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> pause(int playerId) async {
+    pauseCalls += 1;
     _eventStreams[playerId]?.add(
       VideoEvent(
         eventType: VideoEventType.isPlayingStateUpdate,
@@ -387,6 +441,7 @@ class _FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> seekTo(int playerId, Duration position) async {
+    seekRequests.add(position);
     _positions[playerId] = position;
   }
 
