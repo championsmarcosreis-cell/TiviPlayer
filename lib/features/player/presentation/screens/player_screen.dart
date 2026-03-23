@@ -17,7 +17,9 @@ import '../../domain/entities/playback_context.dart';
 import '../../domain/engine/player_engine_adapter.dart';
 import '../../domain/entities/playback_manifest.dart';
 import '../../domain/entities/player_recovery_policy.dart';
+import '../../domain/entities/player_runtime_issue.dart';
 import '../../domain/entities/resolved_playback.dart';
+import '../../domain/observability/player_telemetry.dart';
 import '../providers/player_providers.dart';
 import '../widgets/player_control_button.dart';
 
@@ -83,6 +85,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   String? _selectedQualityProfile;
   late final PlaybackHistoryController _playbackHistoryController;
   late final PlayerEngineAdapter _playerEngineAdapter;
+  late final PlayerTelemetrySink _playerTelemetrySink;
+  final _runtimeIssueClassifier = const PlayerRuntimeIssueClassifier();
 
   @override
   void initState() {
@@ -91,6 +95,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       playbackHistoryControllerProvider.notifier,
     );
     _playerEngineAdapter = ref.read(playerEngineAdapterProvider);
+    _playerTelemetrySink = ref.read(playerTelemetrySinkProvider);
     if (widget.previewState != null) {
       _isInitializing = false;
       return;
@@ -481,11 +486,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     final value = controller.value;
     if (value.hasError) {
-      unawaited(
-        _attemptRuntimeRecovery(
-          value.errorDescription ?? 'Falha ao carregar o stream no player.',
+      final issue = _runtimeIssueClassifier.classify(
+        value.errorDescription ?? 'Falha ao carregar o stream no player.',
+      );
+      _recordTelemetry(
+        PlayerTelemetryEvent(
+          type: PlayerTelemetryEventType.runtimeIssueClassified,
+          message: 'Runtime issue classificada no player.',
+          attributes: <String, Object?>{
+            'kind': issue.kind.name,
+            'retryable': issue.retryable,
+            'code': issue.code,
+            'raw': value.errorDescription,
+          },
         ),
       );
+      unawaited(_attemptRuntimeRecovery(issue));
       return;
     }
     _trackBufferingRecovery(value);
@@ -516,18 +532,66 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
 
     _bufferingSince = null;
-    unawaited(
-      _attemptRuntimeRecovery('Buffering prolongado ao reproduzir o stream.'),
+    final issue = const PlayerRuntimeIssue(
+      kind: PlayerRuntimeIssueKind.timeout,
+      message: 'Buffering prolongado ao reproduzir o stream.',
+      retryable: true,
+      code: 'buffering_stall',
     );
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.runtimeIssueClassified,
+        message: 'Buffering stall classificado como timeout.',
+        attributes: <String, Object?>{
+          'kind': issue.kind.name,
+          'retryable': issue.retryable,
+          'code': issue.code,
+        },
+      ),
+    );
+    unawaited(_attemptRuntimeRecovery(issue));
   }
 
-  Future<void> _attemptRuntimeRecovery(String fallbackError) async {
+  Future<void> _attemptRuntimeRecovery(PlayerRuntimeIssue issue) async {
     final playbackContext = widget.playbackContext;
     if (!mounted ||
         _isDisposing ||
         _isInitializing ||
         _isRecoveringRuntime ||
         playbackContext == null) {
+      _recordTelemetry(
+        PlayerTelemetryEvent(
+          type: PlayerTelemetryEventType.runtimeRecoverySkipped,
+          message: 'Recuperacao ignorada por estado invalido.',
+          attributes: <String, Object?>{
+            'kind': issue.kind.name,
+            'retryable': issue.retryable,
+            'isInitializing': _isInitializing,
+            'isRecoveringRuntime': _isRecoveringRuntime,
+          },
+        ),
+      );
+      return;
+    }
+
+    if (!issue.retryable) {
+      if (_errorMessage == null) {
+        setState(() {
+          _statusMessage = null;
+          _errorMessage = issue.message;
+          _showPlaybackUi = true;
+        });
+      }
+      _recordTelemetry(
+        PlayerTelemetryEvent(
+          type: PlayerTelemetryEventType.runtimeRecoverySkipped,
+          message: 'Recuperacao ignorada: issue nao retryable.',
+          attributes: <String, Object?>{
+            'kind': issue.kind.name,
+            'code': issue.code,
+          },
+        ),
+      );
       return;
     }
 
@@ -538,10 +602,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (_errorMessage == null) {
         setState(() {
           _statusMessage = null;
-          _errorMessage = fallbackError;
+          _errorMessage = issue.message;
           _showPlaybackUi = true;
         });
       }
+      _recordTelemetry(
+        PlayerTelemetryEvent(
+          type: PlayerTelemetryEventType.runtimeRecoveryLimitReached,
+          message: 'Limite de recuperacao em runtime atingido.',
+          attributes: <String, Object?>{
+            'kind': issue.kind.name,
+            'attempts': _runtimeRecoveryAttempts,
+            'max': widget.recoveryPolicy.maxRuntimeRecoveries,
+            'code': issue.code,
+          },
+        ),
+      );
       return;
     }
 
@@ -559,7 +635,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       );
     });
 
-    await Future<void>.delayed(widget.recoveryPolicy.runtimeRecoveryDelay);
+    final retryDelay = widget.recoveryPolicy.runtimeRecoveryDelayForIssue(
+      issueKind: issue.kind,
+      attemptNumber: currentAttempt,
+    );
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.runtimeRecoveryScheduled,
+        message: 'Recuperacao runtime agendada.',
+        attributes: <String, Object?>{
+          'kind': issue.kind.name,
+          'attempt': currentAttempt,
+          'delayMs': retryDelay.inMilliseconds,
+          'code': issue.code,
+        },
+      ),
+    );
+
+    await Future<void>.delayed(retryDelay);
     if (!mounted || _isDisposing) {
       return;
     }
@@ -698,6 +791,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!mounted || selected == null) {
       return;
     }
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.selectionRequested,
+        message: 'Selecao de audio solicitada.',
+        attributes: <String, Object?>{
+          'selected': selected,
+          'supports': _playerEngineAdapter.supportsAudioTrackSelection,
+        },
+      ),
+    );
 
     final resolvedPlayback = _resolvedPlayback;
     if (resolvedPlayback == null) {
@@ -725,6 +828,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
     _showInteractionMessage(_audioSelectionMessage(selected, result));
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.selectionResult,
+        message: 'Selecao de audio concluida.',
+        attributes: <String, Object?>{
+          'selected': selected,
+          'result': result.name,
+        },
+      ),
+    );
   }
 
   Future<void> _selectSubtitleTrack() async {
@@ -746,6 +859,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!mounted || selected == null) {
       return;
     }
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.selectionRequested,
+        message: 'Selecao de legenda solicitada.',
+        attributes: <String, Object?>{
+          'selected': selected,
+          'supports': _playerEngineAdapter.supportsSubtitleTrackSelection,
+        },
+      ),
+    );
 
     final resolvedPlayback = _resolvedPlayback;
     if (resolvedPlayback == null) {
@@ -784,6 +907,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         result: result,
       ),
     );
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.selectionResult,
+        message: 'Selecao de legenda concluida.',
+        attributes: <String, Object?>{
+          'selected': selected,
+          'disabled': disableSubtitles,
+          'result': result.name,
+        },
+      ),
+    );
   }
 
   Future<void> _selectQualityProfile() async {
@@ -792,25 +926,68 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _showInteractionMessage('Qualidade manual indisponivel');
       return;
     }
+    final available = [
+      if (_supportsAnyQualitySelection) _autoQualityLabel,
+      ...profiles,
+    ];
+    final currentSelection =
+        _selectedQualityProfile ??
+        (_supportsAnyQualitySelection ? _autoQualityLabel : profiles.first);
 
     final selected = await _chooseTrack(
       title: 'Qualidade',
-      tracks: profiles,
-      currentSelection: _selectedQualityProfile ?? profiles.first,
+      tracks: available,
+      currentSelection: currentSelection,
       allowOff: false,
-      helperText: _playerEngineAdapter.supportsQualitySelection
+      helperText: _supportsAnyQualitySelection
           ? null
           : 'A engine atual nao aplica troca manual de qualidade.',
     );
     if (!mounted || selected == null) {
       return;
     }
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.selectionRequested,
+        message: 'Selecao de qualidade solicitada.',
+        attributes: <String, Object?>{
+          'selected': selected,
+          'supportsManual': _playerEngineAdapter.supportsManualQualitySelection,
+          'supportsAuto': _playerEngineAdapter.supportsAutoQualitySelection,
+        },
+      ),
+    );
 
     final resolvedPlayback = _resolvedPlayback;
     if (resolvedPlayback == null) {
       _showInteractionMessage('Playback indisponivel');
       return;
     }
+    if (selected == _autoQualityLabel) {
+      setState(() {
+        _selectedQualityProfile = _autoQualityLabel;
+      });
+
+      final result = await _playerEngineAdapter.selectAutoQuality(
+        playback: resolvedPlayback,
+      );
+      if (!mounted || _isDisposing) {
+        return;
+      }
+      _showInteractionMessage(_qualityAutoSelectionMessage(result));
+      _recordTelemetry(
+        PlayerTelemetryEvent(
+          type: PlayerTelemetryEventType.selectionResult,
+          message: 'Selecao de qualidade auto concluida.',
+          attributes: <String, Object?>{
+            'selected': selected,
+            'result': result.name,
+          },
+        ),
+      );
+      return;
+    }
+
     final variant = _resolveVariantByLabel(
       resolvedPlayback.manifest.variants,
       selected,
@@ -832,6 +1009,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
     _showInteractionMessage(_qualitySelectionMessage(selected, result));
+    _recordTelemetry(
+      PlayerTelemetryEvent(
+        type: PlayerTelemetryEventType.selectionResult,
+        message: 'Selecao de qualidade manual concluida.',
+        attributes: <String, Object?>{
+          'selected': selected,
+          'result': result.name,
+        },
+      ),
+    );
   }
 
   Future<String?> _chooseTrack({
@@ -1053,6 +1240,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       });
       _scheduleOverlayHide();
     });
+  }
+
+  void _recordTelemetry(PlayerTelemetryEvent event) {
+    _playerTelemetrySink.record(event);
+  }
+
+  bool get _supportsAnyQualitySelection {
+    return _playerEngineAdapter.supportsManualQualitySelection ||
+        _playerEngineAdapter.supportsAutoQualitySelection;
   }
 
   bool _isActivationKey(LogicalKeyboardKey key) {
@@ -2258,6 +2454,7 @@ class _ErrorPanel extends StatelessWidget {
 }
 
 const _offTrackLabel = 'Desativadas';
+const _autoQualityLabel = 'Auto';
 
 class _PlayerStreamMetrics {
   const _PlayerStreamMetrics({
@@ -2325,6 +2522,12 @@ String? _resolveDefaultTrackLabel(List<PlaybackTrack> tracks) {
 String? _resolveDefaultQualityProfileLabel(PlaybackManifest manifest) {
   if (manifest.variants.isEmpty) {
     return null;
+  }
+
+  for (final variant in manifest.variants) {
+    if (variant.isAuto) {
+      return _autoQualityLabel;
+    }
   }
 
   for (final variant in manifest.variants) {
@@ -2422,6 +2625,15 @@ String _qualitySelectionMessage(
       'Qualidade marcada: $selected (aplicacao pendente)',
     PlayerSelectionApplyResult.failed =>
       'Falha ao aplicar qualidade. Marcada: $selected',
+  };
+}
+
+String _qualityAutoSelectionMessage(PlayerSelectionApplyResult result) {
+  return switch (result) {
+    PlayerSelectionApplyResult.applied => 'Qualidade automatica aplicada',
+    PlayerSelectionApplyResult.notSupported =>
+      'Qualidade automatica marcada (aplicacao pendente)',
+    PlayerSelectionApplyResult.failed => 'Falha ao ativar qualidade automatica',
   };
 }
 

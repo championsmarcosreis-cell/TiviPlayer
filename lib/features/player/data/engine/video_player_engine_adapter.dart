@@ -12,7 +12,10 @@ class VideoPlayerEngineAdapter implements PlayerEngineAdapter {
   bool get supportsSubtitleTrackSelection => false;
 
   @override
-  bool get supportsQualitySelection => false;
+  bool get supportsManualQualitySelection => false;
+
+  @override
+  bool get supportsAutoQualitySelection => false;
 
   @override
   Future<PlayerSelectionApplyResult> selectAudioTrack({
@@ -34,6 +37,13 @@ class VideoPlayerEngineAdapter implements PlayerEngineAdapter {
   Future<PlayerSelectionApplyResult> selectQualityVariant({
     required ResolvedPlayback playback,
     required PlaybackVariant variant,
+  }) async {
+    return PlayerSelectionApplyResult.notSupported;
+  }
+
+  @override
+  Future<PlayerSelectionApplyResult> selectAutoQuality({
+    required ResolvedPlayback playback,
   }) async {
     return PlayerSelectionApplyResult.notSupported;
   }

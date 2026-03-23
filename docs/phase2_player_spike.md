@@ -52,6 +52,16 @@ Plataforma alvo:
 - implementação atual `VideoPlayerEngineAdapter` plugada por provider
 - `PlayerScreen` agora aplica seleções via adapter (resultado de runtime)
 
+7. Android channel + adapter skeleton:
+- `AndroidChannelPlayerEngineAdapter` com payload de tracks/quality por `MethodChannel`
+- `MainActivity` integra `PlayerEngineChannelHandler`
+- canal Android responde capacidades e métodos de seleção (status `not_supported` neste estágio)
+
+8. Observabilidade e retry classificado:
+- `PlayerRuntimeIssueClassifier` para tipificar erros de runtime
+- política de reconexão com backoff por classe de erro
+- `PlayerTelemetrySink` para trilha estruturada de seleção/erro/recovery
+
 ## Limites atuais (intencionais)
 
 - troca de áudio/legenda/qualidade ainda não é aplicada no stream em runtime
@@ -60,7 +70,7 @@ Plataforma alvo:
 
 ## Próximos incrementos (ordem recomendada)
 
-1. Implementar adapter Media3 com API de:
+1. Implementar backend real no canal Android (Media3/ExoPlayer) com API de:
 `setAudioTrack`, `setSubtitleTrack`, `setQualityVariant`, `setAutoQuality`.
 2. Implementar classificação de erros/reconexão para live (rede, timeout, stream offline).
 3. Fechar suíte real em device:

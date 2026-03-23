@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tiviplayer/features/player/domain/entities/player_recovery_policy.dart';
+import 'package:tiviplayer/features/player/domain/entities/player_runtime_issue.dart';
 
 void main() {
   test('calculates initialization attempts and progressive delay', () {
@@ -67,6 +68,27 @@ void main() {
     expect(
       policy.runtimeRecoveryLabel(attemptNumber: 1, isLive: false),
       'Recuperando video (1/3)...',
+    );
+  });
+
+  test('applies classified runtime backoff by issue type', () {
+    const policy = PlayerRecoveryPolicy(
+      runtimeRecoveryDelay: Duration(milliseconds: 1000),
+    );
+
+    expect(
+      policy.runtimeRecoveryDelayForIssue(
+        issueKind: PlayerRuntimeIssueKind.network,
+        attemptNumber: 1,
+      ),
+      const Duration(milliseconds: 1300),
+    );
+    expect(
+      policy.runtimeRecoveryDelayForIssue(
+        issueKind: PlayerRuntimeIssueKind.streamUnavailable,
+        attemptNumber: 2,
+      ),
+      const Duration(milliseconds: 2280),
     );
   });
 }

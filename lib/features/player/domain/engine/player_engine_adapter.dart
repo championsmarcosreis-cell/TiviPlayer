@@ -6,7 +6,8 @@ enum PlayerSelectionApplyResult { applied, notSupported, failed }
 abstract class PlayerEngineAdapter {
   bool get supportsAudioTrackSelection;
   bool get supportsSubtitleTrackSelection;
-  bool get supportsQualitySelection;
+  bool get supportsManualQualitySelection;
+  bool get supportsAutoQualitySelection;
 
   Future<PlayerSelectionApplyResult> selectAudioTrack({
     required ResolvedPlayback playback,
@@ -21,5 +22,9 @@ abstract class PlayerEngineAdapter {
   Future<PlayerSelectionApplyResult> selectQualityVariant({
     required ResolvedPlayback playback,
     required PlaybackVariant variant,
+  });
+
+  Future<PlayerSelectionApplyResult> selectAutoQuality({
+    required ResolvedPlayback playback,
   });
 }

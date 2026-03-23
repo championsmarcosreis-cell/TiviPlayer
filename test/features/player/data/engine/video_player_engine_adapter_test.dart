@@ -35,7 +35,8 @@ void main() {
   test('exposes no runtime selection capabilities on video_player adapter', () {
     expect(adapter.supportsAudioTrackSelection, isFalse);
     expect(adapter.supportsSubtitleTrackSelection, isFalse);
-    expect(adapter.supportsQualitySelection, isFalse);
+    expect(adapter.supportsManualQualitySelection, isFalse);
+    expect(adapter.supportsAutoQualitySelection, isFalse);
   });
 
   test('returns notSupported for runtime selection requests', () async {
@@ -51,9 +52,13 @@ void main() {
       playback: playback,
       variant: variant,
     );
+    final autoQualityResult = await adapter.selectAutoQuality(
+      playback: playback,
+    );
 
     expect(audioResult, PlayerSelectionApplyResult.notSupported);
     expect(subtitleResult, PlayerSelectionApplyResult.notSupported);
     expect(qualityResult, PlayerSelectionApplyResult.notSupported);
+    expect(autoQualityResult, PlayerSelectionApplyResult.notSupported);
   });
 }

@@ -1,3 +1,5 @@
+import 'player_runtime_issue.dart';
+
 class PlayerRecoveryPolicy {
   const PlayerRecoveryPolicy({
     this.maxInitializationRetries = 2,
@@ -59,5 +61,24 @@ class PlayerRecoveryPolicy {
   }) {
     final streamLabel = isLive ? 'sinal ao vivo' : 'video';
     return 'Recuperando $streamLabel ($attemptNumber/$maxRuntimeRecoveries)...';
+  }
+
+  Duration runtimeRecoveryDelayForIssue({
+    required PlayerRuntimeIssueKind issueKind,
+    required int attemptNumber,
+  }) {
+    final safeAttempt = attemptNumber <= 0 ? 1 : attemptNumber;
+    final baseMs = runtimeRecoveryDelay.inMilliseconds;
+    final multiplierPercent = switch (issueKind) {
+      PlayerRuntimeIssueKind.network => 130,
+      PlayerRuntimeIssueKind.timeout => 160,
+      PlayerRuntimeIssueKind.streamUnavailable => 200,
+      PlayerRuntimeIssueKind.codec => 100,
+      PlayerRuntimeIssueKind.unauthorized => 220,
+      PlayerRuntimeIssueKind.unknown => 120,
+    };
+    final scaledBase = (baseMs * multiplierPercent) ~/ 100;
+    final progressiveBackoff = (safeAttempt - 1) * 280;
+    return Duration(milliseconds: scaledBase + progressiveBackoff);
   }
 }
