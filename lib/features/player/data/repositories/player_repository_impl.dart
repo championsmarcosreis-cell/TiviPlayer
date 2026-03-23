@@ -26,7 +26,7 @@ class PlayerRepositoryImpl implements PlayerRepository {
     }
 
     final extension = _normalizeExtension(context.containerExtension);
-    if (extension == null) {
+    if (extension == null && context.contentType != PlaybackContentType.live) {
       throw AppException(
         'Extensão de mídia indisponível para ${context.title}.',
       );
@@ -39,25 +39,46 @@ class PlayerRepositoryImpl implements PlayerRepository {
       throw const AppException('Credenciais inválidas para reprodução.');
     }
 
-    final pathPrefix = switch (context.contentType) {
-      PlaybackContentType.live => 'live',
-      PlaybackContentType.vod => 'movie',
-      PlaybackContentType.seriesEpisode => 'series',
-    };
-
-    final pathSegments = [
-      ...baseUri.pathSegments.where((segment) => segment.isNotEmpty),
-      pathPrefix,
-      username,
-      password,
-      '${context.itemId}.$extension',
-    ];
+    final pathSegments = _resolvePathSegments(
+      baseUri: baseUri,
+      context: context,
+      username: username,
+      password: password,
+      extension: extension,
+    );
 
     return ResolvedPlayback(
       uri: baseUri.replace(pathSegments: pathSegments),
       context: context,
       manifest: _resolveManifest(context, extension),
     );
+  }
+
+  List<String> _resolvePathSegments({
+    required Uri baseUri,
+    required PlaybackContext context,
+    required String username,
+    required String password,
+    required String? extension,
+  }) {
+    final basePath = baseUri.pathSegments.where(
+      (segment) => segment.isNotEmpty,
+    );
+    final itemId = context.itemId;
+
+    if (context.contentType == PlaybackContentType.live && extension == null) {
+      // Alguns painéis Xtream devolvem live sem container_extension e expõem
+      // o stream TS no formato /<usuario>/<senha>/<stream_id>.
+      return [...basePath, username, password, itemId];
+    }
+
+    final pathPrefix = switch (context.contentType) {
+      PlaybackContentType.live => 'live',
+      PlaybackContentType.vod => 'movie',
+      PlaybackContentType.seriesEpisode => 'series',
+    };
+
+    return [...basePath, pathPrefix, username, password, '$itemId.$extension'];
   }
 
   String? _normalizeExtension(String? value) {
@@ -69,10 +90,14 @@ class PlayerRepositoryImpl implements PlayerRepository {
     return normalized;
   }
 
-  PlaybackManifest _resolveManifest(PlaybackContext context, String extension) {
+  PlaybackManifest _resolveManifest(
+    PlaybackContext context,
+    String? extension,
+  ) {
     final sourceType = _resolveSourceType(
       context.manifest.sourceType,
       extension: extension,
+      isLive: context.isLive,
     );
     final fallbackFromNotes = _parseManifestFromNotes(context.notes);
 
@@ -97,10 +122,17 @@ class PlayerRepositoryImpl implements PlayerRepository {
 
   PlaybackSourceType _resolveSourceType(
     PlaybackSourceType provided, {
-    required String extension,
+    required String? extension,
+    required bool isLive,
   }) {
     if (provided != PlaybackSourceType.unknown) {
       return provided;
+    }
+
+    if (extension == null) {
+      return isLive
+          ? PlaybackSourceType.progressive
+          : PlaybackSourceType.unknown;
     }
 
     return _inferSourceType(extension);

@@ -37,6 +37,26 @@ void main() {
     expect(resolved.manifest.sourceType, PlaybackSourceType.progressive);
   });
 
+  test(
+    'resolve URL for live playback without extension using Xtream fallback',
+    () {
+      const context = PlaybackContext(
+        contentType: PlaybackContentType.live,
+        itemId: '1001',
+        title: 'News',
+      );
+
+      final resolved = repository.resolvePlayback(session, context);
+
+      expect(
+        resolved.uri.toString(),
+        'http://provider.example:8080/user/pass/1001',
+      );
+      expect(resolved.isLive, isTrue);
+      expect(resolved.manifest.sourceType, PlaybackSourceType.progressive);
+    },
+  );
+
   test('resolve URL for VOD playback', () {
     const context = PlaybackContext(
       contentType: PlaybackContentType.vod,
@@ -97,7 +117,7 @@ void main() {
     );
   });
 
-  test('throw explicit error when extension is unavailable', () {
+  test('throw explicit error when VOD extension is unavailable', () {
     const context = PlaybackContext(
       contentType: PlaybackContentType.vod,
       itemId: '2002',
