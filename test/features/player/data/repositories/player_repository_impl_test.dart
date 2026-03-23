@@ -4,6 +4,7 @@ import 'package:tiviplayer/features/auth/domain/entities/xtream_credentials.dart
 import 'package:tiviplayer/features/auth/domain/entities/xtream_session.dart';
 import 'package:tiviplayer/features/player/data/repositories/player_repository_impl.dart';
 import 'package:tiviplayer/features/player/domain/entities/playback_context.dart';
+import 'package:tiviplayer/features/player/domain/entities/playback_manifest.dart';
 
 void main() {
   const repository = PlayerRepositoryImpl();
@@ -33,6 +34,7 @@ void main() {
       'http://provider.example:8080/live/user/pass/1001.ts',
     );
     expect(resolved.isLive, isTrue);
+    expect(resolved.manifest.sourceType, PlaybackSourceType.progressive);
   });
 
   test('resolve URL for VOD playback', () {
@@ -50,6 +52,7 @@ void main() {
       'http://provider.example:8080/movie/user/pass/2002.mp4',
     );
     expect(resolved.isSeekable, isTrue);
+    expect(resolved.manifest.sourceType, PlaybackSourceType.progressive);
   });
 
   test('resolve URL for series episode playback', () {
@@ -65,6 +68,32 @@ void main() {
     expect(
       resolved.uri.toString(),
       'http://provider.example:8080/series/user/pass/3003.mkv',
+    );
+  });
+
+  test('infer HLS and parse structured fallback from notes', () {
+    const context = PlaybackContext(
+      contentType: PlaybackContentType.live,
+      itemId: '1002',
+      title: 'Sports',
+      containerExtension: 'm3u8',
+      notes: 'audio: PT-BR, EN; subtitles: PT-BR, EN; quality: 1080p, 720p',
+    );
+
+    final resolved = repository.resolvePlayback(session, context);
+
+    expect(resolved.manifest.sourceType, PlaybackSourceType.hls);
+    expect(resolved.manifest.audioTracks.map((track) => track.label).toList(), [
+      'PT-BR',
+      'EN',
+    ]);
+    expect(
+      resolved.manifest.subtitleTracks.map((track) => track.label).toList(),
+      ['PT-BR', 'EN'],
+    );
+    expect(
+      resolved.manifest.variants.map((variant) => variant.label).toList(),
+      ['1080p', '720p'],
     );
   });
 

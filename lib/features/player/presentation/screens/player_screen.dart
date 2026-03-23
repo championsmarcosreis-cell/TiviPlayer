@@ -14,6 +14,7 @@ import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/playback_history_entry.dart';
 import '../controllers/playback_history_controller.dart';
 import '../../domain/entities/playback_context.dart';
+import '../../domain/entities/playback_manifest.dart';
 import '../../domain/entities/player_recovery_policy.dart';
 import '../../domain/entities/resolved_playback.dart';
 import '../providers/player_providers.dart';
@@ -75,8 +76,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   double _lastVolumeBeforeMute = 1;
   List<String> _audioTracks = const [];
   List<String> _subtitleTracks = const [];
+  List<String> _qualityProfiles = const [];
   String? _selectedAudioTrack;
   String? _selectedSubtitleTrack;
+  String? _selectedQualityProfile;
   late final PlaybackHistoryController _playbackHistoryController;
 
   @override
@@ -211,6 +214,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         _selectedAudioTrack ??
                         (_audioTracks.isEmpty ? null : _audioTracks.first),
                     selectedSubtitleTrack: _selectedSubtitleTrack,
+                    selectedQualityProfile: _selectedQualityProfile,
                     qualityLabel: streamMetrics?.qualityLabel,
                     liveLatencyLabel: streamMetrics?.liveLatencyLabel,
                     onTogglePlayback: _togglePlayPause,
@@ -221,6 +225,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     onToggleMute: _toggleMute,
                     onSelectAudioTrack: _selectAudioTrack,
                     onSelectSubtitleTrack: _selectSubtitleTrack,
+                    onSelectQualityProfile: _selectQualityProfile,
                   ),
                 if (!_isInitializing &&
                     _errorMessage == null &&
@@ -286,8 +291,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _errorMessage = 'Contexto de playback ausente.';
         _audioTracks = const [];
         _subtitleTracks = const [];
+        _qualityProfiles = const [];
         _selectedAudioTrack = null;
         _selectedSubtitleTrack = null;
+        _selectedQualityProfile = null;
       });
       return;
     }
@@ -330,8 +337,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _errorMessage = 'Sessao indisponivel.';
         _audioTracks = const [];
         _subtitleTracks = const [];
+        _qualityProfiles = const [];
         _selectedAudioTrack = null;
         _selectedSubtitleTrack = null;
+        _selectedQualityProfile = null;
       });
       return;
     }
@@ -394,7 +403,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ? 0.0
             : _lastVolumeBeforeMute.clamp(0.0, 1.0);
         await controller.setVolume(targetVolume);
-        final trackMetadata = _parseTrackMetadata(playbackContext.notes);
+        final manifest = resolvedPlayback.manifest;
+        final audioTracks = _audioTrackLabels(manifest);
+        final subtitleTracks = _subtitleTrackLabels(manifest);
+        final qualityProfiles = _qualityProfileLabels(manifest);
         controller.addListener(_handleControllerUpdate);
         await controller.play();
 
@@ -413,10 +425,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           _statusMessage = null;
           _interactionMessage = null;
           _isRecoveringRuntime = false;
-          _audioTracks = trackMetadata.audioTracks;
-          _subtitleTracks = trackMetadata.subtitleTracks;
-          _selectedAudioTrack = trackMetadata.initialAudioTrack;
-          _selectedSubtitleTrack = trackMetadata.initialSubtitleTrack;
+          _audioTracks = audioTracks;
+          _subtitleTracks = subtitleTracks;
+          _qualityProfiles = qualityProfiles;
+          _selectedAudioTrack = _resolveDefaultAudioTrackLabel(manifest);
+          _selectedSubtitleTrack = _resolveDefaultSubtitleTrackLabel(manifest);
+          _selectedQualityProfile = _resolveDefaultQualityProfileLabel(
+            manifest,
+          );
         });
         _runtimeRecoveryAttempts = 0;
         _lastKnownPlaying = controller.value.isPlaying;
@@ -444,8 +460,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _interactionMessage = null;
       _audioTracks = const [];
       _subtitleTracks = const [];
+      _qualityProfiles = const [];
       _selectedAudioTrack = null;
       _selectedSubtitleTrack = null;
+      _selectedQualityProfile = null;
       _errorMessage = Failure.fromError(
         lastError ?? StateError('Falha ao carregar stream.'),
       ).message;
@@ -708,6 +726,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           ? 'Legendas desativadas'
           : 'Legenda marcada: $selected',
     );
+  }
+
+  Future<void> _selectQualityProfile() async {
+    final profiles = _qualityProfiles;
+    if (profiles.isEmpty) {
+      _showInteractionMessage('Qualidade manual indisponivel');
+      return;
+    }
+
+    final selected = await _chooseTrack(
+      title: 'Qualidade',
+      tracks: profiles,
+      currentSelection: _selectedQualityProfile ?? profiles.first,
+      allowOff: false,
+      helperText:
+          'A troca manual de qualidade sera aplicada apos migracao da engine na Fase 2.',
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedQualityProfile = selected;
+    });
+    _showInteractionMessage('Qualidade marcada: $selected');
   }
 
   Future<String?> _chooseTrack({
@@ -1235,9 +1278,11 @@ class _PlayerControlDeck extends StatelessWidget {
     required this.isMuted,
     required this.selectedAudioTrack,
     required this.selectedSubtitleTrack,
+    required this.selectedQualityProfile,
     required this.onToggleMute,
     required this.onSelectAudioTrack,
     required this.onSelectSubtitleTrack,
+    required this.onSelectQualityProfile,
     required this.onTogglePlayback,
     required this.onSeekBackward,
     required this.onSeekForward,
@@ -1252,9 +1297,11 @@ class _PlayerControlDeck extends StatelessWidget {
   final bool isMuted;
   final String? selectedAudioTrack;
   final String? selectedSubtitleTrack;
+  final String? selectedQualityProfile;
   final VoidCallback onToggleMute;
   final VoidCallback onSelectAudioTrack;
   final VoidCallback onSelectSubtitleTrack;
+  final VoidCallback onSelectQualityProfile;
   final VoidCallback onTogglePlayback;
   final VoidCallback onSeekBackward;
   final VoidCallback onSeekForward;
@@ -1457,6 +1504,13 @@ class _PlayerControlDeck extends StatelessWidget {
                         onPressed: onSelectSubtitleTrack,
                         kind: PlayerControlButtonKind.subtle,
                       ),
+                      if (selectedQualityProfile != null)
+                        PlayerControlButton(
+                          icon: Icons.high_quality_rounded,
+                          label: 'Qualidade: $selectedQualityProfile',
+                          onPressed: onSelectQualityProfile,
+                          kind: PlayerControlButtonKind.subtle,
+                        ),
                       if (qualityLabel != null)
                         _OverlayInfoChip(
                           icon: Icons.hd_rounded,
@@ -2124,20 +2178,6 @@ class _ErrorPanel extends StatelessWidget {
 
 const _offTrackLabel = 'Desativadas';
 
-class _TrackMetadata {
-  const _TrackMetadata({
-    required this.audioTracks,
-    required this.subtitleTracks,
-    required this.initialAudioTrack,
-    required this.initialSubtitleTrack,
-  });
-
-  final List<String> audioTracks;
-  final List<String> subtitleTracks;
-  final String? initialAudioTrack;
-  final String? initialSubtitleTrack;
-}
-
 class _PlayerStreamMetrics {
   const _PlayerStreamMetrics({
     required this.qualityLabel,
@@ -2148,55 +2188,78 @@ class _PlayerStreamMetrics {
   final String? liveLatencyLabel;
 }
 
-_TrackMetadata _parseTrackMetadata(String? notes) {
-  final audioTracks = _parseTracksFromNotes(
-    notes,
-    keys: const ['audio', 'audios', 'audio_tracks', 'audio-track', 'lang'],
-  );
-  final subtitleTracks = _parseTracksFromNotes(
-    notes,
-    keys: const ['subtitle', 'subtitles', 'subs', 'legenda', 'legendas', 'cc'],
-  );
-
-  return _TrackMetadata(
-    audioTracks: audioTracks,
-    subtitleTracks: subtitleTracks,
-    initialAudioTrack: audioTracks.isEmpty ? null : audioTracks.first,
-    initialSubtitleTrack: null,
-  );
+List<String> _audioTrackLabels(PlaybackManifest manifest) {
+  return manifest.audioTracks
+      .map((track) => track.label.trim())
+      .where((label) => label.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
 }
 
-List<String> _parseTracksFromNotes(
-  String? notes, {
-  required List<String> keys,
-}) {
-  final raw = notes?.trim();
-  if (raw == null || raw.isEmpty) {
-    return const [];
+List<String> _subtitleTrackLabels(PlaybackManifest manifest) {
+  return manifest.subtitleTracks
+      .map((track) => track.label.trim())
+      .where((label) => label.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+}
+
+List<String> _qualityProfileLabels(PlaybackManifest manifest) {
+  return manifest.variants
+      .map((variant) => variant.label.trim())
+      .where((label) => label.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+}
+
+String? _resolveDefaultAudioTrackLabel(PlaybackManifest manifest) {
+  return _resolveDefaultTrackLabel(manifest.audioTracks);
+}
+
+String? _resolveDefaultSubtitleTrackLabel(PlaybackManifest manifest) {
+  return _resolveDefaultTrackLabel(manifest.subtitleTracks);
+}
+
+String? _resolveDefaultTrackLabel(List<PlaybackTrack> tracks) {
+  if (tracks.isEmpty) {
+    return null;
   }
 
-  final loweredKeys = keys.map((value) => value.toLowerCase()).toSet();
-  final segments = raw.split(RegExp(r'[\n;]'));
-  final tracks = <String>{};
-
-  for (final segment in segments) {
-    final separatorIndex = segment.indexOf(RegExp(r'[:=]'));
-    if (separatorIndex <= 0) {
-      continue;
+  for (final track in tracks) {
+    if (track.isDefault && track.label.trim().isNotEmpty) {
+      return track.label.trim();
     }
-    final rawKey = segment.substring(0, separatorIndex).trim().toLowerCase();
-    if (!loweredKeys.contains(rawKey)) {
-      continue;
-    }
-    final values = segment
-        .substring(separatorIndex + 1)
-        .split(RegExp(r'[,|/]'))
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty);
-    tracks.addAll(values);
   }
 
-  return tracks.toList(growable: false);
+  for (final track in tracks) {
+    final label = track.label.trim();
+    if (label.isNotEmpty) {
+      return label;
+    }
+  }
+
+  return null;
+}
+
+String? _resolveDefaultQualityProfileLabel(PlaybackManifest manifest) {
+  if (manifest.variants.isEmpty) {
+    return null;
+  }
+
+  for (final variant in manifest.variants) {
+    if (variant.isDefault && variant.label.trim().isNotEmpty) {
+      return variant.label.trim();
+    }
+  }
+
+  for (final variant in manifest.variants) {
+    final label = variant.label.trim();
+    if (label.isNotEmpty) {
+      return label;
+    }
+  }
+
+  return null;
 }
 
 _PlayerStreamMetrics _deriveStreamMetrics(

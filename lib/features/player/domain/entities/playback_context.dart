@@ -1,3 +1,5 @@
+import 'playback_manifest.dart';
+
 enum PlaybackContentType { live, vod, seriesEpisode }
 
 class PlaybackContext {
@@ -9,6 +11,7 @@ class PlaybackContext {
     this.artworkUrl,
     this.resumePosition,
     this.notes,
+    this.manifest = const PlaybackManifest(),
   });
 
   final PlaybackContentType contentType;
@@ -18,6 +21,7 @@ class PlaybackContext {
   final String? artworkUrl;
   final Duration? resumePosition;
   final String? notes;
+  final PlaybackManifest manifest;
 
   bool get isLive => contentType == PlaybackContentType.live;
   bool get isSeekable => !isLive;

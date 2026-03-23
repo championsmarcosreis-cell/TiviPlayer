@@ -130,7 +130,7 @@ Sem reabrir arquitetura de foco.
 - o app não lê `api.txt` automaticamente
 - o build não embute segredos por padrão
 - a URL padrão do servidor vem de `--dart-define` (`XTREAM_BASE_URL` / `TIVIPLAYER_BASE_URL`), sem hardcode no app
-- sessão e credenciais usam armazenamento seguro (`flutter_secure_storage`); payload legado em `SharedPreferences` é lido apenas para migração e não recebe novas gravações
+- sessão e credenciais usam armazenamento seguro (`flutter_secure_storage`); em falha de bridge/plugin, há fallback defensivo para `SharedPreferences` para preservar funcionamento
 - o pacote deste PR não inclui segredos locais
 
 ## Como rodar
@@ -185,3 +185,17 @@ Fora do escopo entregue neste PR e mantido para a próxima etapa:
 - live preview grande
 - redesign total do app
 - telemetria avançada
+
+## Bootstrap da Fase 2 (iniciado em 2026-03-23)
+
+Base estrutural adicionada para viabilizar player avançado sem travar o fluxo atual:
+
+- contrato de manifesto de playback (`PlaybackManifest`, tracks e variantes de qualidade)
+- `PlaybackContext` e `ResolvedPlayback` agora carregam metadata estruturada
+- `PlayerRepositoryImpl` infere tipo de fonte (`progressive`, `hls`, `dash`) e converte fallback textual em estrutura
+- `PlayerScreen` passa a consumir metadata estruturada para áudio/legenda/qualidade marcada
+
+Decisão técnica do spike:
+
+- alvo de Fase 2: engine com suporte robusto a ABR/tracks em Android TV + mobile (Media3/ExoPlayer no Android, AVPlayer no iOS) via adapter dedicado
+- manter `video_player` apenas como compatibilidade temporária até concluir o adapter e migração runtime
