@@ -46,6 +46,8 @@ xmltv*.xml
 /dump/
 /tmp/
 /temp/
+/references/
+/screenshots/
 *.dump
 *.bak
 *.tmp
