@@ -42,31 +42,27 @@ class PlayerControlButton extends StatelessWidget {
           PlayerControlButtonKind.primary => (
             background: focused
                 ? colorScheme.primary
-                : Colors.white.withValues(alpha: 0.14),
-            iconColor: focused
-                ? colorScheme.onPrimary
-                : Colors.white.withValues(alpha: 0.92),
-            textColor: focused
-                ? colorScheme.onPrimary
-                : Colors.white.withValues(alpha: 0.92),
+                : colorScheme.primary.withValues(alpha: 0.86),
+            iconColor: colorScheme.onPrimary,
+            textColor: colorScheme.onPrimary,
             borderColor: focused
                 ? Colors.white.withValues(alpha: 0.9)
-                : Colors.white.withValues(alpha: 0.24),
+                : colorScheme.primary.withValues(alpha: 0.92),
           ),
           PlayerControlButtonKind.secondary => (
             background: focused
-                ? Colors.white.withValues(alpha: 0.24)
-                : Colors.white.withValues(alpha: 0.14),
+                ? Colors.white.withValues(alpha: 0.26)
+                : Colors.white.withValues(alpha: 0.1),
             iconColor: Colors.white,
             textColor: Colors.white,
             borderColor: focused
                 ? colorScheme.secondary.withValues(alpha: 0.82)
-                : Colors.white.withValues(alpha: 0.22),
+                : Colors.white.withValues(alpha: 0.26),
           ),
           PlayerControlButtonKind.subtle => (
             background: focused
-                ? Colors.white.withValues(alpha: 0.18)
-                : Colors.white.withValues(alpha: 0.08),
+                ? Colors.white.withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.06),
             iconColor: Colors.white.withValues(alpha: 0.9),
             textColor: Colors.white.withValues(alpha: 0.9),
             borderColor: focused
@@ -106,6 +102,13 @@ class PlayerControlButton extends StatelessWidget {
                   ]
                 : const [],
           ),
+          transform: Matrix4.identity()
+            ..scaleByDouble(
+              focused ? 1.03 : 1.0,
+              focused ? 1.03 : 1.0,
+              1.0,
+              1.0,
+            ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

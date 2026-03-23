@@ -28,6 +28,7 @@ dev_dependencies:
     sdk: flutter
   freezed: ^3.2.5
   json_serializable: ^6.13.1
+  video_player_platform_interface: ^6.6.0
 
 flutter:
   uses-material-design: true

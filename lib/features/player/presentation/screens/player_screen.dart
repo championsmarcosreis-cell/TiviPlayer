@@ -14,6 +14,7 @@ import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/playback_history_entry.dart';
 import '../controllers/playback_history_controller.dart';
 import '../../domain/entities/playback_context.dart';
+import '../../domain/entities/player_recovery_policy.dart';
 import '../../domain/entities/resolved_playback.dart';
 import '../providers/player_providers.dart';
 import '../widgets/player_control_button.dart';
@@ -39,12 +40,14 @@ class PlayerScreen extends ConsumerStatefulWidget {
     super.key,
     required this.playbackContext,
     this.previewState,
+    this.recoveryPolicy = const PlayerRecoveryPolicy(),
   });
 
   static const routePath = '/player';
 
   final PlaybackContext? playbackContext;
   final PlayerPreviewState? previewState;
+  final PlayerRecoveryPolicy recoveryPolicy;
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
@@ -54,13 +57,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   VideoPlayerController? _controller;
   ResolvedPlayback? _resolvedPlayback;
   String? _errorMessage;
+  String? _statusMessage;
   bool _isInitializing = true;
   bool _isDisposing = false;
+  bool _isRecoveringRuntime = false;
   bool _showPlaybackUi = true;
   bool _lastKnownPlaying = false;
+  DateTime? _bufferingSince;
   Timer? _overlayHideTimer;
   DateTime? _lastProgressSaveAt;
   Duration _lastSavedPosition = Duration.zero;
+  int _runtimeRecoveryAttempts = 0;
+  int _initializationVersion = 0;
   late final PlaybackHistoryController _playbackHistoryController;
 
   @override
@@ -150,7 +158,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     ),
                   ),
                 if (showOverlayUi) const _PlayerOverlayGradients(),
-                if (_isInitializing) const Center(child: _LoadingPanel()),
+                if (_isInitializing)
+                  Center(
+                    child: _LoadingPanel(
+                      message: _statusMessage ?? 'Carregando video...',
+                    ),
+                  ),
                 if (!_isInitializing && _errorMessage != null)
                   Center(
                     child: _ErrorPanel(
@@ -186,11 +199,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     onSeekForward: () =>
                         _seekRelative(const Duration(seconds: 10)),
                   ),
+                if (!_isInitializing &&
+                    _errorMessage == null &&
+                    _statusMessage != null)
+                  Positioned(
+                    left: layout.pageHorizontalPadding,
+                    top: layout.pageTopPadding + 84,
+                    child: _StatusBanner(message: _statusMessage!),
+                  ),
                 if (playerValue?.isBuffering == true && _errorMessage == null)
                   Positioned(
                     right: layout.pageHorizontalPadding,
                     top: layout.pageTopPadding + 78,
-                    child: const _BufferingBadge(),
+                    child: _BufferingBadge(recovering: _isRecoveringRuntime),
                   ),
               ],
             );
@@ -201,6 +222,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _initializePlayer() async {
+    if (!mounted || _isDisposing) {
+      return;
+    }
+
     final playbackContext = widget.playbackContext;
 
     if (playbackContext == null) {
@@ -211,71 +236,143 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
 
+    final wasRecoveringRuntime = _isRecoveringRuntime;
+    _runtimeRecoveryAttempts = widget.recoveryPolicy
+        .runtimeAttemptsAfterInitializationStart(
+          currentAttempts: _runtimeRecoveryAttempts,
+          fromRuntimeRecovery: wasRecoveringRuntime,
+        );
+    final requestVersion = ++_initializationVersion;
     setState(() {
       _isInitializing = true;
       _errorMessage = null;
+      _statusMessage = wasRecoveringRuntime
+          ? widget.recoveryPolicy.runtimeRecoveryLabel(
+              attemptNumber: _runtimeRecoveryAttempts,
+              isLive: playbackContext.isLive,
+            )
+          : null;
+      _showPlaybackUi = true;
     });
 
     _controller?.removeListener(_handleControllerUpdate);
     await _controller?.dispose();
     _controller = null;
+    _bufferingSince = null;
 
-    try {
-      final session = ref.read(currentSessionProvider);
-      if (session == null) {
-        setState(() {
-          _resolvedPlayback = null;
-          _isInitializing = false;
-          _errorMessage = 'Sessao indisponivel.';
-        });
+    final session = ref.read(currentSessionProvider);
+    if (session == null) {
+      if (!mounted ||
+          _isDisposing ||
+          requestVersion != _initializationVersion) {
         return;
       }
-
-      final resolvedPlayback = ref
-          .read(resolvePlaybackUseCaseProvider)
-          .call(session, playbackContext);
-
-      final controller = VideoPlayerController.networkUrl(resolvedPlayback.uri);
-      await controller.initialize();
-      final resumePosition = playbackContext.resumePosition;
-      if (resumePosition != null &&
-          resolvedPlayback.isSeekable &&
-          resumePosition > Duration.zero) {
-        final maxResume =
-            controller.value.duration - const Duration(seconds: 2);
-        final clampedResume = maxResume > Duration.zero
-            ? (resumePosition > maxResume ? maxResume : resumePosition)
-            : Duration.zero;
-        if (clampedResume > Duration.zero) {
-          await controller.seekTo(clampedResume);
-        }
-      }
-      controller.addListener(_handleControllerUpdate);
-      await controller.play();
-
-      if (!mounted) {
-        await controller.dispose();
-        return;
-      }
-
-      setState(() {
-        _resolvedPlayback = resolvedPlayback;
-        _controller = controller;
-        _isInitializing = false;
-      });
-      _lastKnownPlaying = controller.value.isPlaying;
-      _revealPlaybackUi(autoHide: controller.value.isPlaying);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
       setState(() {
         _resolvedPlayback = null;
         _isInitializing = false;
-        _errorMessage = Failure.fromError(error).message;
+        _errorMessage = 'Sessao indisponivel.';
       });
+      return;
     }
+
+    Object? lastError;
+    for (
+      var attempt = 0;
+      attempt < widget.recoveryPolicy.totalInitializationAttempts;
+      attempt++
+    ) {
+      if (!mounted ||
+          _isDisposing ||
+          requestVersion != _initializationVersion) {
+        return;
+      }
+
+      if (attempt > 0) {
+        setState(() {
+          _statusMessage = widget.recoveryPolicy.initializationRetryLabel(
+            attemptNumber: attempt + 1,
+            isLive: playbackContext.isLive,
+          );
+        });
+        await Future<void>.delayed(
+          widget.recoveryPolicy.initializationRetryDelay(attempt - 1),
+        );
+        if (!mounted ||
+            _isDisposing ||
+            requestVersion != _initializationVersion) {
+          return;
+        }
+      }
+
+      VideoPlayerController? attemptController;
+      try {
+        final resolvedPlayback = ref
+            .read(resolvePlaybackUseCaseProvider)
+            .call(session, playbackContext);
+
+        final controller = VideoPlayerController.networkUrl(
+          resolvedPlayback.uri,
+        );
+        attemptController = controller;
+        await controller.initialize();
+        final resumePosition = playbackContext.resumePosition;
+        if (resumePosition != null &&
+            resolvedPlayback.isSeekable &&
+            resumePosition > Duration.zero) {
+          final maxResume =
+              controller.value.duration - const Duration(seconds: 2);
+          final clampedResume = maxResume > Duration.zero
+              ? (resumePosition > maxResume ? maxResume : resumePosition)
+              : Duration.zero;
+          if (clampedResume > Duration.zero) {
+            await controller.seekTo(clampedResume);
+          }
+        }
+        controller.addListener(_handleControllerUpdate);
+        await controller.play();
+
+        if (!mounted ||
+            _isDisposing ||
+            requestVersion != _initializationVersion) {
+          await controller.dispose();
+          return;
+        }
+
+        setState(() {
+          _resolvedPlayback = resolvedPlayback;
+          _controller = controller;
+          _isInitializing = false;
+          _errorMessage = null;
+          _statusMessage = null;
+          _isRecoveringRuntime = false;
+        });
+        _runtimeRecoveryAttempts = 0;
+        _lastKnownPlaying = controller.value.isPlaying;
+        _revealPlaybackUi(autoHide: controller.value.isPlaying);
+        return;
+      } catch (error) {
+        final danglingController = attemptController;
+        if (danglingController != null) {
+          danglingController.removeListener(_handleControllerUpdate);
+          await danglingController.dispose();
+        }
+        lastError = error;
+      }
+    }
+
+    if (!mounted || _isDisposing || requestVersion != _initializationVersion) {
+      return;
+    }
+
+    setState(() {
+      _resolvedPlayback = null;
+      _isInitializing = false;
+      _isRecoveringRuntime = false;
+      _statusMessage = null;
+      _errorMessage = Failure.fromError(
+        lastError ?? StateError('Falha ao carregar stream.'),
+      ).message;
+    });
   }
 
   void _handleControllerUpdate() {
@@ -286,12 +383,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     final value = controller.value;
     if (value.hasError) {
-      setState(() {
-        _errorMessage =
-            value.errorDescription ?? 'Falha ao carregar o stream no player.';
-      });
+      unawaited(
+        _attemptRuntimeRecovery(
+          value.errorDescription ?? 'Falha ao carregar o stream no player.',
+        ),
+      );
       return;
     }
+    _trackBufferingRecovery(value);
 
     if (value.isPlaying != _lastKnownPlaying) {
       _lastKnownPlaying = value.isPlaying;
@@ -304,6 +403,67 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     _persistPlaybackProgress();
     setState(() {});
+  }
+
+  void _trackBufferingRecovery(VideoPlayerValue value) {
+    if (!value.isInitialized || !value.isPlaying || !value.isBuffering) {
+      _bufferingSince = null;
+      return;
+    }
+
+    _bufferingSince ??= DateTime.now();
+    final stalledFor = DateTime.now().difference(_bufferingSince!);
+    if (stalledFor < widget.recoveryPolicy.bufferingStallThreshold) {
+      return;
+    }
+
+    _bufferingSince = null;
+    unawaited(
+      _attemptRuntimeRecovery('Buffering prolongado ao reproduzir o stream.'),
+    );
+  }
+
+  Future<void> _attemptRuntimeRecovery(String fallbackError) async {
+    final playbackContext = widget.playbackContext;
+    if (!mounted ||
+        _isDisposing ||
+        _isInitializing ||
+        _isRecoveringRuntime ||
+        playbackContext == null) {
+      return;
+    }
+
+    final nextAttempt = widget.recoveryPolicy.nextRuntimeRecoveryAttempt(
+      _runtimeRecoveryAttempts,
+    );
+    if (nextAttempt == null) {
+      if (_errorMessage == null) {
+        setState(() {
+          _statusMessage = null;
+          _errorMessage = fallbackError;
+          _showPlaybackUi = true;
+        });
+      }
+      return;
+    }
+
+    _runtimeRecoveryAttempts = nextAttempt;
+    final currentAttempt = nextAttempt;
+    setState(() {
+      _showPlaybackUi = true;
+      _isRecoveringRuntime = true;
+      _errorMessage = null;
+      _statusMessage = widget.recoveryPolicy.runtimeRecoveryLabel(
+        attemptNumber: currentAttempt,
+        isLive: playbackContext.isLive,
+      );
+    });
+
+    await Future<void>.delayed(widget.recoveryPolicy.runtimeRecoveryDelay);
+    if (!mounted || _isDisposing) {
+      return;
+    }
+    await _initializePlayer();
   }
 
   void _persistPlaybackProgress({bool force = false}) {
@@ -445,6 +605,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final canHide =
         !_isInitializing &&
         _errorMessage == null &&
+        _statusMessage == null &&
         controller != null &&
         controller.value.isInitialized &&
         controller.value.isPlaying;
@@ -565,11 +726,13 @@ class _PlayerOverlayGradients extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.46),
+                  const Color(0xE4000000),
+                  const Color(0x95030A16),
                   Colors.transparent,
-                  Colors.black.withValues(alpha: 0.58),
+                  const Color(0xC0101A2A),
+                  const Color(0xF0000000),
                 ],
-                stops: const [0, 0.36, 1],
+                stops: const [0, 0.18, 0.58, 0.82, 1],
               ),
             ),
           ),
@@ -580,7 +743,7 @@ class _PlayerOverlayGradients extends StatelessWidget {
               height: 180,
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  colors: [const Color(0x16FFFFFF), const Color(0x00FFFFFF)],
+                  colors: [const Color(0x1E6CD8FF), const Color(0x003DA8FF)],
                 ),
               ),
             ),
@@ -592,7 +755,7 @@ class _PlayerOverlayGradients extends StatelessWidget {
               height: 210,
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  colors: [const Color(0x1416C7FF), const Color(0x0016C7FF)],
+                  colors: [const Color(0x24FF874D), const Color(0x00FF874D)],
                 ),
               ),
             ),
@@ -638,17 +801,16 @@ class _PlayerTopBar extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
               padding: EdgeInsets.symmetric(
-                horizontal: layout.isTv ? 14 : 10,
-                vertical: layout.isTv ? 10 : 8,
+                horizontal: layout.isTv ? 16 : 12,
+                vertical: layout.isTv ? 12 : 9,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.42),
-                    Colors.black.withValues(alpha: 0.28),
-                  ],
+                  colors: [const Color(0xC9152234), const Color(0xA60A111E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
               ),
               child: Row(
                 children: [
@@ -674,7 +836,7 @@ class _PlayerTopBar extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
                                 color: Colors.white,
-                                fontSize: layout.isTv ? 31 : 20,
+                                fontSize: layout.isTv ? 30 : 19.5,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -684,7 +846,7 @@ class _PlayerTopBar extends StatelessWidget {
                               : 'Reproducao sob demanda',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.74),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: layout.isTv ? 14 : 12,
                               ),
                         ),
@@ -699,10 +861,8 @@ class _PlayerTopBar extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
-                        color: Colors.white.withValues(alpha: 0.1),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                        ),
+                        color: const Color(0x4D3A8AFF),
+                        border: Border.all(color: const Color(0x8873B4FF)),
                       ),
                       child: Text('VOD', style: chipStyle),
                     ),
@@ -715,7 +875,8 @@ class _PlayerTopBar extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
-                        color: const Color(0xCCFF4A57),
+                        color: const Color(0xCCFF5E69),
+                        border: Border.all(color: const Color(0xFFFF9AA2)),
                       ),
                       child: Text('AO VIVO', style: chipStyle),
                     ),
@@ -1153,32 +1314,30 @@ class _PlayerDeckContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = layout.isTv ? 26.0 : 20.0;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
+      borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
+            borderRadius: BorderRadius.circular(radius),
             gradient: LinearGradient(
-              colors: [
-                Colors.black.withValues(alpha: 0.62),
-                Colors.black.withValues(alpha: 0.48),
-              ],
+              colors: [const Color(0xCC111C2C), const Color(0xB20A101B)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.all(layout.isTv ? 16 : 14),
+            padding: EdgeInsets.all(layout.isTv ? 18 : 14),
             child: child,
           ),
         ),
@@ -1196,11 +1355,15 @@ class _TimelinePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(layout.isTv ? 12 : 10),
+      padding: EdgeInsets.all(layout.isTv ? 13 : 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(layout.isTv ? 16 : 14),
-        color: Colors.white.withValues(alpha: 0.05),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        gradient: LinearGradient(
+          colors: [const Color(0x3376AAFF), const Color(0x1AFFFFFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: child,
     );
@@ -1218,18 +1381,17 @@ class _ControlsPanel extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
-        horizontal: layout.isTv ? 14 : 10,
-        vertical: layout.isTv ? 12 : 10,
+        horizontal: layout.isTv ? 16 : 11,
+        vertical: layout.isTv ? 14 : 10,
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(layout.isTv ? 18 : 14),
         gradient: LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.06),
-            Colors.white.withValues(alpha: 0.03),
-          ],
+          colors: [const Color(0x2E4A9CFF), const Color(0x1AFFFFFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
       ),
       child: child,
     );
@@ -1247,15 +1409,15 @@ class _PlayerTimeline extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: SizedBox(
-        height: layout.isTv ? 14 : 10,
+        height: layout.isTv ? 13 : 9,
         child: VideoProgressIndicator(
           controller,
           allowScrubbing: true,
           padding: EdgeInsets.zero,
           colors: VideoProgressColors(
-            playedColor: Theme.of(context).colorScheme.primary,
-            bufferedColor: Colors.white.withValues(alpha: 0.4),
-            backgroundColor: Colors.white.withValues(alpha: 0.16),
+            playedColor: Theme.of(context).colorScheme.primaryContainer,
+            bufferedColor: Colors.white.withValues(alpha: 0.5),
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -1264,28 +1426,34 @@ class _PlayerTimeline extends StatelessWidget {
 }
 
 class _LoadingPanel extends StatelessWidget {
-  const _LoadingPanel();
+  const _LoadingPanel({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.72),
+        gradient: LinearGradient(
+          colors: [const Color(0xCC122038), const Color(0xAA0B111E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
       ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               height: 24,
               width: 24,
               child: CircularProgressIndicator(strokeWidth: 2.4),
             ),
-            SizedBox(width: 12),
-            Text('Carregando video...'),
+            const SizedBox(width: 12),
+            Text(message),
           ],
         ),
       ),
@@ -1294,27 +1462,73 @@ class _LoadingPanel extends StatelessWidget {
 }
 
 class _BufferingBadge extends StatelessWidget {
-  const _BufferingBadge();
+  const _BufferingBadge({required this.recovering});
+
+  final bool recovering;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.76),
+        gradient: LinearGradient(
+          colors: recovering
+              ? [const Color(0xCC2A1C3A), const Color(0xAA1B1028)]
+              : [const Color(0xCC152237), const Color(0xAA101724)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: recovering
+              ? const Color(0xFFBC8FFF)
+              : Colors.white.withValues(alpha: 0.22),
+        ),
       ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               height: 16,
               width: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(width: 8),
-            Text('Buffering'),
+            const SizedBox(width: 8),
+            Text(recovering ? 'Reconectando...' : 'Buffering'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xCC10233D),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x8A8CC8FF)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.sync_rounded, size: 16, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              message,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.white),
+            ),
           ],
         ),
       ),
