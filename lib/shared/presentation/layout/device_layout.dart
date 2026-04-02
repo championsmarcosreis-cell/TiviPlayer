@@ -1,7 +1,6 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
+import 'interface_mode_heuristics.dart';
 import 'interface_mode_scope.dart';
 
 enum DeviceClass { mobilePortrait, mobileLandscape, tablet, tvCompact, tvLarge }
@@ -27,24 +26,17 @@ class DeviceLayout {
     final resolvedHeight = constrainedHeight.isFinite
         ? constrainedHeight
         : viewportHeight;
-    final longestSide = math.max(viewportWidth, viewportHeight);
-    final shortestSide = math.min(viewportWidth, viewportHeight);
     final directionalNavigation = navigationMode == NavigationMode.directional;
     final interfaceMode = InterfaceModeScope.maybeOf(context);
-    final hdTvFallback =
-        viewportWidth > viewportHeight &&
-        longestSide >= 900 &&
-        shortestSide >= 500;
-    final largeScreenTvFallback = longestSide >= 1500 && shortestSide >= 850;
-    final autoTv =
-        (directionalNavigation && shortestSide >= 480) ||
-        hdTvFallback ||
-        largeScreenTvFallback;
-    final isTv = switch (interfaceMode) {
-      InterfaceMode.tv => true,
-      InterfaceMode.mobile => false,
-      InterfaceMode.auto => autoTv,
-    };
+    final deviceProfile = InterfaceModeScope.maybeDeviceProfileOf(context);
+    final resolvedMode = InterfaceModeHeuristics.resolveMode(
+      preferredMode: interfaceMode,
+      navigationMode: navigationMode,
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
+      deviceProfile: deviceProfile,
+    );
+    final isTv = resolvedMode == InterfaceMode.tv;
 
     final deviceClass = switch ((isTv, viewportWidth, viewportHeight)) {
       (true, < 1280, _) => DeviceClass.tvCompact,

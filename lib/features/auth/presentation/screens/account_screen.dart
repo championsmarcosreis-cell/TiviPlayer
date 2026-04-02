@@ -3,8 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/formatting/display_formatters.dart';
+import '../../../../shared/presentation/controllers/device_interaction_profile_provider.dart';
+import '../../../../shared/presentation/controllers/interface_mode_controller.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
+import '../../../../shared/presentation/layout/interface_mode_heuristics.dart';
+import '../../../../shared/presentation/layout/interface_mode_scope.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/interface_mode_selector_card.dart';
 import '../controllers/auth_controller.dart';
 
 class AccountScreen extends ConsumerWidget {
@@ -15,6 +20,10 @@ class AccountScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(currentSessionProvider);
+    final preferredInterfaceMode = ref.watch(interfaceModeControllerProvider);
+    final deviceProfileAsync = ref.watch(deviceInteractionProfileProvider);
+    final deviceProfile =
+        deviceProfileAsync is AsyncData ? deviceProfileAsync.value : null;
     if (session == null) {
       return AppScaffold(
         title: 'Minha assinatura',
@@ -106,6 +115,15 @@ class AccountScreen extends ConsumerWidget {
                         final showConnectionsHighlight =
                             session.activeConnections != null &&
                             session.maxConnections != null;
+                        final interfaceModeInline = _AccountInterfaceModeInline(
+                          layout: layout,
+                          mode: preferredInterfaceMode,
+                          onChanged: (mode) {
+                            ref
+                                .read(interfaceModeControllerProvider.notifier)
+                                .setMode(mode);
+                          },
+                        );
 
                         final summary = Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,6 +175,10 @@ class AccountScreen extends ConsumerWidget {
                                 style: Theme.of(context).textTheme.bodyLarge,
                               ),
                             ],
+                            if (layout.isTv) ...[
+                              SizedBox(height: layout.sectionSpacing + 2),
+                              interfaceModeInline,
+                            ],
                           ],
                         );
 
@@ -180,6 +202,26 @@ class AccountScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                if (!layout.isTv) ...[
+                  SizedBox(height: layout.sectionSpacing + 8),
+                  InterfaceModeSelectorCard(
+                    layout: layout,
+                    mode: preferredInterfaceMode,
+                    eyebrow: 'Este aparelho',
+                    title: 'Modo de interface',
+                    description:
+                        'Se a box ou stick nao responder bem ao controle, troque para TV. Em tablet e celular, prefira mobile.',
+                    helperText: InterfaceModeHeuristics.helperText(
+                      preferredMode: preferredInterfaceMode,
+                      deviceProfile: deviceProfile,
+                    ),
+                    onChanged: (mode) {
+                      ref
+                          .read(interfaceModeControllerProvider.notifier)
+                          .setMode(mode);
+                    },
+                  ),
+                ],
                 if (accountDetails.isNotEmpty) ...[
                   SizedBox(height: layout.sectionSpacing + 8),
                   LayoutBuilder(
@@ -218,6 +260,121 @@ class AccountScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _AccountInterfaceModeInline extends StatelessWidget {
+  const _AccountInterfaceModeInline({
+    required this.layout,
+    required this.mode,
+    required this.onChanged,
+  });
+
+  final DeviceLayout layout;
+  final InterfaceMode mode;
+  final ValueChanged<InterfaceMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final selector = Theme(
+      data: Theme.of(context).copyWith(
+        segmentedButtonTheme: SegmentedButtonThemeData(
+          style: ButtonStyle(
+            minimumSize: WidgetStatePropertyAll<Size>(
+              Size.fromHeight(layout.isTvCompact ? 42 : 44),
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return colorScheme.secondary.withValues(alpha: 0.16);
+              }
+              return const Color(0xFF111B2C);
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return colorScheme.onSurface;
+              }
+              return colorScheme.onSurface.withValues(alpha: 0.84);
+            }),
+            side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return BorderSide(
+                  color: colorScheme.secondary.withValues(alpha: 0.62),
+                  width: 1.2,
+                );
+              }
+              return BorderSide(
+                color: colorScheme.outline.withValues(alpha: 0.34),
+              );
+            }),
+            textStyle: WidgetStatePropertyAll<TextStyle?>(
+              Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: layout.isTvCompact ? 13.5 : 14.5,
+              ),
+            ),
+          ),
+        ),
+      ),
+      child: SegmentedButton<InterfaceMode>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment<InterfaceMode>(
+            value: InterfaceMode.auto,
+            icon: Icon(Icons.tune_rounded),
+            label: Text('Auto'),
+          ),
+          ButtonSegment<InterfaceMode>(
+            value: InterfaceMode.mobile,
+            icon: Icon(Icons.smartphone_rounded),
+            label: Text('Mobile'),
+          ),
+          ButtonSegment<InterfaceMode>(
+            value: InterfaceMode.tv,
+            icon: Icon(Icons.tv_rounded),
+            label: Text('TV'),
+          ),
+        ],
+        selected: {mode},
+        onSelectionChanged: (selection) {
+          if (selection.isNotEmpty) {
+            onChanged(selection.first);
+          }
+        },
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontal = constraints.maxWidth >= 900;
+        final title = Text(
+          'Modo de interface',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: layout.isTvCompact ? 18 : 19,
+          ),
+        );
+
+        if (horizontal) {
+          return Row(
+            children: [
+              title,
+              const Spacer(),
+              Flexible(child: selector),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            title,
+            const SizedBox(height: 10),
+            selector,
+          ],
+        );
+      },
     );
   }
 }

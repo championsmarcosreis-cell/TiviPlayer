@@ -1,0 +1,7 @@
+-keep class org.videolan.libvlc.** { *; }
+-keep class org.videolan.libvlc.interfaces.** { *; }
+-keep interface org.videolan.libvlc.interfaces.** { *; }
+-keep class org.videolan.** { *; }
+-keepclassmembers class org.videolan.** { *; }
+-keepnames class org.videolan.**
+-keepattributes InnerClasses,EnclosingMethod,Signature,*Annotation*

@@ -4,10 +4,14 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../shared/presentation/controllers/device_interaction_profile_provider.dart';
+import '../../../../shared/presentation/controllers/interface_mode_controller.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
+import '../../../../shared/presentation/layout/interface_mode_heuristics.dart';
 import '../../../../shared/presentation/layout/interface_mode_scope.dart';
 import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/brand_logo.dart';
+import '../../../../shared/widgets/interface_mode_selector_card.dart';
 import '../../domain/entities/xtream_credentials.dart';
 import '../controllers/auth_controller.dart';
 
@@ -106,6 +110,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     final authState = ref.watch(authControllerProvider);
+    final preferredInterfaceMode = ref.watch(interfaceModeControllerProvider);
+    final deviceProfileAsync = ref.watch(deviceInteractionProfileProvider);
+    final deviceProfile =
+        deviceProfileAsync is AsyncData ? deviceProfileAsync.value : null;
     final isSubmitting = authState.status == AuthStatus.authenticating;
     final usesDirectionalNavigation =
         MediaQuery.navigationModeOf(context) == NavigationMode.directional;
@@ -202,6 +210,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onUseEmbeddedServer: _useEmbeddedServer,
                     validateBaseUrl: _validateBaseUrl,
                   );
+                  final shouldShowInterfaceSelector =
+                      InterfaceModeHeuristics.shouldExposeModeSelector(
+                        preferredMode: preferredInterfaceMode,
+                        navigationMode: MediaQuery.navigationModeOf(context),
+                        viewportWidth: MediaQuery.sizeOf(context).width,
+                        viewportHeight: MediaQuery.sizeOf(context).height,
+                        deviceProfile: deviceProfile,
+                      );
+                  final interfaceModeSection = shouldShowInterfaceSelector
+                      ? InterfaceModeSelectorCard(
+                          layout: layout,
+                          mode: preferredInterfaceMode,
+                          compactForTv: layout.isTv,
+                          eyebrow: 'Controle deste aparelho',
+                          title: 'Escolha como navegar',
+                          description:
+                              'Use TV em box ou stick com controle remoto. Use mobile em celular ou tablet com toque.',
+                          helperText: InterfaceModeHeuristics.helperText(
+                            preferredMode: preferredInterfaceMode,
+                            deviceProfile: deviceProfile,
+                          ),
+                          onChanged: (mode) {
+                            ref
+                                .read(interfaceModeControllerProvider.notifier)
+                                .setMode(mode);
+                          },
+                        )
+                      : null;
                   final heroSection = _LoginHeroSection(layout: layout);
 
                   return Scrollbar(
@@ -233,6 +269,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   layout: layout,
                                   formKey: _formKey,
                                   heroSection: heroSection,
+                                  interfaceModeSection: interfaceModeSection,
                                   credentialsCard: credentialsCard,
                                   advancedSection: advancedServerSection,
                                 ),
@@ -1040,6 +1077,7 @@ class _LoginExperience extends StatelessWidget {
     required this.layout,
     required this.formKey,
     required this.heroSection,
+    required this.interfaceModeSection,
     required this.credentialsCard,
     required this.advancedSection,
   });
@@ -1047,6 +1085,7 @@ class _LoginExperience extends StatelessWidget {
   final DeviceLayout layout;
   final GlobalKey<FormState> formKey;
   final Widget heroSection;
+  final Widget? interfaceModeSection;
   final Widget credentialsCard;
   final Widget advancedSection;
 
@@ -1062,6 +1101,10 @@ class _LoginExperience extends StatelessWidget {
             child: Column(
               children: [
                 heroSection,
+                if (interfaceModeSection != null) ...[
+                  SizedBox(height: layout.isTv ? 14 : layout.sectionSpacing + 10),
+                  interfaceModeSection!,
+                ],
                 SizedBox(height: layout.isTv ? 16 : layout.sectionSpacing + 14),
                 credentialsCard,
                 SizedBox(height: layout.isTv ? 10 : layout.sectionSpacing + 8),
