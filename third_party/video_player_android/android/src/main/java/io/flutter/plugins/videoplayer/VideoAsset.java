@@ -98,7 +98,7 @@ public abstract class VideoAsset {
     return null;
   }
 
-  public boolean shouldUseXiaomiVlcFallback() {
+  public boolean shouldUseVlcFallback() {
     return false;
   }
 

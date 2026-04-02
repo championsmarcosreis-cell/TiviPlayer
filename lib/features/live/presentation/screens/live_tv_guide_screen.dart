@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/tv/tv_focusable.dart';
 import '../../../../features/favorites/presentation/controllers/favorites_controller.dart';
-import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/presentation/screens/home_screen.dart';
@@ -19,6 +18,7 @@ import '../../domain/entities/live_category.dart';
 import '../../domain/entities/live_epg_entry.dart';
 import '../../domain/entities/live_stream.dart';
 import '../providers/live_providers.dart';
+import '../support/live_playback_context.dart';
 
 const _favoritesFilterKey = 'guide_filter_favorites';
 const _guideWindowMinutes = 180;
@@ -329,15 +329,14 @@ class _LiveTvGuideScreenState extends ConsumerState<LiveTvGuideScreen> {
     }
   }
 
-  void _openLivePlayer(LiveStream stream) {
+  void _openLivePlayer(List<LiveStream> streams, LiveStream stream) {
+    final currentIndex = streams.indexWhere((item) => item.id == stream.id);
+    if (currentIndex < 0) {
+      return;
+    }
     context.push(
       PlayerScreen.routePath,
-      extra: PlaybackContext(
-        contentType: PlaybackContentType.live,
-        itemId: stream.id,
-        title: stream.name,
-        containerExtension: stream.containerExtension,
-      ),
+      extra: buildLivePlaybackContext(streams, currentIndex),
     );
   }
 
@@ -629,7 +628,11 @@ class _LiveTvGuideScreenState extends ConsumerState<LiveTvGuideScreen> {
                                                           onProgramFocused:
                                                               _onProgramFocused,
                                                           onOpenChannel:
-                                                              _openLivePlayer,
+                                                              (stream) =>
+                                                                  _openLivePlayer(
+                                                                    visibleStreams,
+                                                                    stream,
+                                                                  ),
                                                         );
                                                       },
                                                     ),
@@ -678,7 +681,7 @@ class _LiveTvGuideScreenState extends ConsumerState<LiveTvGuideScreen> {
               onFilterKeyEvent: _handleFilterKeyEvent,
               onPlayFocused: panelProgram == null
                   ? null
-                  : () => _openLivePlayer(panelProgram.stream),
+                  : () => _openLivePlayer(visibleStreams, panelProgram.stream),
               body: guideBody,
             );
           },

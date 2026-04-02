@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/tv/tv_focusable.dart';
-import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/presentation/screens/home_screen.dart';
@@ -13,6 +12,7 @@ import '../../domain/entities/live_category.dart';
 import '../../domain/entities/live_epg_entry.dart';
 import '../../domain/entities/live_stream.dart';
 import '../providers/live_providers.dart';
+import '../support/live_playback_context.dart';
 import 'live_tv_guide_screen.dart';
 
 class LiveCategoriesScreen extends StatelessWidget {
@@ -207,6 +207,8 @@ class _LiveCategoriesViewState extends ConsumerState<_LiveCategoriesView> {
                           ) ...[
                             _MobileGuideChannelTile(
                               item: visibleStreams[index],
+                              visibleStreams: visibleStreams,
+                              channelIndex: index,
                               autofocus: index == 0,
                               selectedTimeSlot: selectedTimeSlot,
                             ),
@@ -707,11 +709,15 @@ class _MobileGuideStatChip extends StatelessWidget {
 class _MobileGuideChannelTile extends ConsumerWidget {
   const _MobileGuideChannelTile({
     required this.item,
+    required this.visibleStreams,
+    required this.channelIndex,
     required this.autofocus,
     required this.selectedTimeSlot,
   });
 
   final LiveStream item;
+  final List<LiveStream> visibleStreams;
+  final int channelIndex;
   final bool autofocus;
   final _MobileGuideTimeSlot selectedTimeSlot;
 
@@ -746,7 +752,7 @@ class _MobileGuideChannelTile extends ConsumerWidget {
 
     return TvFocusable(
       autofocus: autofocus,
-      onPressed: () => _openLivePlayer(context, item),
+      onPressed: () => _openLivePlayer(context, visibleStreams, channelIndex),
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
@@ -1177,14 +1183,13 @@ String _formatGuideClock(DateTime value) {
   return '$hour:$minute';
 }
 
-void _openLivePlayer(BuildContext context, LiveStream item) {
+void _openLivePlayer(
+  BuildContext context,
+  List<LiveStream> streams,
+  int currentIndex,
+) {
   context.push(
     PlayerScreen.routePath,
-    extra: PlaybackContext(
-      contentType: PlaybackContentType.live,
-      itemId: item.id,
-      title: item.name,
-      containerExtension: item.containerExtension,
-    ),
+    extra: buildLivePlaybackContext(streams, currentIndex),
   );
 }

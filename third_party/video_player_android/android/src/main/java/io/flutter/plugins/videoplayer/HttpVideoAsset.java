@@ -93,8 +93,8 @@ final class HttpVideoAsset extends VideoAsset {
   }
 
   @Override
-  public boolean shouldUseXiaomiVlcFallback() {
-    return XiaomiDeviceQuirks.shouldUseVlcFallback(assetUrl, streamingFormat);
+  public boolean shouldUseVlcFallback() {
+    return XiaomiDeviceQuirks.shouldUseVlcFallback(assetUrl, streamingFormat, httpHeaders, userAgent);
   }
 
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.

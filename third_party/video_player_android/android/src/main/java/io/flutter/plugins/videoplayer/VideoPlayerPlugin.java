@@ -107,7 +107,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     final String streamInstance = Long.toString(id);
     TextureRegistry.SurfaceProducer handle = flutterState.textureRegistry.createSurfaceProducer();
     ManagedVideoPlayer videoPlayer;
-    if (videoAsset.shouldUseXiaomiVlcFallback()) {
+    if (videoAsset.shouldUseVlcFallback()) {
       Log.i(TAG, "Applying LibVLC fallback for texture playback: " + options.getUri());
       videoPlayer =
           XiaomiVlcVideoPlayer.create(

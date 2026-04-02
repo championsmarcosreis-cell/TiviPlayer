@@ -60,6 +60,7 @@ class PlayerScreen extends ConsumerStatefulWidget {
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   VideoPlayerController? _controller;
+  PlaybackContext? _activePlaybackContext;
   ResolvedPlayback? _resolvedPlayback;
   String? _errorMessage;
   String? _statusMessage;
@@ -95,6 +96,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
     unawaited(_enterPlayerImmersiveMode());
+    _activePlaybackContext = widget.playbackContext;
     _playbackHistoryController = ref.read(
       playbackHistoryControllerProvider.notifier,
     );
@@ -106,6 +108,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     Future<void>.microtask(_initializePlayer);
+  }
+
+  @override
+  void didUpdateWidget(covariant PlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.playbackContext != oldWidget.playbackContext) {
+      _activePlaybackContext = widget.playbackContext;
+    }
   }
 
   @override
@@ -125,6 +135,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final resolvedPlayback = _resolvedPlayback;
+    final activePlaybackContext = _activePlaybackContext;
     final controller = _controller;
     final playerValue = controller?.value;
     final hasReadyVideo = playerValue?.isInitialized == true;
@@ -133,169 +144,179 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ? _deriveStreamMetrics(playerValue, isLive: resolvedPlayback.isLive)
         : null;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _revealPlaybackUi,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final layout = DeviceLayout.of(context, constraints: constraints);
-            final previewState = widget.previewState;
+    return WillPopScope(
+      onWillPop: _handleRouteBackNavigation,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _revealPlaybackUi,
+          onHorizontalDragEnd: _handleHorizontalDragEnd,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final layout = DeviceLayout.of(context, constraints: constraints);
+              final previewState = widget.previewState;
 
-            if (previewState != null) {
+              if (previewState != null) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const ColoredBox(color: Color(0xFF05080F)),
+                    _PlayerPreviewStage(
+                      previewState: previewState,
+                      layout: layout,
+                    ),
+                    const _PlayerOverlayGradients(),
+                    _PlayerTopBar(
+                      title: previewState.title,
+                      isLive: previewState.isLive,
+                      layout: layout,
+                      onBack: () => unawaited(_handleBackNavigation()),
+                    ),
+                    _PreviewControlDeck(
+                      previewState: previewState,
+                      layout: layout,
+                    ),
+                  ],
+                );
+              }
+
+              final overlayVisibility = _resolveOverlayVisibility(
+                layout: layout,
+                resolvedPlayback: resolvedPlayback,
+                playerValue: playerValue,
+                hasReadyVideo: hasReadyVideo,
+                streamMetrics: streamMetrics,
+              );
+              final showExpandedOverlay =
+                  overlayVisibility == _PlayerOverlayVisibility.expanded;
+              final showCompactLiveBadge =
+                  overlayVisibility == _PlayerOverlayVisibility.compact;
+
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  const ColoredBox(color: Color(0xFF05080F)),
-                  _PlayerPreviewStage(
-                    previewState: previewState,
-                    layout: layout,
-                  ),
-                  const _PlayerOverlayGradients(),
-                  _PlayerTopBar(
-                    title: previewState.title,
-                    isLive: previewState.isLive,
-                    layout: layout,
-                    onBack: () => context.pop(),
-                  ),
-                  _PreviewControlDeck(
-                    previewState: previewState,
-                    layout: layout,
-                  ),
+                  _PlayerSurface(controller: controller),
+                  if (hasReadyVideo)
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      child: SizedBox(
+                        key: AppTestKeys.playerLoadedState,
+                        width: 1,
+                        height: 1,
+                      ),
+                    ),
+                  if (showExpandedOverlay) const _PlayerOverlayGradients(),
+                  if (_isInitializing)
+                    Center(
+                      child: _LoadingPanel(
+                        message: _statusMessage ?? 'Carregando video...',
+                      ),
+                    ),
+                  if (!_isInitializing && _errorMessage != null)
+                    Center(
+                      child: _ErrorPanel(
+                        key: AppTestKeys.playerErrorState,
+                        message: _errorMessage!,
+                        onRetry: _initializePlayer,
+                      ),
+                    ),
+                  if (!_isInitializing &&
+                      _errorMessage == null &&
+                      showExpandedOverlay)
+                    _PlayerTopBar(
+                      title:
+                          resolvedPlayback?.context.title ??
+                          activePlaybackContext?.title ??
+                          'Player',
+                      isLive: resolvedPlayback?.isLive ?? false,
+                      layout: layout,
+                      onBack: () => unawaited(_handleBackNavigation()),
+                    ),
+                  if (!_isInitializing &&
+                      _errorMessage == null &&
+                      showExpandedOverlay &&
+                      hasReadyVideo &&
+                      controller != null &&
+                      resolvedPlayback != null)
+                    _PlayerControlDeck(
+                      controller: controller,
+                      resolvedPlayback: resolvedPlayback,
+                      layout: layout,
+                      isMuted: _isMuted,
+                      selectedAudioTrack:
+                          _selectedAudioTrack ??
+                          (_audioTracks.isEmpty ? null : _audioTracks.first),
+                      selectedSubtitleTrack: _selectedSubtitleTrack,
+                      selectedQualityProfile: _selectedQualityProfile,
+                      qualityLabel: streamMetrics?.qualityLabel,
+                      liveLatencyLabel: streamMetrics?.liveLatencyLabel,
+                      onTogglePlayback: _togglePlayPause,
+                      onSeekBackward: () =>
+                          _seekRelative(const Duration(seconds: -10)),
+                      onSeekForward: () =>
+                          _seekRelative(const Duration(seconds: 10)),
+                      canGoToPreviousChannel: _canGoToPreviousLiveChannel,
+                      canGoToNextChannel: _canGoToNextLiveChannel,
+                      onPreviousChannel: () =>
+                          unawaited(_navigateToAdjacentLiveChannel(-1)),
+                      onNextChannel: () =>
+                          unawaited(_navigateToAdjacentLiveChannel(1)),
+                      onToggleMute: _toggleMute,
+                      onSelectAudioTrack: _selectAudioTrack,
+                      onSelectSubtitleTrack: _selectSubtitleTrack,
+                      onSelectQualityProfile: _selectQualityProfile,
+                    ),
+                  if (!_isInitializing &&
+                      _errorMessage == null &&
+                      showExpandedOverlay &&
+                      _statusMessage != null)
+                    Positioned(
+                      left: layout.pageHorizontalPadding,
+                      top: layout.pageTopPadding + 84,
+                      child: _StatusBanner(message: _statusMessage!),
+                    ),
+                  if (!_isInitializing &&
+                      _errorMessage == null &&
+                      showExpandedOverlay &&
+                      _interactionMessage != null)
+                    Positioned(
+                      left: layout.pageHorizontalPadding,
+                      right: layout.pageHorizontalPadding,
+                      bottom:
+                          layout.pageBottomPadding + (layout.isTv ? 156 : 140),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: _InteractionToast(message: _interactionMessage!),
+                      ),
+                    ),
+                  if (showCompactLiveBadge &&
+                      streamMetrics != null &&
+                      _errorMessage == null)
+                    Positioned(
+                      right: layout.pageHorizontalPadding,
+                      top: layout.pageTopPadding + 78,
+                      child: _LiveSignalBadge(
+                        qualityLabel: streamMetrics.qualityLabel,
+                        liveLatencyLabel: streamMetrics.liveLatencyLabel,
+                        isBuffering: playerValue?.isBuffering == true,
+                        recovering: _isRecoveringRuntime,
+                      ),
+                    ),
+                  if (resolvedPlayback?.isLive != true &&
+                      showExpandedOverlay &&
+                      playerValue?.isBuffering == true &&
+                      _errorMessage == null)
+                    Positioned(
+                      right: layout.pageHorizontalPadding,
+                      top: layout.pageTopPadding + 78,
+                      child: _BufferingBadge(recovering: _isRecoveringRuntime),
+                    ),
                 ],
               );
-            }
-
-            final overlayVisibility = _resolveOverlayVisibility(
-              layout: layout,
-              resolvedPlayback: resolvedPlayback,
-              playerValue: playerValue,
-              hasReadyVideo: hasReadyVideo,
-              streamMetrics: streamMetrics,
-            );
-            final showExpandedOverlay =
-                overlayVisibility == _PlayerOverlayVisibility.expanded;
-            final showCompactLiveBadge =
-                overlayVisibility == _PlayerOverlayVisibility.compact;
-
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                _PlayerSurface(controller: controller),
-                if (hasReadyVideo)
-                  const Positioned(
-                    top: 0,
-                    left: 0,
-                    child: SizedBox(
-                      key: AppTestKeys.playerLoadedState,
-                      width: 1,
-                      height: 1,
-                    ),
-                  ),
-                if (showExpandedOverlay) const _PlayerOverlayGradients(),
-                if (_isInitializing)
-                  Center(
-                    child: _LoadingPanel(
-                      message: _statusMessage ?? 'Carregando video...',
-                    ),
-                  ),
-                if (!_isInitializing && _errorMessage != null)
-                  Center(
-                    child: _ErrorPanel(
-                      key: AppTestKeys.playerErrorState,
-                      message: _errorMessage!,
-                      onRetry: _initializePlayer,
-                    ),
-                  ),
-                if (!_isInitializing &&
-                    _errorMessage == null &&
-                    showExpandedOverlay)
-                  _PlayerTopBar(
-                    title:
-                        resolvedPlayback?.context.title ??
-                        widget.playbackContext?.title ??
-                        'Player',
-                    isLive: resolvedPlayback?.isLive ?? false,
-                    layout: layout,
-                    onBack: () => context.pop(),
-                  ),
-                if (!_isInitializing &&
-                    _errorMessage == null &&
-                    showExpandedOverlay &&
-                    hasReadyVideo &&
-                    controller != null &&
-                    resolvedPlayback != null)
-                  _PlayerControlDeck(
-                    controller: controller,
-                    resolvedPlayback: resolvedPlayback,
-                    layout: layout,
-                    isMuted: _isMuted,
-                    selectedAudioTrack:
-                        _selectedAudioTrack ??
-                        (_audioTracks.isEmpty ? null : _audioTracks.first),
-                    selectedSubtitleTrack: _selectedSubtitleTrack,
-                    selectedQualityProfile: _selectedQualityProfile,
-                    qualityLabel: streamMetrics?.qualityLabel,
-                    liveLatencyLabel: streamMetrics?.liveLatencyLabel,
-                    onTogglePlayback: _togglePlayPause,
-                    onSeekBackward: () =>
-                        _seekRelative(const Duration(seconds: -10)),
-                    onSeekForward: () =>
-                        _seekRelative(const Duration(seconds: 10)),
-                    onToggleMute: _toggleMute,
-                    onSelectAudioTrack: _selectAudioTrack,
-                    onSelectSubtitleTrack: _selectSubtitleTrack,
-                    onSelectQualityProfile: _selectQualityProfile,
-                  ),
-                if (!_isInitializing &&
-                    _errorMessage == null &&
-                    showExpandedOverlay &&
-                    _statusMessage != null)
-                  Positioned(
-                    left: layout.pageHorizontalPadding,
-                    top: layout.pageTopPadding + 84,
-                    child: _StatusBanner(message: _statusMessage!),
-                  ),
-                if (!_isInitializing &&
-                    _errorMessage == null &&
-                    showExpandedOverlay &&
-                    _interactionMessage != null)
-                  Positioned(
-                    left: layout.pageHorizontalPadding,
-                    right: layout.pageHorizontalPadding,
-                    bottom:
-                        layout.pageBottomPadding + (layout.isTv ? 156 : 140),
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: _InteractionToast(message: _interactionMessage!),
-                    ),
-                  ),
-                if (showCompactLiveBadge &&
-                    streamMetrics != null &&
-                    _errorMessage == null)
-                  Positioned(
-                    right: layout.pageHorizontalPadding,
-                    top: layout.pageTopPadding + 78,
-                    child: _LiveSignalBadge(
-                      qualityLabel: streamMetrics.qualityLabel,
-                      liveLatencyLabel: streamMetrics.liveLatencyLabel,
-                      isBuffering: playerValue?.isBuffering == true,
-                      recovering: _isRecoveringRuntime,
-                    ),
-                  ),
-                if (resolvedPlayback?.isLive != true &&
-                    showExpandedOverlay &&
-                    playerValue?.isBuffering == true &&
-                    _errorMessage == null)
-                  Positioned(
-                    right: layout.pageHorizontalPadding,
-                    top: layout.pageTopPadding + 78,
-                    child: _BufferingBadge(recovering: _isRecoveringRuntime),
-                  ),
-              ],
-            );
-          },
+            },
+          ),
         ),
       ),
     );
@@ -306,7 +327,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
 
-    final playbackContext = widget.playbackContext;
+    final playbackContext = _activePlaybackContext;
 
     if (playbackContext == null) {
       setState(() {
@@ -570,7 +591,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _attemptRuntimeRecovery(PlayerRuntimeIssue issue) async {
-    final playbackContext = widget.playbackContext;
+    final playbackContext = _activePlaybackContext;
     if (!mounted ||
         _isDisposing ||
         _isInitializing ||
@@ -1151,6 +1172,85 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _showInteractionMessage('$direction${seconds}s');
   }
 
+  PlaybackContext? get _liveContextWithNavigation {
+    final contextData = _activePlaybackContext;
+    if (contextData == null || !contextData.hasLiveChannelNavigation) {
+      return null;
+    }
+    return contextData;
+  }
+
+  bool get _canGoToPreviousLiveChannel =>
+      _liveContextWithNavigation?.previousLiveChannel != null;
+
+  bool get _canGoToNextLiveChannel =>
+      _liveContextWithNavigation?.nextLiveChannel != null;
+
+  Future<void> _navigateToAdjacentLiveChannel(int offset) async {
+    final contextData = _liveContextWithNavigation;
+    final currentIndex = contextData?.resolvedLiveChannelIndex;
+    if (contextData == null ||
+        currentIndex == null ||
+        _isInitializing ||
+        _isRecoveringRuntime) {
+      return;
+    }
+
+    final targetIndex = currentIndex + offset;
+    if (targetIndex < 0 || targetIndex >= contextData.liveChannels.length) {
+      return;
+    }
+
+    final nextContext = contextData.forLiveChannelIndex(targetIndex);
+    if (nextContext.itemId == contextData.itemId) {
+      return;
+    }
+
+    _persistPlaybackProgress(force: true);
+    _lastProgressSaveAt = null;
+    _lastSavedPosition = Duration.zero;
+    _bufferingSince = null;
+    _runtimeRecoveryAttempts = 0;
+    _lastRuntimeRecoveryStartedAt = null;
+
+    setState(() {
+      _activePlaybackContext = nextContext;
+      _resolvedPlayback = null;
+      _errorMessage = null;
+      _statusMessage = null;
+      _interactionMessage = null;
+      _showPlaybackUi = true;
+    });
+
+    await _initializePlayer();
+    if (!mounted || _isDisposing) {
+      return;
+    }
+
+    final positionLabel =
+        '${targetIndex + 1}/${nextContext.liveChannels.length}';
+    _showInteractionMessage('$positionLabel • ${nextContext.title}');
+  }
+
+  void _handleHorizontalDragEnd(DragEndDetails details) {
+    if (!mounted || _isDisposing || widget.previewState != null) {
+      return;
+    }
+    final layout = DeviceLayout.of(context);
+    if (layout.isTv) {
+      return;
+    }
+    final velocity = details.primaryVelocity;
+    if (velocity == null || velocity.abs() < 280) {
+      return;
+    }
+    if (velocity.isNegative) {
+      unawaited(_navigateToAdjacentLiveChannel(1));
+    } else {
+      unawaited(_navigateToAdjacentLiveChannel(-1));
+    }
+  }
+
   bool _handleHardwareKey(KeyEvent event) {
     if (!mounted || _isDisposing || widget.previewState != null) {
       return false;
@@ -1160,17 +1260,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     final key = event.logicalKey;
 
-    if (_isBackKey(key)) {
-      if (context.canPop()) {
-        context.pop();
-        return true;
-      }
-      return false;
-    }
-
     final overlayWasHidden = !_showPlaybackUi;
     _revealPlaybackUi();
-    if (overlayWasHidden) {
+    final canNavigateLiveOnThisKey =
+        (_isLeftKey(key) && _canGoToPreviousLiveChannel) ||
+        (_isRightKey(key) && _canGoToNextLiveChannel);
+    if (overlayWasHidden && !canNavigateLiveOnThisKey) {
       return true;
     }
 
@@ -1186,13 +1281,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return false;
     }
 
-    if (_isActivationKey(key)) {
+    if (_isDirectPlayPauseKey(key)) {
       unawaited(_togglePlayPause());
       return true;
     }
 
     if (_isMuteKey(key)) {
       unawaited(_toggleMute());
+      return true;
+    }
+
+    if (_isLeftKey(key) && _canGoToPreviousLiveChannel) {
+      unawaited(_navigateToAdjacentLiveChannel(-1));
+      return true;
+    }
+
+    if (_isRightKey(key) && _canGoToNextLiveChannel) {
+      unawaited(_navigateToAdjacentLiveChannel(1));
       return true;
     }
 
@@ -1370,8 +1475,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter ||
         key == LogicalKeyboardKey.space ||
-        key == LogicalKeyboardKey.gameButtonA ||
-        key == LogicalKeyboardKey.mediaPlayPause;
+        key == LogicalKeyboardKey.gameButtonA;
+  }
+
+  bool _isDirectPlayPauseKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.mediaPlayPause;
   }
 
   bool _isLeftKey(LogicalKeyboardKey key) {
@@ -1408,6 +1516,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return key == LogicalKeyboardKey.keyM ||
         key == LogicalKeyboardKey.audioVolumeMute;
   }
+
+  Future<void> _handleBackNavigation() async {
+    if (!mounted || _isDisposing) {
+      return;
+    }
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+      return;
+    }
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    context.go('/home');
+  }
+
+  Future<bool> _handleRouteBackNavigation() async {
+    await _handleBackNavigation();
+    return false;
+  }
 }
 
 class _PlayerSurface extends StatelessWidget {
@@ -1422,14 +1552,37 @@ class _PlayerSurface extends StatelessWidget {
       return const ColoredBox(color: Colors.black);
     }
 
+    final playerValue = value!;
+    final layout = DeviceLayout.of(context);
+    final videoSize = playerValue.size;
+    final videoWidth = videoSize.width > 0
+        ? videoSize.width
+        : ((playerValue.aspectRatio == 0 ? 16 / 9 : playerValue.aspectRatio) *
+              1000);
+    final videoHeight = videoSize.height > 0 ? videoSize.height : 1000.0;
+    final videoStage = SizedBox(
+      width: videoWidth,
+      height: videoHeight,
+      child: VideoPlayer(controller!),
+    );
+
     return ColoredBox(
       color: Colors.black,
-      child: Center(
-        child: AspectRatio(
-          aspectRatio: value!.aspectRatio == 0 ? 16 / 9 : value.aspectRatio,
-          child: VideoPlayer(controller!),
-        ),
-      ),
+      child: layout.isTv
+          ? Center(
+              child: AspectRatio(
+                aspectRatio: playerValue.aspectRatio == 0
+                    ? 16 / 9
+                    : playerValue.aspectRatio,
+                child: VideoPlayer(controller!),
+              ),
+            )
+          : Center(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: videoStage,
+              ),
+            ),
     );
   }
 }
@@ -1682,6 +1835,10 @@ class _PlayerControlDeck extends StatelessWidget {
     required this.onTogglePlayback,
     required this.onSeekBackward,
     required this.onSeekForward,
+    required this.canGoToPreviousChannel,
+    required this.canGoToNextChannel,
+    required this.onPreviousChannel,
+    required this.onNextChannel,
     this.qualityLabel,
     this.liveLatencyLabel,
   });
@@ -1700,6 +1857,10 @@ class _PlayerControlDeck extends StatelessWidget {
   final VoidCallback onTogglePlayback;
   final VoidCallback onSeekBackward;
   final VoidCallback onSeekForward;
+  final bool canGoToPreviousChannel;
+  final bool canGoToNextChannel;
+  final VoidCallback onPreviousChannel;
+  final VoidCallback onNextChannel;
   final String? qualityLabel;
   final String? liveLatencyLabel;
 
@@ -1714,6 +1875,9 @@ class _PlayerControlDeck extends StatelessWidget {
     final mobileHorizontalInset = layout.isTv
         ? layout.pageHorizontalPadding
         : 0.0;
+    final showLiveChannelControls =
+        resolvedPlayback.isLive &&
+        (canGoToPreviousChannel || canGoToNextChannel);
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -1785,7 +1949,16 @@ class _PlayerControlDeck extends StatelessWidget {
                                 onPressed: onSeekBackward,
                                 kind: PlayerControlButtonKind.secondary,
                               ),
-                            if (isSeekable) const SizedBox(width: 10),
+                            if (showLiveChannelControls &&
+                                canGoToPreviousChannel)
+                              PlayerControlButton(
+                                icon: Icons.skip_previous_rounded,
+                                label: 'Canal anterior',
+                                onPressed: onPreviousChannel,
+                                kind: PlayerControlButtonKind.secondary,
+                              ),
+                            if (isSeekable || showLiveChannelControls)
+                              const SizedBox(width: 10),
                             PlayerControlButton(
                               icon: isPlaying
                                   ? Icons.pause_circle_rounded
@@ -1796,12 +1969,20 @@ class _PlayerControlDeck extends StatelessWidget {
                               kind: PlayerControlButtonKind.primary,
                               prominent: true,
                             ),
-                            if (isSeekable) const SizedBox(width: 10),
+                            if (isSeekable || showLiveChannelControls)
+                              const SizedBox(width: 10),
                             if (isSeekable)
                               PlayerControlButton(
                                 icon: Icons.forward_10_rounded,
                                 label: '+10s',
                                 onPressed: onSeekForward,
+                                kind: PlayerControlButtonKind.secondary,
+                              ),
+                            if (showLiveChannelControls && canGoToNextChannel)
+                              PlayerControlButton(
+                                icon: Icons.skip_next_rounded,
+                                label: 'Proximo canal',
+                                onPressed: onNextChannel,
                                 kind: PlayerControlButtonKind.secondary,
                               ),
                           ],
@@ -1817,6 +1998,14 @@ class _PlayerControlDeck extends StatelessWidget {
                                 onPressed: onSeekBackward,
                                 kind: PlayerControlButtonKind.secondary,
                               ),
+                            if (showLiveChannelControls &&
+                                canGoToPreviousChannel)
+                              PlayerControlButton(
+                                icon: Icons.skip_previous_rounded,
+                                label: 'Anterior',
+                                onPressed: onPreviousChannel,
+                                kind: PlayerControlButtonKind.secondary,
+                              ),
                             PlayerControlButton(
                               icon: isPlaying
                                   ? Icons.pause_circle_rounded
@@ -1832,6 +2021,13 @@ class _PlayerControlDeck extends StatelessWidget {
                                 icon: Icons.forward_10_rounded,
                                 label: '+10s',
                                 onPressed: onSeekForward,
+                                kind: PlayerControlButtonKind.secondary,
+                              ),
+                            if (showLiveChannelControls && canGoToNextChannel)
+                              PlayerControlButton(
+                                icon: Icons.skip_next_rounded,
+                                label: 'Proximo',
+                                onPressed: onNextChannel,
                                 kind: PlayerControlButtonKind.secondary,
                               ),
                           ],

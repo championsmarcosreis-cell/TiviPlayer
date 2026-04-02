@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/formatting/display_formatters.dart';
@@ -11,6 +12,7 @@ import '../../../features/live/domain/entities/live_epg_entry.dart';
 import '../../../features/live/domain/entities/live_stream.dart';
 import '../../../features/live/presentation/providers/live_providers.dart';
 import '../../../features/live/presentation/screens/live_categories_screen.dart';
+import '../../../features/live/presentation/support/live_playback_context.dart';
 import '../../../features/player/domain/entities/playback_context.dart';
 import '../../../features/player/domain/entities/playback_history_entry.dart';
 import '../../../features/player/presentation/controllers/playback_history_controller.dart';
@@ -186,48 +188,98 @@ class HomeScreen extends ConsumerWidget {
     final continueItem = _resolveContinueItem(playbackHistory, context);
 
     if (headerLayout.isTv) {
-      return _TvHomeSurface(
-        layout: headerLayout,
-        primaryNavItems: tvPrimaryNavigationItems,
-        utilityNavItems: tvUtilityNavigationItems,
-        continueItem: continueItem,
-        liveCards: liveCards,
-        vodCards: vodCards,
-        seriesCards: seriesCards,
-        liveState: livePreview,
-        vodState: vodPreview,
-        seriesState: seriesPreview,
+      return WillPopScope(
+        onWillPop: () => _handleHomeExitRequest(context),
+        child: _TvHomeSurface(
+          layout: headerLayout,
+          primaryNavItems: tvPrimaryNavigationItems,
+          utilityNavItems: tvUtilityNavigationItems,
+          continueItem: continueItem,
+          liveCards: liveCards,
+          vodCards: vodCards,
+          seriesCards: seriesCards,
+          liveState: livePreview,
+          vodState: vodPreview,
+          seriesState: seriesPreview,
+        ),
       );
     }
 
-    return AppScaffold(
-      title: 'Inicio',
-      subtitle: 'Sua central para ao vivo e catalogo sob demanda.',
-      decoratedHeader: true,
-      showBrand: true,
-      actions: const [],
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = DeviceLayout.of(context, constraints: constraints);
-          final homeBody = _MobileHomeExperience(
-            layout: layout,
-            topActions: mobileTopActions,
-            continueItem: continueItem,
-            liveCards: liveCards,
-            liveState: livePreview,
-          );
+    return WillPopScope(
+      onWillPop: () => _handleHomeExitRequest(context),
+      child: AppScaffold(
+        title: 'Inicio',
+        subtitle: 'Sua central para ao vivo e catalogo sob demanda.',
+        decoratedHeader: true,
+        showBrand: true,
+        actions: const [],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final layout = DeviceLayout.of(context, constraints: constraints);
+            final homeBody = _MobileHomeExperience(
+              layout: layout,
+              topActions: mobileTopActions,
+              continueItem: continueItem,
+              liveCards: liveCards,
+              liveState: livePreview,
+            );
 
-          return Scrollbar(
-            thumbVisibility: false,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
-              child: homeBody,
-            ),
-          );
-        },
+            return Scrollbar(
+              thumbVisibility: false,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
+                child: homeBody,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+Future<bool> _handleHomeExitRequest(BuildContext context) async {
+  final route = ModalRoute.of(context);
+  if (route?.isCurrent != true) {
+    return true;
+  }
+
+  final router = GoRouter.of(context);
+  if (router.canPop() || Navigator.of(context).canPop()) {
+    return true;
+  }
+
+  final currentLocation = router.routeInformationProvider.value.uri.path;
+  if (currentLocation != HomeScreen.routePath) {
+    return true;
+  }
+
+  final shouldExit = await showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('Sair do app?'),
+        content: const Text('Deseja sair mesmo do aplicativo?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Sair'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldExit == true) {
+    await SystemNavigator.pop();
+  }
+
+  return false;
 }
 
 class _HomeHeroChoice {
@@ -2429,7 +2481,11 @@ List<_HomeRailCardData> _buildLiveCards(
     return const [];
   }
 
-  return items.take(16).map((item) {
+  final visibleItems = items.take(16).toList(growable: false);
+
+  return visibleItems.asMap().entries.map((entry) {
+    final index = entry.key;
+    final item = entry.value;
     final hasEpgSignal = item.epgChannelId?.trim().isNotEmpty == true;
     final noEpgLabel = item.hasArchive ? 'Ao vivo com replay' : 'Ao vivo agora';
     return _HomeRailCardData(
@@ -2447,12 +2503,7 @@ List<_HomeRailCardData> _buildLiveCards(
       hasReplay: item.hasArchive,
       onPressed: () => context.push(
         PlayerScreen.routePath,
-        extra: PlaybackContext(
-          contentType: PlaybackContentType.live,
-          itemId: item.id,
-          title: item.name,
-          containerExtension: item.containerExtension,
-        ),
+        extra: buildLivePlaybackContext(visibleItems, index),
       ),
     );
   }).toList();

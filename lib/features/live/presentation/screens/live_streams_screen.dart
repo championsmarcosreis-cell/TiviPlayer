@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/tv/tv_focusable.dart';
 import '../../../../features/live/domain/entities/live_epg_entry.dart';
 import '../../../../features/live/domain/entities/live_stream.dart';
-import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
@@ -15,6 +14,7 @@ import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
 import '../providers/live_providers.dart';
+import '../support/live_playback_context.dart';
 import 'live_tv_guide_screen.dart';
 
 class LiveStreamsScreen extends ConsumerWidget {
@@ -62,7 +62,8 @@ class LiveStreamsScreen extends ConsumerWidget {
                   layout: layout,
                   maxWidth: constraints.maxWidth,
                   items: items,
-                  onOpenChannel: (item) => _openLivePlayer(context, item),
+                  onOpenChannel: (item) =>
+                      _openLivePlayer(context, items, item),
                 );
               }
 
@@ -78,7 +79,8 @@ class LiveStreamsScreen extends ConsumerWidget {
                       layout: layout,
                       item: featured,
                       totalItems: items.length,
-                      onPlay: () => _openLivePlayer(context, featured),
+                      onPlay: () =>
+                          _openLivePlayer(context, items, featured),
                     );
                   }
 
@@ -93,7 +95,7 @@ class LiveStreamsScreen extends ConsumerWidget {
                   return _LiveMobileChannelTile(
                     item: item,
                     autofocus: index == 2,
-                    onPressed: () => _openLivePlayer(context, item),
+                    onPressed: () => _openLivePlayer(context, items, item),
                   );
                 },
               );
@@ -112,15 +114,18 @@ LiveStream _resolveFeatured(List<LiveStream> items) {
   );
 }
 
-void _openLivePlayer(BuildContext context, LiveStream item) {
+void _openLivePlayer(
+  BuildContext context,
+  List<LiveStream> streams,
+  LiveStream item,
+) {
+  final currentIndex = streams.indexWhere((stream) => stream.id == item.id);
+  if (currentIndex < 0) {
+    return;
+  }
   context.push(
     PlayerScreen.routePath,
-    extra: PlaybackContext(
-      contentType: PlaybackContentType.live,
-      itemId: item.id,
-      title: item.name,
-      containerExtension: item.containerExtension,
-    ),
+    extra: buildLivePlaybackContext(streams, currentIndex),
   );
 }
 
