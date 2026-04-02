@@ -7,6 +7,7 @@ import '../../../core/tv/tv_focusable.dart';
 import '../../../features/auth/domain/entities/xtream_session.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../../features/auth/presentation/screens/account_screen.dart';
+import '../../../features/live/domain/entities/live_epg_entry.dart';
 import '../../../features/live/domain/entities/live_stream.dart';
 import '../../../features/live/presentation/providers/live_providers.dart';
 import '../../../features/live/presentation/screens/live_categories_screen.dart';
@@ -18,7 +19,6 @@ import '../../../features/series/domain/entities/series_item.dart';
 import '../../../features/series/presentation/providers/series_providers.dart';
 import '../../../features/series/presentation/screens/series_categories_screen.dart';
 import '../../../features/series/presentation/screens/series_details_screen.dart';
-import '../../../features/vod/domain/entities/vod_category.dart';
 import '../../../features/vod/domain/entities/vod_stream.dart';
 import '../../../features/vod/presentation/providers/vod_providers.dart';
 import '../../../features/vod/presentation/screens/vod_categories_screen.dart';
@@ -27,6 +27,16 @@ import '../../testing/app_test_keys.dart';
 import '../layout/device_layout.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/branded_artwork.dart';
+import '../../widgets/brand_logo.dart';
+import '../../widgets/tv_stage.dart';
+
+const _kHomeTvFocusColor = Color(0xFFAF7BFF);
+const _kHomeTvFocusGlow = Color(0x66AF7BFF);
+const _kHomeTvPanelBorderColor = Colors.transparent;
+const _kHomeTvPanelGradient = [Color(0xFF1C1330), Color(0xFF151022)];
+const _kHomeTvSurface = Color(0xFF211637);
+const _kHomeTvSurfaceAlt = Color(0xFF191226);
+const _kHomeTvSurfaceFocus = Color(0xFF342052);
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -38,6 +48,11 @@ class HomeScreen extends ConsumerWidget {
     final headerLayout = DeviceLayout.of(context);
     final session = ref.watch(currentSessionProvider);
     if (session == null) {
+      if (headerLayout.isTv) {
+        return const TvStageScaffold(
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
       return const AppScaffold(
         title: 'Inicio',
         subtitle: 'Preparando seu painel de conteudo.',
@@ -48,102 +63,111 @@ class HomeScreen extends ConsumerWidget {
     final livePreview = ref.watch(liveStreamsProvider(null));
     final vodPreview = ref.watch(vodStreamsProvider(null));
     final seriesPreview = ref.watch(seriesItemsProvider(null));
-    final vodCategories = ref.watch(vodCategoriesProvider);
     final playbackHistory = ref.watch(playbackHistoryControllerProvider);
     final expiresAt = DisplayFormatters.humanizeDate(session.expirationDate);
 
-    final hero = _resolveHero(
-      _asyncDataOrNull(vodPreview),
-      _asyncDataOrNull(seriesPreview),
-      _asyncDataOrNull(livePreview),
-      context,
-    );
-
-    final quickActions = [
+    final mobileTopActions = [
       _HomeQuickAction(
-        title: 'Ao vivo',
-        description: 'Abrir canais e grade em tempo real',
+        title: 'Guia ao vivo',
+        description: 'Abrir guia',
         icon: Icons.live_tv_rounded,
         interactiveKey: AppTestKeys.homeLiveCard,
         testId: AppTestKeys.homeLiveCardId,
         badge: 'LIVE',
-        onTap: () => context.go(LiveCategoriesScreen.routePath),
+        onTap: () =>
+            _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
       ),
       _HomeQuickAction(
         title: 'Filmes',
-        description: 'Catalogo sob demanda para assistir agora',
+        description: 'Catalogo',
         icon: Icons.movie_creation_outlined,
         interactiveKey: AppTestKeys.homeMoviesCard,
         testId: AppTestKeys.homeMoviesCardId,
-        onTap: () => context.go(VodCategoriesScreen.routePath),
+        onTap: () =>
+            _openPrimaryDestination(context, VodCategoriesScreen.routePath),
       ),
       _HomeQuickAction(
         title: 'Series',
-        description: 'Temporadas e colecoes em destaque',
+        description: 'Colecoes',
         icon: Icons.tv_rounded,
         interactiveKey: AppTestKeys.homeSeriesCard,
         testId: AppTestKeys.homeSeriesCardId,
-        onTap: () => context.go(SeriesCategoriesScreen.routePath),
+        onTap: () =>
+            _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
       ),
       _HomeQuickAction(
         title: 'Minha assinatura',
-        description: _buildAccountCardDescription(session, expiresAt),
+        description: DisplayFormatters.humanizeAccountStatus(
+          session.accountStatus,
+        ),
         icon: Icons.verified_user_rounded,
         interactiveKey: AppTestKeys.homeAccountCard,
         testId: AppTestKeys.homeAccountCardId,
         onTap: () => context.push(AccountScreen.routePath),
       ),
+      _HomeQuickAction(
+        title: 'Conta',
+        description: 'Preferencias e dados da conta',
+        icon: Icons.verified_user_rounded,
+        interactiveKey: AppTestKeys.homeAccountAction,
+        kind: _HomeQuickActionKind.utility,
+        onTap: () => context.push(AccountScreen.routePath),
+      ),
+      _HomeQuickAction(
+        title: 'Sair',
+        description: 'Encerrar sessao neste aparelho',
+        icon: Icons.logout_rounded,
+        interactiveKey: AppTestKeys.homeLogoutButton,
+        kind: _HomeQuickActionKind.utility,
+        onTap: () => ref.read(authControllerProvider.notifier).logout(),
+      ),
     ];
 
-    final headerActions = <Widget>[
-      FilledButton.tonalIcon(
-        key: AppTestKeys.homeAccountAction,
-        onPressed: () => context.push(AccountScreen.routePath),
-        icon: const Icon(Icons.verified_user_rounded),
-        label: const Text('Conta'),
-      ),
-      FilledButton.tonalIcon(
-        key: AppTestKeys.homeLogoutButton,
-        onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-        icon: const Icon(Icons.logout_rounded),
-        label: const Text('Sair'),
-      ),
-    ];
-
-    final tvNavigationItems = <_TvNavigationItem>[
+    final tvPrimaryNavigationItems = <_TvNavigationItem>[
       _TvNavigationItem(
         label: 'TV ao vivo',
+        subtitle: 'Abrir guia e canais em tempo real',
+        badge: 'LIVE',
         icon: Icons.live_tv_rounded,
         interactiveKey: AppTestKeys.homeLiveCard,
         testId: AppTestKeys.homeLiveCardId,
-        onTap: () => context.go(LiveCategoriesScreen.routePath),
+        onTap: () =>
+            _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
       ),
       _TvNavigationItem(
         label: 'Filmes',
+        subtitle: 'Catalogo sob demanda',
         icon: Icons.movie_creation_outlined,
         interactiveKey: AppTestKeys.homeMoviesCard,
         testId: AppTestKeys.homeMoviesCardId,
-        onTap: () => context.go(VodCategoriesScreen.routePath),
+        onTap: () =>
+            _openPrimaryDestination(context, VodCategoriesScreen.routePath),
       ),
       _TvNavigationItem(
         label: 'Series',
+        subtitle: 'Colecoes e temporadas',
         icon: Icons.tv_rounded,
         interactiveKey: AppTestKeys.homeSeriesCard,
         testId: AppTestKeys.homeSeriesCardId,
-        onTap: () => context.go(SeriesCategoriesScreen.routePath),
+        onTap: () =>
+            _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
       ),
       _TvNavigationItem(
-        label: 'Conta',
+        label: 'Minha assinatura',
+        subtitle: _buildAccountCardDescription(session, expiresAt),
         icon: Icons.verified_user_rounded,
         interactiveKey: AppTestKeys.homeAccountCard,
         testId: AppTestKeys.homeAccountCardId,
         onTap: () => context.push(AccountScreen.routePath),
       ),
+    ];
+
+    final tvUtilityNavigationItems = <_TvNavigationItem>[
       _TvNavigationItem(
-        label: 'Inicio',
-        icon: Icons.home_rounded,
-        isCurrent: true,
-        onTap: () {},
+        label: 'Conta',
+        icon: Icons.verified_user_rounded,
+        interactiveKey: AppTestKeys.homeAccountAction,
+        onTap: () => context.push(AccountScreen.routePath),
       ),
       _TvNavigationItem(
         label: 'Sair',
@@ -153,55 +177,48 @@ class HomeScreen extends ConsumerWidget {
       ),
     ];
 
+    final resolvedVod = _asyncDataOrNull(vodPreview);
+    final resolvedSeries = _asyncDataOrNull(seriesPreview);
+    final resolvedLive = _asyncDataOrNull(livePreview);
+    final vodCards = _buildVodCards(resolvedVod, context);
+    final seriesCards = _buildSeriesCards(resolvedSeries, context);
+    final liveCards = _buildLiveCards(resolvedLive, context);
+    final continueItem = _resolveContinueItem(playbackHistory, context);
+
+    if (headerLayout.isTv) {
+      return _TvHomeSurface(
+        layout: headerLayout,
+        primaryNavItems: tvPrimaryNavigationItems,
+        utilityNavItems: tvUtilityNavigationItems,
+        continueItem: continueItem,
+        liveCards: liveCards,
+        vodCards: vodCards,
+        seriesCards: seriesCards,
+        liveState: livePreview,
+        vodState: vodPreview,
+        seriesState: seriesPreview,
+      );
+    }
+
     return AppScaffold(
       title: 'Inicio',
-      subtitle: 'TV, filmes e series em um fluxo unico.',
-      decoratedHeader: false,
-      actions: headerLayout.isTv ? const [] : headerActions,
+      subtitle: 'Sua central para ao vivo e catalogo sob demanda.',
+      decoratedHeader: true,
+      showBrand: true,
+      actions: const [],
       child: LayoutBuilder(
         builder: (context, constraints) {
           final layout = DeviceLayout.of(context, constraints: constraints);
-          final resolvedVod = _asyncDataOrNull(vodPreview);
-          final resolvedSeries = _asyncDataOrNull(seriesPreview);
-          final resolvedLive = _asyncDataOrNull(livePreview);
-          final categories = _resolveCategoryChips(
-            _asyncDataOrNull(vodCategories),
+          final homeBody = _MobileHomeExperience(
+            layout: layout,
+            topActions: mobileTopActions,
+            continueItem: continueItem,
+            liveCards: liveCards,
+            liveState: livePreview,
           );
 
-          final vodCards = _buildVodCards(resolvedVod, context);
-          final seriesCards = _buildSeriesCards(resolvedSeries, context);
-          final liveCards = _buildLiveCards(resolvedLive, context);
-          final continueItem = _resolveContinueItem(playbackHistory, context);
-
-          final homeBody = layout.isTv
-              ? _TvHomeExperience(
-                  layout: layout,
-                  hero: hero,
-                  navItems: tvNavigationItems,
-                  continueItem: continueItem,
-                  liveCards: liveCards,
-                  vodCards: vodCards,
-                  seriesCards: seriesCards,
-                  liveState: livePreview,
-                  vodState: vodPreview,
-                  seriesState: seriesPreview,
-                )
-              : _MobileHomeExperience(
-                  layout: layout,
-                  hero: hero,
-                  quickActions: quickActions,
-                  categories: categories,
-                  continueItem: continueItem,
-                  liveCards: liveCards,
-                  vodCards: vodCards,
-                  seriesCards: seriesCards,
-                  liveState: livePreview,
-                  vodState: vodPreview,
-                  seriesState: seriesPreview,
-                );
-
           return Scrollbar(
-            thumbVisibility: layout.isTv,
+            thumbVisibility: false,
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
               child: homeBody,
@@ -223,7 +240,6 @@ class _HomeHeroChoice {
     required this.secondaryLabel,
     required this.onPrimary,
     required this.onSecondary,
-    this.metadata = const <String>[],
   });
 
   final String title;
@@ -234,7 +250,7 @@ class _HomeHeroChoice {
   final String secondaryLabel;
   final VoidCallback onPrimary;
   final VoidCallback onSecondary;
-  final List<String> metadata;
+  final List<String> metadata = const <String>[];
 }
 
 T? _asyncDataOrNull<T>(AsyncValue<T> value) {
@@ -245,108 +261,13 @@ T? _asyncDataOrNull<T>(AsyncValue<T> value) {
   );
 }
 
-_HomeHeroChoice _resolveHero(
-  List<VodStream>? vodItems,
-  List<SeriesItem>? seriesItems,
-  List<LiveStream>? liveItems,
-  BuildContext context,
-) {
-  if (vodItems != null && vodItems.isNotEmpty) {
-    final topVod = vodItems.firstWhere(
-      (item) => BrandedArtwork.normalizeArtworkUrl(item.coverUrl) != null,
-      orElse: () => vodItems.first,
-    );
-    return _HomeHeroChoice(
-      title: topVod.name,
-      kicker: 'Filme em destaque',
-      description:
-          'Abra o titulo principal da home ou explore o catalogo completo.',
-      imageUrl: topVod.coverUrl,
-      primaryLabel: 'Assistir agora',
-      secondaryLabel: 'Ver filmes',
-      onPrimary: () => context.push(VodDetailsScreen.buildLocation(topVod.id)),
-      onSecondary: () => context.go(VodCategoriesScreen.routePath),
-      metadata: [
-        'VOD',
-        if (topVod.rating?.trim().isNotEmpty == true) 'Nota ${topVod.rating}',
-      ],
-    );
+void _openPrimaryDestination(BuildContext context, String routePath) {
+  final layout = DeviceLayout.of(context);
+  if (layout.isTv) {
+    context.push(routePath);
+    return;
   }
-
-  if (seriesItems != null && seriesItems.isNotEmpty) {
-    final topSeries = seriesItems.firstWhere(
-      (item) => BrandedArtwork.normalizeArtworkUrl(item.coverUrl) != null,
-      orElse: () => seriesItems.first,
-    );
-    return _HomeHeroChoice(
-      title: topSeries.name,
-      kicker: 'Serie sugerida',
-      description: 'Entre direto no detalhe da serie em destaque.',
-      imageUrl: topSeries.coverUrl,
-      primaryLabel: 'Abrir detalhe',
-      secondaryLabel: 'Ver series',
-      onPrimary: () =>
-          context.push(SeriesDetailsScreen.buildLocation(topSeries.id)),
-      onSecondary: () => context.go(SeriesCategoriesScreen.routePath),
-      metadata: const ['SERIES'],
-    );
-  }
-
-  if (liveItems != null && liveItems.isNotEmpty) {
-    final topLive = liveItems.first;
-    return _HomeHeroChoice(
-      title: topLive.name,
-      kicker: 'Canal ao vivo',
-      description: 'Entre no player ao vivo ou abra todas as categorias.',
-      imageUrl: topLive.iconUrl,
-      primaryLabel: 'Assistir canal',
-      secondaryLabel: 'Ver canais',
-      onPrimary: () => context.push(
-        PlayerScreen.routePath,
-        extra: PlaybackContext(
-          contentType: PlaybackContentType.live,
-          itemId: topLive.id,
-          title: topLive.name,
-          containerExtension: topLive.containerExtension,
-        ),
-      ),
-      onSecondary: () => context.go(LiveCategoriesScreen.routePath),
-      metadata: ['LIVE', if (topLive.hasArchive) 'Com replay'],
-    );
-  }
-
-  return _HomeHeroChoice(
-    title: 'Escolha algo para assistir',
-    kicker: 'Catalogo pronto',
-    description:
-        'A home foi preparada para filmes, series, canais ao vivo e novos tipos de colecao.',
-    imageUrl: null,
-    primaryLabel: 'Explorar filmes',
-    secondaryLabel: 'Abrir canais',
-    onPrimary: () => context.go(VodCategoriesScreen.routePath),
-    onSecondary: () => context.go(LiveCategoriesScreen.routePath),
-    metadata: const ['TV-FIRST'],
-  );
-}
-
-List<String> _resolveCategoryChips(List<VodCategory>? categories) {
-  final names = categories
-      ?.map((item) => item.name.trim())
-      .where((name) => name.isNotEmpty)
-      .toList();
-
-  if (names == null || names.isEmpty) {
-    return const [
-      'Acao',
-      'Animes',
-      'Novelas',
-      'Infantil',
-      'Series',
-      'Documentarios',
-    ];
-  }
-
-  return names.take(10).toList();
+  context.go(routePath);
 }
 
 _ContinueWatchingData? _resolveContinueItem(
@@ -416,11 +337,11 @@ String _formatRemaining(Duration remaining) {
   return '${hours}h ${minutes}min';
 }
 
-class _TvHomeExperience extends StatelessWidget {
-  const _TvHomeExperience({
+class _TvHomeSurface extends StatelessWidget {
+  const _TvHomeSurface({
     required this.layout,
-    required this.hero,
-    required this.navItems,
+    required this.primaryNavItems,
+    required this.utilityNavItems,
     required this.continueItem,
     required this.liveCards,
     required this.vodCards,
@@ -431,8 +352,8 @@ class _TvHomeExperience extends StatelessWidget {
   });
 
   final DeviceLayout layout;
-  final _HomeHeroChoice hero;
-  final List<_TvNavigationItem> navItems;
+  final List<_TvNavigationItem> primaryNavItems;
+  final List<_TvNavigationItem> utilityNavItems;
   final _ContinueWatchingData? continueItem;
   final List<_HomeRailCardData> liveCards;
   final List<_HomeRailCardData> vodCards;
@@ -443,248 +364,148 @@ class _TvHomeExperience extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _TvTopNavigationBar(layout: layout, items: navItems),
-        SizedBox(height: layout.sectionSpacing + 4),
-        _CinematicHeroCard(layout: layout, hero: hero, tvMode: true),
-        SizedBox(height: layout.sectionSpacing + 8),
-        _HomeRailSection(
-          layout: layout,
-          title: 'TV ao vivo em destaque',
-          subtitle: 'Canais ativos e favoritos do momento.',
-          icon: Icons.live_tv_rounded,
-          onViewAll: () => context.go(LiveCategoriesScreen.routePath),
-          cards: liveCards,
-          state: liveState,
-        ),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _ContinueWatchingCard(layout: layout, item: continueItem),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _HomeRailSection(
-          layout: layout,
-          title: 'Filmes para assistir agora',
-          subtitle: 'VOD com maior potencial de clique rapido.',
-          icon: Icons.local_movies_rounded,
-          onViewAll: () => context.go(VodCategoriesScreen.routePath),
-          cards: vodCards,
-          state: vodState,
-        ),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _HomeRailSection(
-          layout: layout,
-          title: 'Series em alta',
-          subtitle: 'Temporadas e colecoes para maratona.',
-          icon: Icons.tv_rounded,
-          onViewAll: () => context.go(SeriesCategoriesScreen.routePath),
-          cards: seriesCards,
-          state: seriesState,
-        ),
-      ],
+    final highlights = _buildTvHighlights(liveCards: liveCards);
+    final isLoading = liveState.isLoading && highlights.isEmpty;
+    final hasHardError = liveState.hasError && highlights.isEmpty;
+
+    return TvStageScaffold(
+      backdrop: const TvStageBackdrop(
+        gradientColors: [
+          Color(0xFF12081E),
+          Color(0xFF1B1032),
+          Color(0xFF0D0718),
+        ],
+        topGlowColor: Color(0x4D7A3DF0),
+        bottomGlowColor: Color(0x336529A8),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final resolvedLayout = DeviceLayout.of(
+            context,
+            constraints: constraints,
+          );
+          final spacing = resolvedLayout.cardSpacing;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _TvHomeHeader(
+                layout: resolvedLayout,
+                utilityItems: utilityNavItems,
+              ),
+              SizedBox(height: spacing),
+              _TvHomePrimaryActions(
+                layout: resolvedLayout,
+                items: primaryNavItems,
+              ),
+              SizedBox(height: spacing),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _TvHighlightsPanel(
+                        layout: resolvedLayout,
+                        highlights: highlights,
+                        isLoading: isLoading,
+                        hasHardError: hasHardError,
+                        onOpenLive: primaryNavItems.first.onTap,
+                      ),
+                    ),
+                    if (continueItem != null) ...[
+                      SizedBox(width: spacing),
+                      SizedBox(
+                        width: resolvedLayout.isTvCompact ? 350 : 390,
+                        child: _TvContinuePanel(
+                          layout: resolvedLayout,
+                          item: continueItem!,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-class _MobileHomeExperience extends StatelessWidget {
-  const _MobileHomeExperience({
-    required this.layout,
-    required this.hero,
-    required this.quickActions,
-    required this.categories,
-    required this.continueItem,
-    required this.liveCards,
-    required this.vodCards,
-    required this.seriesCards,
-    required this.liveState,
-    required this.vodState,
-    required this.seriesState,
-  });
+class _TvHomeHeader extends StatelessWidget {
+  const _TvHomeHeader({required this.layout, required this.utilityItems});
 
   final DeviceLayout layout;
-  final _HomeHeroChoice hero;
-  final List<_HomeQuickAction> quickActions;
-  final List<String> categories;
-  final _ContinueWatchingData? continueItem;
-  final List<_HomeRailCardData> liveCards;
-  final List<_HomeRailCardData> vodCards;
-  final List<_HomeRailCardData> seriesCards;
-  final AsyncValue<dynamic> liveState;
-  final AsyncValue<dynamic> vodState;
-  final AsyncValue<dynamic> seriesState;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CinematicHeroCard(layout: layout, hero: hero, tvMode: false),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _HomeRailSection(
-          layout: layout,
-          title: 'TV ao vivo em destaque',
-          subtitle: 'Canais ativos com acesso rapido.',
-          icon: Icons.live_tv_rounded,
-          onViewAll: () => context.go(LiveCategoriesScreen.routePath),
-          cards: liveCards,
-          state: liveState,
-        ),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _ContinueWatchingCard(layout: layout, item: continueItem),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _MobileHubPills(layout: layout, actions: quickActions),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _CategoryChipRail(layout: layout, categories: categories),
-        SizedBox(height: layout.sectionSpacing + 14),
-        _HomeRailSection(
-          layout: layout,
-          title: 'Populares',
-          subtitle: 'Titulos mais fortes do catalogo.',
-          icon: Icons.trending_up_rounded,
-          onViewAll: () => context.go(VodCategoriesScreen.routePath),
-          cards: vodCards,
-          state: vodState,
-        ),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _HomeRailSection(
-          layout: layout,
-          title: 'Adicionados recentemente',
-          subtitle: 'Novas entradas para explorar hoje.',
-          icon: Icons.new_releases_rounded,
-          onViewAll: () => context.go(SeriesCategoriesScreen.routePath),
-          cards: seriesCards,
-          state: seriesState,
-        ),
-      ],
-    );
-  }
-}
-
-class _TvNavigationItem {
-  const _TvNavigationItem({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    this.isCurrent = false,
-    this.interactiveKey,
-    this.testId,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isCurrent;
-  final Key? interactiveKey;
-  final String? testId;
-}
-
-class _TvTopNavigationBar extends StatelessWidget {
-  const _TvTopNavigationBar({required this.layout, required this.items});
-
-  final DeviceLayout layout;
-  final List<_TvNavigationItem> items;
+  final List<_TvNavigationItem> utilityItems;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: colorScheme.surface.withValues(alpha: 0.68),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.34)),
+    return TvStagePanel(
+      borderColor: _kHomeTvPanelBorderColor,
+      gradientColors: _kHomeTvPanelGradient,
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.isTvCompact ? 16 : 18,
+        vertical: layout.isTvCompact ? 12 : 14,
       ),
-      child: SizedBox(
-        height: 58,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: items.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 10),
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return _TvTopNavigationButton(
-              item: item,
-              layout: layout,
-              autofocus: index == 0,
-            );
-          },
-        ),
+      radius: 16,
+      child: Row(
+        children: [
+          const BrandWordmark(height: 42, compact: true, showTagline: false),
+          SizedBox(width: layout.isTvCompact ? 14 : 18),
+          Expanded(
+            child: Text(
+              'Painel principal da experiencia TV',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.74),
+              ),
+            ),
+          ),
+          for (final item in utilityItems) ...[
+            const SizedBox(width: 10),
+            _TvHomeUtilityButton(item: item),
+          ],
+          const SizedBox(width: 12),
+          const TvStageClock(),
+        ],
       ),
     );
   }
 }
 
-class _TvTopNavigationButton extends StatelessWidget {
-  const _TvTopNavigationButton({
-    required this.item,
-    required this.layout,
-    required this.autofocus,
-  });
+class _TvHomeUtilityButton extends StatelessWidget {
+  const _TvHomeUtilityButton({required this.item});
 
   final _TvNavigationItem item;
-  final DeviceLayout layout;
-  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return SizedBox(
-      width: layout.isTvCompact ? 170 : 184,
+      width: 132,
       child: TvFocusable(
-        autofocus: autofocus,
         onPressed: item.onTap,
         interactiveKey: item.interactiveKey,
         testId: item.testId,
         builder: (context, focused) {
-          final current = item.isCurrent;
-          final active = focused;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: active
-                  ? LinearGradient(
-                      colors: [
-                        const Color(0xFFFFF3E7),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.9,
-                        ),
-                      ],
-                    )
-                  : current
-                  ? LinearGradient(
-                      colors: [
-                        colorScheme.primary.withValues(alpha: 0.2),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.82,
-                        ),
-                      ],
-                    )
-                  : LinearGradient(
-                      colors: [
-                        colorScheme.surface.withValues(alpha: 0.84),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.72,
-                        ),
-                      ],
-                    ),
+              borderRadius: BorderRadius.circular(12),
+              color: focused ? _kHomeTvSurfaceFocus : _kHomeTvSurfaceAlt,
               border: Border.all(
-                color: active
-                    ? colorScheme.secondary
-                    : current
-                    ? colorScheme.primary.withValues(alpha: 0.72)
-                    : colorScheme.outline.withValues(alpha: 0.4),
-                width: active ? 2.6 : 1,
+                color: focused ? _kHomeTvFocusColor : Colors.transparent,
+                width: focused ? 2 : 1,
               ),
-              boxShadow: active
+              boxShadow: focused
                   ? [
                       BoxShadow(
-                        color: colorScheme.secondary.withValues(alpha: 0.24),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
+                        color: _kHomeTvFocusGlow.withValues(alpha: 0.32),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
                       ),
                     ]
                   : const [],
@@ -692,21 +513,16 @@ class _TvTopNavigationButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  item.icon,
-                  size: 21,
-                  color: active ? const Color(0xFF161005) : null,
-                ),
-                const SizedBox(width: 8),
+                Icon(item.icon, size: 18, color: focused ? Colors.white : null),
+                const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     item.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontSize: 18,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: active ? const Color(0xFF161005) : null,
+                      color: focused ? Colors.white : null,
                     ),
                   ),
                 ),
@@ -719,29 +535,161 @@ class _TvTopNavigationButton extends StatelessWidget {
   }
 }
 
-class _MobileHubPills extends StatelessWidget {
-  const _MobileHubPills({required this.layout, required this.actions});
+class _TvHomePrimaryActions extends StatelessWidget {
+  const _TvHomePrimaryActions({required this.layout, required this.items});
 
   final DeviceLayout layout;
-  final List<_HomeQuickAction> actions;
+  final List<_TvNavigationItem> items;
 
   @override
   Widget build(BuildContext context) {
+    return TvStagePanel(
+      borderColor: _kHomeTvPanelBorderColor,
+      gradientColors: _kHomeTvPanelGradient,
+      padding: EdgeInsets.all(layout.isTvCompact ? 14 : 16),
+      radius: 18,
+      child: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: Row(
+          children: [
+            for (var index = 0; index < items.length; index++) ...[
+              if (index > 0) const SizedBox(width: 12),
+              Expanded(
+                child: FocusTraversalOrder(
+                  order: NumericFocusOrder(index + 1),
+                  child: _TvHomePrimaryTile(
+                    item: items[index],
+                    autofocus: index == 0,
+                    compact: layout.isTvCompact,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TvHomePrimaryTile extends StatelessWidget {
+  const _TvHomePrimaryTile({
+    required this.item,
+    required this.autofocus,
+    required this.compact,
+  });
+
+  final _TvNavigationItem item;
+  final bool autofocus;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SizedBox(
-      height: layout.isTv ? 128 : 112,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: actions.length,
-        separatorBuilder: (context, index) =>
-            SizedBox(width: layout.cardSpacing),
-        itemBuilder: (context, index) {
-          return SizedBox(
-            width: layout.isTv ? 280 : 220,
-            child: _HubActionPill(
-              action: actions[index],
-              autofocus: index == 0,
-              layout: layout,
-              showDescription: true,
+      height: compact ? 138 : 146,
+      child: TvFocusable(
+        autofocus: autofocus,
+        onPressed: item.onTap,
+        interactiveKey: item.interactiveKey,
+        testId: item.testId,
+        builder: (context, focused) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 14 : 16,
+              vertical: compact ? 12 : 14,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: focused
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF4A2A77), Color(0xFF2E1A4A)],
+                    )
+                  : const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [_kHomeTvSurface, _kHomeTvSurfaceAlt],
+                    ),
+              border: Border.all(
+                color: focused ? _kHomeTvFocusColor : Colors.transparent,
+                width: focused ? 2.2 : 1,
+              ),
+              boxShadow: focused
+                  ? [
+                      BoxShadow(
+                        color: _kHomeTvFocusGlow.withValues(alpha: 0.34),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      item.icon,
+                      size: compact ? 28 : 30,
+                      color: focused ? Colors.white : null,
+                    ),
+                    const Spacer(),
+                    Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: focused ? Colors.white : null,
+                      ),
+                    ),
+                    if (item.subtitle?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: focused
+                              ? Colors.white.withValues(alpha: 0.82)
+                              : colorScheme.onSurface.withValues(alpha: 0.74),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (item.badge != null)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: focused
+                            ? const Color(0xCC161005)
+                            : const Color(0xD9FF5D67),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        item.badge!,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           );
         },
@@ -750,97 +698,1093 @@ class _MobileHubPills extends StatelessWidget {
   }
 }
 
-class _HubActionPill extends StatelessWidget {
-  const _HubActionPill({
-    required this.action,
-    required this.autofocus,
+class _TvHighlightsPanel extends StatelessWidget {
+  const _TvHighlightsPanel({
     required this.layout,
-    required this.showDescription,
+    required this.highlights,
+    required this.isLoading,
+    required this.hasHardError,
+    required this.onOpenLive,
   });
 
-  final _HomeQuickAction action;
-  final bool autofocus;
   final DeviceLayout layout;
-  final bool showDescription;
+  final List<_TvHomeHighlightItem> highlights;
+  final bool isLoading;
+  final bool hasHardError;
+  final VoidCallback onOpenLive;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return TvFocusable(
-      autofocus: autofocus,
-      interactiveKey: action.interactiveKey,
-      testId: action.testId,
-      onPressed: action.onTap,
-      builder: (context, focused) {
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: EdgeInsets.symmetric(
-            horizontal: layout.isTv ? 14 : 12,
-            vertical: layout.isTv ? 12 : 10,
+    Widget body;
+    if (isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (hasHardError) {
+      body = _TvHighlightsState(
+        title: 'Falha ao carregar destaques ao vivo',
+        message: 'Abra a TV ao vivo para tentar carregar o que esta no ar.',
+        actionLabel: 'Abrir TV ao vivo',
+        onAction: onOpenLive,
+      );
+    } else if (highlights.isEmpty) {
+      body = _TvHighlightsState(
+        title: 'Nenhum destaque ao vivo agora',
+        message: 'Abra a TV ao vivo para navegar pelos canais do momento.',
+        actionLabel: 'Abrir TV ao vivo',
+        onAction: onOpenLive,
+      );
+    } else {
+      body = _TvHighlightsShelf(layout: layout, highlights: highlights);
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: layout.isTvCompact ? 4 : 6,
+        top: layout.isTvCompact ? 4 : 6,
+        bottom: layout.isTvCompact ? 2 : 4,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TvPill(label: 'Destaques de agora', color: colorScheme.primary),
+              _TvPill(
+                label: '${highlights.length} canais',
+                color: colorScheme.secondary,
+              ),
+            ],
           ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(layout.isTv ? 16 : 14),
-            gradient: LinearGradient(
-              colors: focused
-                  ? [
-                      colorScheme.primary.withValues(alpha: 0.26),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.94,
+          SizedBox(height: layout.isTvCompact ? 14 : 16),
+          Expanded(child: body),
+        ],
+      ),
+    );
+  }
+}
+
+class _TvPill extends StatelessWidget {
+  const _TvPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.18),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _TvHighlightsShelf extends StatelessWidget {
+  const _TvHighlightsShelf({required this.layout, required this.highlights});
+
+  final DeviceLayout layout;
+  final List<_TvHomeHighlightItem> highlights;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: layout.isTvCompact ? 316 : 332,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: highlights.length,
+        separatorBuilder: (_, _) => SizedBox(width: layout.cardSpacing + 10),
+        itemBuilder: (context, index) {
+          return _TvHighlightsCard(
+            layout: layout,
+            item: highlights[index],
+            autofocus: false,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TvHighlightsCard extends ConsumerWidget {
+  const _TvHighlightsCard({
+    required this.layout,
+    required this.item,
+    required this.autofocus,
+  });
+
+  final DeviceLayout layout;
+  final _TvHomeHighlightItem item;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final width = layout.isTvCompact ? 312.0 : 336.0;
+    final epgState = item.data.supportsLiveEpg && item.data.liveStreamId != null
+        ? ref
+              .watch(liveShortEpgProvider(item.data.liveStreamId!))
+              .maybeWhen(
+                data: _resolveHomeLiveEpgState,
+                orElse: () => const _HomeLiveEpgState(),
+              )
+        : const _HomeLiveEpgState();
+    final presentation = _resolveTvLiveHighlightPresentation(
+      data: item.data,
+      epgState: epgState,
+    );
+    final hasDenseMetadata =
+        presentation.scheduleLine != null ||
+        presentation.supportingLine != null ||
+        presentation.progress != null;
+    final headlineMaxLines = hasDenseMetadata ? 2 : 3;
+    final showSupportingLine = presentation.scheduleLine == null;
+    final showFooterLabel = !hasDenseMetadata;
+    final chipColor = switch (presentation.statusLabel) {
+      'AGORA' => const Color(0xFFFF8A3D),
+      'A SEGUIR' => colorScheme.tertiary,
+      _ => colorScheme.primary,
+    };
+
+    return SizedBox(
+      width: width,
+      child: TvFocusable(
+        autofocus: autofocus,
+        onPressed: item.data.onPressed,
+        builder: (context, focused) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.all(1),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              color: focused
+                  ? const Color(0xCC231338)
+                  : Colors.white.withValues(alpha: 0.05),
+              border: Border.all(
+                color: focused
+                    ? _kHomeTvFocusColor
+                    : Colors.white.withValues(alpha: 0.12),
+                width: focused ? 2.4 : 1.15,
+              ),
+              boxShadow: [
+                if (focused)
+                  BoxShadow(
+                    color: _kHomeTvFocusGlow.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  )
+                else
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    layout.isTvCompact ? 16 : 18,
+                    layout.isTvCompact ? 15 : 17,
+                    layout.isTvCompact ? 14 : 16,
+                    layout.isTvCompact ? 14 : 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _TvHighlightChip(
+                            label: presentation.statusLabel,
+                            color: chipColor,
+                            focused: focused,
+                          ),
+                          if (item.data.hasReplay)
+                            _TvHighlightChip(
+                              label: 'REPLAY',
+                              color: colorScheme.secondary,
+                              focused: focused,
+                              emphasized: false,
+                            ),
+                        ],
                       ),
-                    ]
-                  : [
-                      colorScheme.surface.withValues(alpha: 0.86),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.7,
+                      SizedBox(height: layout.isTvCompact ? 12 : 14),
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    presentation.channelLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          letterSpacing: 0.7,
+                                          fontWeight: FontWeight.w700,
+                                          color: colorScheme.onSurface
+                                              .withValues(alpha: 0.78),
+                                        ),
+                                  ),
+                                  SizedBox(height: layout.isTvCompact ? 8 : 10),
+                                  Text(
+                                    presentation.headline,
+                                    maxLines: headlineMaxLines,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                          fontSize: layout.isTvCompact
+                                              ? 23
+                                              : 25,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.04,
+                                        ),
+                                  ),
+                                  if (presentation.scheduleLine != null) ...[
+                                    SizedBox(
+                                      height: layout.isTvCompact ? 8 : 10,
+                                    ),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.schedule_rounded,
+                                          size: 18,
+                                          color: chipColor.withValues(
+                                            alpha: 0.9,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            presentation.scheduleLine!,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: colorScheme.onSurface
+                                                      .withValues(alpha: 0.9),
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  if (showSupportingLine &&
+                                      presentation.supportingLine != null) ...[
+                                    SizedBox(
+                                      height: layout.isTvCompact ? 7 : 8,
+                                    ),
+                                    Text(
+                                      presentation.supportingLine!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontSize: layout.isTvCompact
+                                                ? 12.5
+                                                : 13,
+                                            height: 1.28,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.74),
+                                          ),
+                                    ),
+                                  ],
+                                  const Spacer(),
+                                  if (presentation.progress != null) ...[
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: LinearProgressIndicator(
+                                        value: presentation.progress,
+                                        minHeight: 7,
+                                        backgroundColor: colorScheme.onSurface
+                                            .withValues(alpha: 0.12),
+                                        valueColor: AlwaysStoppedAnimation(
+                                          chipColor,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
+                                  if (showFooterLabel)
+                                    Text(
+                                      presentation.footerLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelLarge
+                                          ?.copyWith(
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.76),
+                                          ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: layout.isTvCompact ? 16 : 18),
+                            Padding(
+                              padding: EdgeInsets.only(
+                                top: layout.isTvCompact ? 16 : 18,
+                                bottom: 4,
+                              ),
+                              child: _TvLiveChannelLogo(
+                                imageUrl: item.data.imageUrl,
+                                channelLabel: presentation.channelLabel,
+                                compact: layout.isTvCompact,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+                  ),
+                ),
+              ],
             ),
-            border: Border.all(
-              color: focused
-                  ? colorScheme.primary
-                  : colorScheme.outline.withValues(alpha: 0.46),
-              width: focused ? 2 : 1,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TvHighlightsState extends StatelessWidget {
+  const _TvHighlightsState({
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.78),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onAction,
+              icon: const Icon(Icons.chevron_right_rounded),
+              label: Text(actionLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TvContinuePanel extends StatelessWidget {
+  const _TvContinuePanel({required this.layout, required this.item});
+
+  final DeviceLayout layout;
+  final _ContinueWatchingData item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TvStagePanel(
+      borderColor: _kHomeTvPanelBorderColor,
+      gradientColors: _kHomeTvPanelGradient,
+      padding: EdgeInsets.all(layout.isTvCompact ? 16 : 18),
+      radius: 20,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Continuar assistindo',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
-          child: Row(
-            children: [
-              Icon(action.icon, size: layout.isTv ? 22 : 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      action.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: layout.isTv ? 20 : 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: TvFocusable(
+              onPressed: item.onPressed,
+              builder: (context, focused) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: focused ? _kHomeTvSurfaceFocus : _kHomeTvSurfaceAlt,
+                    border: Border.all(
+                      color: focused ? _kHomeTvFocusColor : Colors.transparent,
+                      width: focused ? 2.2 : 1,
                     ),
-                    if (showDescription) ...[
-                      const SizedBox(height: 4),
+                    boxShadow: focused
+                        ? [
+                            BoxShadow(
+                              color: _kHomeTvFocusGlow.withValues(alpha: 0.28),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ]
+                        : const [],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      BrandedArtwork(
+                        imageUrl: item.imageUrl,
+                        aspectRatio: 16 / 9,
+                        placeholderLabel: 'Sem capa',
+                        icon: item.icon,
+                        borderRadius: 12,
+                      ),
+                      const SizedBox(height: 12),
                       Text(
-                        action.description,
-                        maxLines: 1,
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              height: 1.12,
+                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item.subtitle,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface.withValues(alpha: 0.74),
                         ),
                       ),
+                      const Spacer(),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: item.progress,
+                          minHeight: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Restante ${item.remainingLabel}',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.8),
+                        ),
+                      ),
                     ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TvHomeHighlightItem {
+  const _TvHomeHighlightItem({required this.data});
+
+  final _HomeRailCardData data;
+}
+
+List<_TvHomeHighlightItem> _buildTvHighlights({
+  required List<_HomeRailCardData> liveCards,
+}) {
+  final prioritized = <_HomeRailCardData>[
+    ...liveCards.where((item) => item.supportsLiveEpg),
+    ...liveCards.where((item) => !item.supportsLiveEpg),
+  ];
+
+  return prioritized
+      .take(10)
+      .map((item) => _TvHomeHighlightItem(data: item))
+      .toList();
+}
+
+// ignore: unused_element
+class _TvHomeExperience extends StatelessWidget {
+  const _TvHomeExperience({
+    required this.layout,
+    required this.hero,
+    required this.primaryNavItems,
+    required this.utilityNavItems,
+    required this.continueItem,
+    required this.liveCards,
+    required this.vodCards,
+    required this.seriesCards,
+    required this.liveState,
+    required this.vodState,
+    required this.seriesState,
+  });
+
+  final DeviceLayout layout;
+  final _HomeHeroChoice hero;
+  final List<_TvNavigationItem> primaryNavItems;
+  final List<_TvNavigationItem> utilityNavItems;
+  final _ContinueWatchingData? continueItem;
+  final List<_HomeRailCardData> liveCards;
+  final List<_HomeRailCardData> vodCards;
+  final List<_HomeRailCardData> seriesCards;
+  final AsyncValue<dynamic> liveState;
+  final AsyncValue<dynamic> vodState;
+  final AsyncValue<dynamic> seriesState;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasContinue = continueItem != null;
+    final hasLive = liveCards.isNotEmpty;
+    final hasVod = vodCards.isNotEmpty;
+    final hasSeries = seriesCards.isNotEmpty;
+    final liveWithEpg = liveCards.where((card) => card.supportsLiveEpg).length;
+    final liveWithoutEpg = (liveCards.length - liveWithEpg).clamp(0, 999);
+    final liveSectionSubtitle = _buildLiveSectionSubtitle(
+      liveWithEpg: liveWithEpg,
+      liveWithoutEpg: liveWithoutEpg,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _TvTopNavigationBar(
+          layout: layout,
+          primaryItems: primaryNavItems,
+          utilityItems: utilityNavItems,
+        ),
+        if (hasLive) ...[
+          SizedBox(height: layout.sectionSpacing + 4),
+          _HomeRailSection(
+            layout: layout,
+            title: 'No ar agora',
+            subtitle: liveSectionSubtitle,
+            icon: Icons.live_tv_rounded,
+            onViewAll: () => _openPrimaryDestination(
+              context,
+              LiveCategoriesScreen.routePath,
+            ),
+            cards: liveCards,
+            state: liveState,
+            collapseWhenEmptyOnTv: true,
+          ),
+        ] else ...[
+          SizedBox(height: layout.sectionSpacing + 6),
+          _CinematicHeroCard(layout: layout, hero: hero, tvMode: true),
+        ],
+        if (hasContinue) ...[
+          SizedBox(height: layout.sectionSpacing + 8),
+          _ContinueWatchingCard(
+            layout: layout,
+            item: continueItem,
+            compactTvCard: true,
+            heading: 'Retomar',
+          ),
+        ],
+        if (hasVod) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _HomeRailSection(
+            layout: layout,
+            title: 'Filmes',
+            subtitle: 'Sob demanda',
+            icon: Icons.local_movies_rounded,
+            onViewAll: () =>
+                _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+            cards: vodCards,
+            state: vodState,
+            collapseWhenEmptyOnTv: true,
+          ),
+        ],
+        if (hasSeries) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _HomeRailSection(
+            layout: layout,
+            title: 'Series',
+            subtitle: 'Temporadas e colecoes',
+            icon: Icons.tv_rounded,
+            onViewAll: () => _openPrimaryDestination(
+              context,
+              SeriesCategoriesScreen.routePath,
+            ),
+            cards: seriesCards,
+            state: seriesState,
+            collapseWhenEmptyOnTv: true,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+String _buildLiveSectionSubtitle({
+  required int liveWithEpg,
+  required int liveWithoutEpg,
+}) {
+  if (liveWithEpg > 0 && liveWithoutEpg > 0) {
+    return 'Programas no ar e canais ao vivo para zapear';
+  }
+  if (liveWithEpg > 0) {
+    return 'Programas no ar agora';
+  }
+  return 'Canais ao vivo para assistir agora';
+}
+
+class _MobileHomeExperience extends StatelessWidget {
+  const _MobileHomeExperience({
+    required this.layout,
+    required this.topActions,
+    required this.continueItem,
+    required this.liveCards,
+    required this.liveState,
+  });
+
+  final DeviceLayout layout;
+  final List<_HomeQuickAction> topActions;
+  final _ContinueWatchingData? continueItem;
+  final List<_HomeRailCardData> liveCards;
+  final AsyncValue<dynamic> liveState;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MobileTopActionStrip(layout: layout, actions: topActions),
+        SizedBox(height: layout.sectionSpacing + 10),
+        _HomeRailSection(
+          layout: layout,
+          title: 'No ar agora',
+          subtitle: 'Entre pelo live com contexto do que esta acontecendo.',
+          icon: Icons.live_tv_rounded,
+          onViewAll: () =>
+              _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
+          cards: liveCards,
+          state: liveState,
+        ),
+        if (continueItem != null) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _ContinueWatchingCard(layout: layout, item: continueItem),
+        ],
+      ],
+    );
+  }
+}
+
+class _TvNavigationItem {
+  const _TvNavigationItem({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.subtitle,
+    this.badge,
+    this.interactiveKey,
+    this.testId,
+  });
+
+  final String label;
+  final String? subtitle;
+  final String? badge;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Key? interactiveKey;
+  final String? testId;
+}
+
+class _TvTopNavigationBar extends StatelessWidget {
+  const _TvTopNavigationBar({
+    required this.layout,
+    required this.primaryItems,
+    required this.utilityItems,
+  });
+
+  final DeviceLayout layout;
+  final List<_TvNavigationItem> primaryItems;
+  final List<_TvNavigationItem> utilityItems;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.isTvCompact ? 12 : 14,
+        vertical: layout.isTvCompact ? 9 : 10,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Color(0xB9121D30), Color(0xA80D1626)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.34)),
+      ),
+      child: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  for (var index = 0; index < primaryItems.length; index++) ...[
+                    if (index > 0) const SizedBox(width: 8),
+                    Expanded(
+                      child: _TvTopNavigationButton(
+                        item: primaryItems[index],
+                        layout: layout,
+                        autofocus: index == 0,
+                        focusOrder: index + 1,
+                        kind: _TvNavigationButtonKind.primary,
+                      ),
+                    ),
                   ],
+                ],
+              ),
+            ),
+            for (var index = 0; index < utilityItems.length; index++) ...[
+              const SizedBox(width: 8),
+              _TvTopNavigationButton(
+                item: utilityItems[index],
+                layout: layout,
+                autofocus: false,
+                focusOrder: primaryItems.length + index + 1,
+                kind: _TvNavigationButtonKind.utility,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _TvNavigationButtonKind { primary, utility }
+
+class _TvTopNavigationButton extends StatelessWidget {
+  const _TvTopNavigationButton({
+    required this.item,
+    required this.layout,
+    required this.autofocus,
+    required this.focusOrder,
+    required this.kind,
+  });
+
+  final _TvNavigationItem item;
+  final DeviceLayout layout;
+  final bool autofocus;
+  final int focusOrder;
+  final _TvNavigationButtonKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isUtility = kind == _TvNavigationButtonKind.utility;
+    final iconSize = isUtility ? 18.0 : 20.0;
+    final fontSize = isUtility ? 16.0 : 18.0;
+    final button = TvFocusable(
+      autofocus: autofocus,
+      onPressed: item.onTap,
+      interactiveKey: item.interactiveKey,
+      testId: item.testId,
+      builder: (context, focused) {
+        final active = focused;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: EdgeInsets.symmetric(
+            horizontal: isUtility ? 10 : 12,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: active
+                ? const LinearGradient(
+                    colors: [Color(0xFFFFF0DE), Color(0xFFFFD6AE)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : LinearGradient(
+                    colors: [
+                      colorScheme.surface.withValues(alpha: 0.7),
+                      colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
+                    ],
+                  ),
+            border: Border.all(
+              color: active
+                  ? colorScheme.secondary
+                  : colorScheme.outline.withValues(alpha: 0.34),
+              width: active ? 2.0 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                item.icon,
+                size: iconSize,
+                color: active ? const Color(0xFF130D03) : null,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w700,
+                    color: active ? const Color(0xFF130D03) : null,
+                  ),
                 ),
               ),
             ],
           ),
         );
       },
+    );
+
+    return FocusTraversalOrder(
+      order: NumericFocusOrder(focusOrder.toDouble()),
+      child: isUtility
+          ? SizedBox(width: layout.isTvCompact ? 112 : 120, child: button)
+          : button,
+    );
+  }
+}
+
+class _MobileTopActionStrip extends StatelessWidget {
+  const _MobileTopActionStrip({required this.layout, required this.actions});
+
+  final DeviceLayout layout;
+  final List<_HomeQuickAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.surface.withValues(alpha: 0.84),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+          ],
+        ),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.34)),
+      ),
+      child: SizedBox(
+        height: layout.width >= 720 ? 126 : 96,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: actions.length,
+          separatorBuilder: (context, index) =>
+              SizedBox(width: layout.cardSpacing - 2),
+          itemBuilder: (context, index) {
+            return _MobileTopActionCard(layout: layout, action: actions[index]);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileTopActionCard extends StatelessWidget {
+  const _MobileTopActionCard({required this.layout, required this.action});
+
+  final DeviceLayout layout;
+  final _HomeQuickAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isUtility = action.kind == _HomeQuickActionKind.utility;
+    final isLive = action.badge == 'LIVE';
+    final accentColor = isLive ? colorScheme.secondary : colorScheme.primary;
+    final cardWidth = isUtility
+        ? (layout.width >= 720 ? 110.0 : 88.0)
+        : (layout.width >= 720 ? 132.0 : 112.0);
+
+    return SizedBox(
+      width: cardWidth,
+      child: TvFocusable(
+        autofocus: false,
+        interactiveKey: action.interactiveKey,
+        testId: action.testId,
+        onPressed: action.onTap,
+        builder: (context, focused) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: focused
+                    ? [
+                        const Color(0x22FF6A1A),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.94,
+                        ),
+                      ]
+                    : isLive
+                    ? [
+                        const Color(0x2221C7FF),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.9,
+                        ),
+                      ]
+                    : isUtility
+                    ? [
+                        colorScheme.surface.withValues(alpha: 0.72),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.62,
+                        ),
+                      ]
+                    : [
+                        colorScheme.surface.withValues(alpha: 0.84),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.72,
+                        ),
+                      ],
+              ),
+              border: Border.all(
+                color: focused
+                    ? colorScheme.primary
+                    : isLive
+                    ? colorScheme.secondary.withValues(alpha: 0.44)
+                    : isUtility
+                    ? colorScheme.outline.withValues(alpha: 0.34)
+                    : colorScheme.outline.withValues(alpha: 0.42),
+                width: focused ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: isUtility ? 28 : 32,
+                      height: isUtility ? 28 : 32,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: accentColor.withValues(alpha: 0.16),
+                      ),
+                      child: Icon(
+                        action.icon,
+                        size: isUtility ? 15 : 17,
+                        color: accentColor,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (action.badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: accentColor.withValues(alpha: 0.16),
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.32),
+                          ),
+                        ),
+                        child: Text(
+                          action.badge!,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                letterSpacing: 0.7,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  action.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: isUtility ? 13 : 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.08,
+                  ),
+                ),
+                if (!isUtility) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    action.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                      color: colorScheme.onSurface.withValues(alpha: 0.74),
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -868,7 +1812,7 @@ class _CinematicHeroCard extends StatelessWidget {
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.44)),
       ),
       child: AspectRatio(
-        aspectRatio: tvMode ? 16 / 4.2 : 16 / 12,
+        aspectRatio: tvMode ? 16 / 3.9 : 16 / 12,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compactMobile = !tvMode && constraints.maxHeight < 260;
@@ -880,22 +1824,24 @@ class _CinematicHeroCard extends StatelessWidget {
                       : (veryCompactMobile ? 0 : (compactMobile ? 1 : 2)),
                 )
                 .toList();
-            final titleFontSize = tvMode ? 34.0 : (compactMobile ? 27.0 : 32.0);
+            final titleFontSize = tvMode
+                ? (layout.isTvCompact ? 34.0 : 38.0)
+                : (compactMobile ? 27.0 : 32.0);
             final metadataFontSize = tvMode
                 ? 14.0
                 : (compactMobile ? 13.0 : 14.0);
             final descriptionFontSize = tvMode
-                ? 13.5
+                ? 13.0
                 : (compactMobile ? 11.8 : 12.6);
             final actionStyle = tvMode
                 ? ButtonStyle(
-                    minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
+                    minimumSize: const WidgetStatePropertyAll(Size(0, 50)),
                     padding: const WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                     ),
                     shape: WidgetStatePropertyAll(
                       RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     backgroundColor: WidgetStateProperty.resolveWith((states) {
@@ -917,7 +1863,7 @@ class _CinematicHeroCard extends StatelessWidget {
                       if (states.contains(WidgetState.focused)) {
                         return BorderSide(
                           color: colorScheme.secondary,
-                          width: 3,
+                          width: 2.6,
                         );
                       }
                       return BorderSide(
@@ -925,7 +1871,7 @@ class _CinematicHeroCard extends StatelessWidget {
                       );
                     }),
                     elevation: WidgetStateProperty.resolveWith((states) {
-                      return states.contains(WidgetState.focused) ? 11 : 2;
+                      return states.contains(WidgetState.focused) ? 9 : 1;
                     }),
                   )
                 : FilledButton.styleFrom(
@@ -954,28 +1900,38 @@ class _CinematicHeroCard extends StatelessWidget {
                         const SizedBox.shrink(),
                   )
                 else
-                  Container(color: colorScheme.surfaceContainerHighest),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF0F1A2E), Color(0xFF172842)],
+                      ),
+                    ),
+                  ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        Color(0xEE060A13),
-                        Color(0xB2060A13),
-                        Color(0x55060A13),
+                        Color(0xEE04080F),
+                        Color(0xC2050A13),
+                        Color(0x6A050A13),
                       ],
                     ),
                   ),
                 ),
                 Padding(
                   padding: EdgeInsets.all(
-                    tvMode ? 20 : (compactMobile ? 14 : 16),
+                    tvMode ? 16 : (compactMobile ? 14 : 16),
                   ),
                   child: Column(
+                    mainAxisAlignment: tvMode
+                        ? MainAxisAlignment.center
+                        : MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (tvMode) const Spacer(),
                       Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: compactMobile ? 10 : 12,
@@ -990,40 +1946,47 @@ class _CinematicHeroCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(
                                 color: Colors.black,
-                                letterSpacing: 0.8,
+                                letterSpacing: 0.9,
                                 fontWeight: FontWeight.w900,
                               ),
                         ),
                       ),
-                      SizedBox(height: tvMode ? 10 : (compactMobile ? 6 : 8)),
+                      SizedBox(height: tvMode ? 12 : (compactMobile ? 6 : 8)),
                       Text(
                         hero.title,
-                        maxLines: tvMode ? 2 : (veryCompactMobile ? 2 : 3),
+                        maxLines: tvMode ? 1 : (veryCompactMobile ? 2 : 3),
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(
                               fontSize: titleFontSize,
-                              height: veryCompactMobile ? 1.02 : 0.99,
+                              height: veryCompactMobile ? 1.02 : 1.0,
                               fontWeight: FontWeight.w800,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0xB8000000),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
                             ),
                       ),
                       if (showDescription) ...[
-                        SizedBox(height: tvMode ? 6 : 6),
+                        SizedBox(height: tvMode ? 4 : 6),
                         Text(
                           hero.description,
-                          maxLines: veryCompactMobile ? 1 : 2,
+                          maxLines: tvMode ? 1 : (veryCompactMobile ? 1 : 2),
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
+                          style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 fontSize: descriptionFontSize,
                                 color: colorScheme.onSurface.withValues(
-                                  alpha: 0.8,
+                                  alpha: 0.84,
                                 ),
                               ),
                         ),
                       ],
-                      if (metadata.isNotEmpty) ...[
-                        SizedBox(height: tvMode ? 8 : (compactMobile ? 5 : 7)),
+                      if (metadata.isNotEmpty && !tvMode) ...[
+                        SizedBox(height: compactMobile ? 5 : 7),
                         Text(
                           metadata.join('  •  '),
                           maxLines: 1,
@@ -1038,7 +2001,7 @@ class _CinematicHeroCard extends StatelessWidget {
                               ),
                         ),
                       ],
-                      SizedBox(height: tvMode ? 10 : (compactMobile ? 8 : 10)),
+                      SizedBox(height: tvMode ? 8 : (compactMobile ? 8 : 10)),
                       Wrap(
                         spacing: compactMobile ? 10 : 12,
                         runSpacing: compactMobile ? 8 : 10,
@@ -1049,12 +2012,6 @@ class _CinematicHeroCard extends StatelessWidget {
                             icon: const Icon(Icons.play_arrow_rounded),
                             label: Text(hero.primaryLabel),
                           ),
-                          if (tvMode)
-                            OutlinedButton.icon(
-                              onPressed: hero.onSecondary,
-                              icon: const Icon(Icons.grid_view_rounded),
-                              label: Text(hero.secondaryLabel),
-                            ),
                         ],
                       ),
                     ],
@@ -1090,28 +2047,50 @@ class _ContinueWatchingData {
 }
 
 class _ContinueWatchingCard extends StatelessWidget {
-  const _ContinueWatchingCard({required this.layout, required this.item});
+  const _ContinueWatchingCard({
+    required this.layout,
+    required this.item,
+    this.compactTvCard = false,
+    this.heading = 'Continuar assistindo',
+  });
 
   final DeviceLayout layout;
   final _ContinueWatchingData? item;
+  final bool compactTvCard;
+  final String heading;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final useCompactTvVariant = layout.isTv && compactTvCard;
+    final cardPadding = useCompactTvVariant
+        ? 16.0
+        : (layout.isTv ? 14.0 : 12.0);
+    final headerSize = useCompactTvVariant ? 24.0 : 30.0;
+    final artworkWidth = useCompactTvVariant
+        ? 148.0
+        : (layout.isTv ? 180.0 : 150.0);
+    final titleSize = useCompactTvVariant ? 23.0 : (layout.isTv ? 28.0 : 26.0);
+    final progressHeight = useCompactTvVariant
+        ? 8.0
+        : (layout.isTv ? 9.0 : 8.0);
+    final chevronSize = useCompactTvVariant
+        ? 34.0
+        : (layout.isTv ? 40.0 : 36.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Continuar assistindo',
+          heading,
           style: Theme.of(
             context,
-          ).textTheme.headlineSmall?.copyWith(fontSize: layout.isTv ? 30 : 30),
+          ).textTheme.headlineSmall?.copyWith(fontSize: headerSize),
         ),
-        SizedBox(height: layout.sectionSpacing - 2),
+        SizedBox(height: useCompactTvVariant ? 12 : layout.sectionSpacing - 2),
         if (item == null)
           Container(
-            padding: EdgeInsets.all(layout.isTv ? 14 : 12),
+            padding: EdgeInsets.all(cardPadding),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(layout.isTv ? 22 : 20),
               gradient: LinearGradient(
@@ -1137,7 +2116,7 @@ class _ContinueWatchingCard extends StatelessWidget {
             builder: (context, focused) {
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 140),
-                padding: EdgeInsets.all(layout.isTv ? 14 : 12),
+                padding: EdgeInsets.all(cardPadding),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(layout.isTv ? 22 : 20),
                   gradient: LinearGradient(
@@ -1176,7 +2155,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: layout.isTv ? 180 : 150,
+                      width: artworkWidth,
                       child: BrandedArtwork(
                         imageUrl: item!.imageUrl,
                         aspectRatio: 16 / 9,
@@ -1195,7 +2174,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontSize: layout.isTv ? 28 : 26),
+                                ?.copyWith(fontSize: titleSize),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -1214,7 +2193,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                             child: LinearProgressIndicator(
                               value: item!.progress,
-                              minHeight: layout.isTv ? 9 : 8,
+                              minHeight: progressHeight,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -1232,7 +2211,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                     ),
                     Icon(
                       Icons.chevron_right_rounded,
-                      size: layout.isTv ? 40 : 36,
+                      size: chevronSize,
                       color: focused
                           ? colorScheme.primary
                           : colorScheme.onSurface.withValues(alpha: 0.56),
@@ -1350,6 +2329,7 @@ class _HomeQuickAction {
     required this.description,
     required this.icon,
     required this.onTap,
+    this.kind = _HomeQuickActionKind.primary,
     this.badge,
     this.interactiveKey,
     this.testId,
@@ -1359,10 +2339,13 @@ class _HomeQuickAction {
   final String description;
   final IconData icon;
   final VoidCallback onTap;
+  final _HomeQuickActionKind kind;
   final String? badge;
   final Key? interactiveKey;
   final String? testId;
 }
+
+enum _HomeQuickActionKind { primary, utility }
 
 class _HomeRailCardData {
   const _HomeRailCardData({
@@ -1375,6 +2358,10 @@ class _HomeRailCardData {
     this.aspectRatio = 2 / 3,
     this.imagePadding = EdgeInsets.zero,
     this.fit = BoxFit.cover,
+    this.liveStreamId,
+    this.supportsLiveEpg = false,
+    this.noEpgFallbackLabel = 'Ao vivo agora',
+    this.hasReplay = false,
   });
 
   final String title;
@@ -1386,6 +2373,10 @@ class _HomeRailCardData {
   final double aspectRatio;
   final EdgeInsets imagePadding;
   final BoxFit fit;
+  final String? liveStreamId;
+  final bool supportsLiveEpg;
+  final String noEpgFallbackLabel;
+  final bool hasReplay;
 }
 
 List<_HomeRailCardData> _buildVodCards(
@@ -1439,15 +2430,21 @@ List<_HomeRailCardData> _buildLiveCards(
   }
 
   return items.take(16).map((item) {
+    final hasEpgSignal = item.epgChannelId?.trim().isNotEmpty == true;
+    final noEpgLabel = item.hasArchive ? 'Ao vivo com replay' : 'Ao vivo agora';
     return _HomeRailCardData(
       title: item.name,
-      subtitle: item.hasArchive ? 'Replay disponivel' : 'Canal ao vivo',
+      subtitle: hasEpgSignal ? 'Programacao ao vivo' : noEpgLabel,
       imageUrl: item.iconUrl,
       icon: Icons.live_tv_rounded,
       badge: 'LIVE',
       aspectRatio: 16 / 9,
       imagePadding: const EdgeInsets.all(18),
       fit: BoxFit.contain,
+      liveStreamId: item.id,
+      supportsLiveEpg: hasEpgSignal,
+      noEpgFallbackLabel: noEpgLabel,
+      hasReplay: item.hasArchive,
       onPressed: () => context.push(
         PlayerScreen.routePath,
         extra: PlaybackContext(
@@ -1470,6 +2467,7 @@ class _HomeRailSection extends StatelessWidget {
     required this.onViewAll,
     required this.cards,
     required this.state,
+    this.collapseWhenEmptyOnTv = false,
   });
 
   final DeviceLayout layout;
@@ -1479,12 +2477,16 @@ class _HomeRailSection extends StatelessWidget {
   final VoidCallback onViewAll;
   final List<_HomeRailCardData> cards;
   final AsyncValue<dynamic> state;
+  final bool collapseWhenEmptyOnTv;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLoading = state.isLoading && cards.isEmpty;
     final hasError = state.hasError && cards.isEmpty;
+    if (layout.isTv && collapseWhenEmptyOnTv && cards.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final prefersLandscape = cards.isNotEmpty && cards.first.aspectRatio >= 1.3;
     final railHeight = _resolveRailHeight(
       layout,
@@ -1518,7 +2520,7 @@ class _HomeRailSection extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: layout.isTv ? 26 : 23,
+                      fontSize: layout.isTv ? 27 : 23,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1532,14 +2534,21 @@ class _HomeRailSection extends StatelessWidget {
                 ],
               ),
             ),
-            TextButton.icon(
-              onPressed: onViewAll,
-              icon: const Icon(Icons.chevron_right_rounded),
-              label: const Text('Ver tudo'),
-            ),
+            if (layout.isTv)
+              _TvViewAllButton(onPressed: onViewAll)
+            else
+              TextButton.icon(
+                onPressed: onViewAll,
+                icon: const Icon(Icons.chevron_right_rounded),
+                label: const Text('Ver tudo'),
+              ),
           ],
         ),
-        SizedBox(height: layout.sectionSpacing),
+        SizedBox(
+          height: layout.isTv
+              ? (layout.sectionSpacing - 2).clamp(0, 999).toDouble()
+              : layout.sectionSpacing,
+        ),
         if (isLoading)
           _RailPlaceholder(
             layout: layout,
@@ -1572,14 +2581,69 @@ class _HomeRailSection extends StatelessWidget {
   }
 }
 
+class _TvViewAllButton extends StatelessWidget {
+  const _TvViewAllButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      width: 158,
+      child: TvFocusable(
+        autofocus: false,
+        onPressed: onPressed,
+        builder: (context, focused) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: focused
+                  ? const Color(0xFFFFE5CA)
+                  : colorScheme.surface.withValues(alpha: 0.68),
+              border: Border.all(
+                color: focused
+                    ? colorScheme.secondary
+                    : colorScheme.outline.withValues(alpha: 0.4),
+                width: focused ? 2.4 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Ver tudo',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: focused ? const Color(0xFF140B02) : null,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: focused ? const Color(0xFF140B02) : null,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 double _resolveRailHeight(
   DeviceLayout layout, {
   required bool prefersLandscape,
 }) {
   if (prefersLandscape) {
-    return layout.isTv ? 226 : 226;
+    return layout.isTv ? 238 : 226;
   }
-  return layout.isTv ? 352 : 304;
+  return layout.isTv ? 368 : 304;
 }
 
 class _HomeRailCard extends StatelessWidget {
@@ -1598,8 +2662,8 @@ class _HomeRailCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isLandscapeCard = data.aspectRatio >= 1.3;
     final cardWidth = switch ((layout.isTv, isLandscapeCard)) {
-      (true, true) => 296.0,
-      (true, false) => 188.0,
+      (true, true) => 320.0,
+      (true, false) => 204.0,
       (false, true) => 236.0,
       (false, false) => 156.0,
     };
@@ -1625,15 +2689,15 @@ class _HomeRailCard extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: focused
                     ? [
-                        colorScheme.primary.withValues(alpha: 0.22),
+                        colorScheme.primary.withValues(alpha: 0.26),
                         colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.92,
+                          alpha: 0.96,
                         ),
                       ]
                     : [
-                        colorScheme.surface.withValues(alpha: 0.9),
+                        colorScheme.surface.withValues(alpha: 0.86),
                         colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.74,
+                          alpha: 0.72,
                         ),
                       ],
               ),
@@ -1641,14 +2705,14 @@ class _HomeRailCard extends StatelessWidget {
                 color: focused
                     ? colorScheme.primary
                     : colorScheme.outline.withValues(alpha: 0.5),
-                width: focused ? 2 : 1,
+                width: focused ? 2.6 : 1,
               ),
               boxShadow: focused
                   ? [
                       BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.2),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
+                        color: colorScheme.primary.withValues(alpha: 0.24),
+                        blurRadius: 18,
+                        offset: const Offset(0, 9),
                       ),
                     ]
                   : const [],
@@ -1729,22 +2793,35 @@ class _HomeRailCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: layout.isTv ? 18 : 15,
+                      fontSize: layout.isTv ? 20 : 15,
                       fontWeight: FontWeight.w700,
                       height: 1.12,
                     ),
                   ),
                 SizedBox(height: layout.isTv ? 5 : 4),
-                Text(
-                  data.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.74),
-                    fontSize: layout.isTv ? 12.5 : 11.5,
-                    height: 1.3,
+                if (layout.isTv && data.liveStreamId != null)
+                  _LiveHomeEpgSubtitle(
+                    streamId: data.liveStreamId!,
+                    supportsEpg: data.supportsLiveEpg,
+                    fallbackSubtitle: data.noEpgFallbackLabel,
+                    defaultSubtitle: data.subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.74),
+                      fontSize: layout.isTv ? 13.5 : 11.5,
+                      height: 1.3,
+                    ),
+                  )
+                else
+                  Text(
+                    data.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.74),
+                      fontSize: layout.isTv ? 13.5 : 11.5,
+                      height: 1.3,
+                    ),
                   ),
-                ),
               ],
             ),
           );
@@ -1752,6 +2829,387 @@ class _HomeRailCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LiveHomeEpgSubtitle extends ConsumerWidget {
+  const _LiveHomeEpgSubtitle({
+    required this.streamId,
+    required this.supportsEpg,
+    required this.fallbackSubtitle,
+    required this.defaultSubtitle,
+    required this.style,
+  });
+
+  final String streamId;
+  final bool supportsEpg;
+  final String fallbackSubtitle;
+  final String defaultSubtitle;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!supportsEpg) {
+      return Text(
+        fallbackSubtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    final epgAsync = ref.watch(liveShortEpgProvider(streamId));
+    final resolved = epgAsync.when(
+      data: (entries) {
+        final state = _resolveHomeLiveEpgState(entries);
+        if (state.current != null) {
+          return 'Agora: ${state.current!.title}';
+        }
+        if (state.next != null) {
+          return 'Prox: ${state.next!.title}';
+        }
+        return fallbackSubtitle;
+      },
+      loading: () => defaultSubtitle,
+      error: (_, _) => fallbackSubtitle,
+    );
+
+    return Text(
+      resolved,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+  }
+}
+
+class _HomeLiveEpgState {
+  const _HomeLiveEpgState({this.current, this.next});
+
+  final LiveEpgEntry? current;
+  final LiveEpgEntry? next;
+}
+
+_HomeLiveEpgState _resolveHomeLiveEpgState(List<LiveEpgEntry> entries) {
+  if (entries.isEmpty) {
+    return const _HomeLiveEpgState();
+  }
+
+  final sorted = [...entries]..sort((a, b) => a.startAt.compareTo(b.startAt));
+  final now = DateTime.now();
+  LiveEpgEntry? current;
+  LiveEpgEntry? next;
+
+  for (final entry in sorted) {
+    if (entry.isOnAirAt(now)) {
+      current = entry;
+      continue;
+    }
+    if (entry.startAt.isAfter(now)) {
+      next = entry;
+      break;
+    }
+  }
+
+  if (current == null && sorted.isNotEmpty) {
+    final firstFuture = sorted.firstWhere(
+      (entry) => entry.startAt.isAfter(now),
+      orElse: () => sorted.first,
+    );
+    next = next ?? firstFuture;
+  }
+
+  return _HomeLiveEpgState(current: current, next: next);
+}
+
+class _TvLiveHighlightPresentation {
+  const _TvLiveHighlightPresentation({
+    required this.statusLabel,
+    required this.channelLabel,
+    required this.headline,
+    required this.footerLabel,
+    this.scheduleLine,
+    this.supportingLine,
+    this.progress,
+  });
+
+  final String statusLabel;
+  final String channelLabel;
+  final String headline;
+  final String footerLabel;
+  final String? scheduleLine;
+  final String? supportingLine;
+  final double? progress;
+}
+
+_TvLiveHighlightPresentation _resolveTvLiveHighlightPresentation({
+  required _HomeRailCardData data,
+  required _HomeLiveEpgState epgState,
+}) {
+  final current = epgState.current;
+  final next = epgState.next;
+
+  if (current != null) {
+    return _TvLiveHighlightPresentation(
+      statusLabel: 'AGORA',
+      channelLabel: data.title,
+      headline: current.title,
+      scheduleLine: _formatHomeTimeRange(current.startAt, current.endAt),
+      supportingLine: next != null
+          ? 'Depois ${_formatHomeClock(next.startAt)} • ${next.title}'
+          : data.hasReplay
+          ? 'Canal com replay disponivel'
+          : 'Entre no canal para assistir agora',
+      footerLabel: 'No ar neste momento',
+      progress: _homeEpgProgress(current, now: DateTime.now()),
+    );
+  }
+
+  if (next != null) {
+    return _TvLiveHighlightPresentation(
+      statusLabel: 'A SEGUIR',
+      channelLabel: data.title,
+      headline: next.title,
+      scheduleLine: _formatHomeTimeRange(next.startAt, next.endAt),
+      supportingLine: data.hasReplay
+          ? 'Canal com replay disponivel'
+          : 'Canal ao vivo agora',
+      footerLabel: 'Abrir canal ao vivo',
+    );
+  }
+
+  return _TvLiveHighlightPresentation(
+    statusLabel: 'AO VIVO',
+    channelLabel: data.title,
+    headline: 'No ar agora',
+    supportingLine: data.hasReplay
+        ? 'Canal com replay disponivel'
+        : 'Entre no canal para assistir agora',
+    footerLabel: 'Canal ao vivo agora',
+  );
+}
+
+String _formatHomeTimeRange(DateTime startAt, DateTime endAt) {
+  return '${_formatHomeClock(startAt)} - ${_formatHomeClock(endAt)}';
+}
+
+String _formatHomeClock(DateTime value) {
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+double? _homeEpgProgress(LiveEpgEntry entry, {required DateTime now}) {
+  final total = entry.endAt.difference(entry.startAt).inMilliseconds;
+  if (total <= 0) {
+    return null;
+  }
+
+  final elapsed = now.difference(entry.startAt).inMilliseconds;
+  return (elapsed / total).clamp(0.0, 1.0);
+}
+
+class _TvHighlightChip extends StatelessWidget {
+  const _TvHighlightChip({
+    required this.label,
+    required this.color,
+    required this.focused,
+    this.emphasized = true,
+  });
+
+  final String label;
+  final Color color;
+  final bool focused;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = focused && emphasized
+        ? const Color(0xFF1C1003)
+        : color.computeLuminance() > 0.45
+        ? const Color(0xFF1C1003)
+        : Colors.white;
+    final background = emphasized
+        ? color.withValues(alpha: focused ? 0.92 : 0.82)
+        : color.withValues(alpha: focused ? 0.24 : 0.16);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: background,
+        border: Border.all(color: color.withValues(alpha: 0.32)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: emphasized ? foreground : color,
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _TvLiveChannelLogo extends StatelessWidget {
+  const _TvLiveChannelLogo({
+    required this.imageUrl,
+    required this.channelLabel,
+    required this.compact,
+  });
+
+  final String? imageUrl;
+  final String channelLabel;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedUrl = BrandedArtwork.normalizeArtworkUrl(imageUrl);
+    final size = compact ? 92.0 : 102.0;
+    final radius = compact ? 22.0 : 24.0;
+
+    Widget fallback() => _TvLiveChannelLogoFallback(
+      channelLabel: channelLabel,
+      compact: compact,
+    );
+
+    if (normalizedUrl != null) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 6 : 8),
+          child: Image.network(
+            normalizedUrl,
+            fit: BoxFit.contain,
+            headers: const {'Accept-Encoding': 'identity'},
+            filterQuality: FilterQuality.high,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+              return fallback();
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return fallback();
+            },
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          color: Colors.white.withValues(alpha: 0.03),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: fallback(),
+        ),
+      ),
+    );
+  }
+}
+
+class _TvLiveChannelLogoFallback extends StatelessWidget {
+  const _TvLiveChannelLogoFallback({
+    required this.channelLabel,
+    required this.compact,
+  });
+
+  final String channelLabel;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final monogram = _buildChannelMonogram(channelLabel);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primary.withValues(alpha: 0.08),
+            colorScheme.tertiary.withValues(alpha: 0.06),
+            colorScheme.surface.withValues(alpha: 0.88),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 8 : 10),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  monogram,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                SizedBox(height: compact ? 4 : 6),
+                Text(
+                  'Canal',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface.withValues(alpha: 0.66),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _buildChannelMonogram(String channelLabel) {
+  final cleaned = channelLabel
+      .replaceAll(RegExp(r'[^A-Za-z0-9 ]'), ' ')
+      .trim()
+      .toUpperCase();
+  if (cleaned.isEmpty) {
+    return 'TV';
+  }
+
+  final tokens = cleaned
+      .split(RegExp(r'\s+'))
+      .where((token) => token.isNotEmpty)
+      .toList();
+  if (tokens.isEmpty) {
+    return 'TV';
+  }
+
+  final preferred = tokens.firstWhere(
+    (token) => token.length >= 2,
+    orElse: () => tokens.first,
+  );
+  if (preferred.length <= 4) {
+    return preferred;
+  }
+
+  final initials = tokens.take(3).map((token) => token[0]).join();
+  return initials.length >= 2 ? initials : preferred.substring(0, 3);
 }
 
 class _RailPlaceholder extends StatelessWidget {
@@ -1769,8 +3227,8 @@ class _RailPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final cardWidth = switch ((layout.isTv, prefersLandscape)) {
-      (true, true) => 296.0,
-      (true, false) => 188.0,
+      (true, true) => 320.0,
+      (true, false) => 204.0,
       (false, true) => 236.0,
       (false, false) => 156.0,
     };
