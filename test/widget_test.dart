@@ -28,6 +28,8 @@ void main() {
     expect(find.text('Usuario'), findsOneWidget);
     expect(find.text('Senha'), findsOneWidget);
     expect(find.byKey(AppTestKeys.loginSubmitButton), findsOneWidget);
+    expect(find.text('Lembrar-me'), findsNothing);
+    expect(find.text('Esqueceu a senha?'), findsNothing);
   });
 
   testWidgets('mantém o botão Entrar visível em viewport compacta', (

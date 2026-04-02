@@ -45,6 +45,7 @@ xmltv*.xml
 /dumps/
 /dump/
 /tmp/
+/tmp_*
 /temp/
 /references/
 /screenshots/
@@ -64,3 +65,4 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/app/src/main/java/dev/flutter/plugins/integration_test/

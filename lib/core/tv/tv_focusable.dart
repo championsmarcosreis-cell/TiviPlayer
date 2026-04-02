@@ -11,6 +11,7 @@ class TvFocusable extends StatefulWidget {
     this.testId,
     this.interactiveKey,
     this.onFocusChanged,
+    this.onKeyEvent,
   });
 
   final Widget Function(BuildContext context, bool focused) builder;
@@ -20,6 +21,7 @@ class TvFocusable extends StatefulWidget {
   final String? testId;
   final Key? interactiveKey;
   final ValueChanged<bool>? onFocusChanged;
+  final FocusOnKeyEventCallback? onKeyEvent;
 
   @override
   State<TvFocusable> createState() => _TvFocusableState();
@@ -112,30 +114,46 @@ class _TvFocusableState extends State<TvFocusable> {
           },
         ),
       },
-      child: Stack(
-        children: [
-          GestureDetector(
-            key: widget.interactiveKey,
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.onPressed,
-            child: AnimatedScale(
-              duration: const Duration(milliseconds: 140),
-              scale: _focused ? focusedScale : 1,
-              child: widget.builder(context, _focused),
+      child: _buildFocusableChild(context, focusedScale),
+    );
+  }
+
+  Widget _buildFocusableChild(BuildContext context, double focusedScale) {
+    final content = Stack(
+      children: [
+        GestureDetector(
+          key: widget.interactiveKey,
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 140),
+            scale: _focused ? focusedScale : 1,
+            child: widget.builder(context, _focused),
+          ),
+        ),
+        if (_focused && widget.testId != null)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SizedBox(
+              key: ValueKey<String>('focus.${widget.testId!}'),
+              width: 1,
+              height: 1,
             ),
           ),
-          if (_focused && widget.testId != null)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: SizedBox(
-                key: ValueKey<String>('focus.${widget.testId!}'),
-                width: 1,
-                height: 1,
-              ),
-            ),
-        ],
-      ),
+      ],
+    );
+
+    if (widget.onKeyEvent == null) {
+      return content;
+    }
+
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (node, event) =>
+          widget.onKeyEvent!.call(_effectiveFocusNode, event),
+      child: content,
     );
   }
 }

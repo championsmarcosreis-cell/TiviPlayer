@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +38,8 @@ class PlayerPreviewState {
   final bool isPlaying;
 }
 
+enum _PlayerOverlayVisibility { expanded, compact, hidden }
+
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({
     super.key,
@@ -70,11 +71,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   DateTime? _bufferingSince;
   Timer? _overlayHideTimer;
   Timer? _interactionMessageTimer;
+  Timer? _inactivePlaybackTimer;
   DateTime? _lastProgressSaveAt;
   Duration _lastSavedPosition = Duration.zero;
   int _runtimeRecoveryAttempts = 0;
   int _initializationVersion = 0;
   String? _interactionMessage;
+  DateTime? _lastRuntimeRecoveryStartedAt;
   bool _isMuted = false;
   double _lastVolumeBeforeMute = 1;
   List<String> _audioTracks = const [];
@@ -91,6 +94,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(_enterPlayerImmersiveMode());
     _playbackHistoryController = ref.read(
       playbackHistoryControllerProvider.notifier,
     );
@@ -107,9 +111,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void dispose() {
     _isDisposing = true;
+    unawaited(_restoreDefaultSystemUiMode());
     HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _overlayHideTimer?.cancel();
     _interactionMessageTimer?.cancel();
+    _inactivePlaybackTimer?.cancel();
     _controller?.removeListener(_handleControllerUpdate);
     _persistPlaybackProgress(force: true);
     _controller?.dispose();
@@ -136,12 +142,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           builder: (context, constraints) {
             final layout = DeviceLayout.of(context, constraints: constraints);
             final previewState = widget.previewState;
-            final showOverlayUi =
-                previewState != null ||
-                _showPlaybackUi ||
-                _isInitializing ||
-                _errorMessage != null ||
-                !(playerValue?.isPlaying ?? false);
 
             if (previewState != null) {
               return Stack(
@@ -167,6 +167,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               );
             }
 
+            final overlayVisibility = _resolveOverlayVisibility(
+              layout: layout,
+              resolvedPlayback: resolvedPlayback,
+              playerValue: playerValue,
+              hasReadyVideo: hasReadyVideo,
+              streamMetrics: streamMetrics,
+            );
+            final showExpandedOverlay =
+                overlayVisibility == _PlayerOverlayVisibility.expanded;
+            final showCompactLiveBadge =
+                overlayVisibility == _PlayerOverlayVisibility.compact;
+
             return Stack(
               fit: StackFit.expand,
               children: [
@@ -181,7 +193,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       height: 1,
                     ),
                   ),
-                if (showOverlayUi) const _PlayerOverlayGradients(),
+                if (showExpandedOverlay) const _PlayerOverlayGradients(),
                 if (_isInitializing)
                   Center(
                     child: _LoadingPanel(
@@ -196,7 +208,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       onRetry: _initializePlayer,
                     ),
                   ),
-                if (!_isInitializing && _errorMessage == null && showOverlayUi)
+                if (!_isInitializing &&
+                    _errorMessage == null &&
+                    showExpandedOverlay)
                   _PlayerTopBar(
                     title:
                         resolvedPlayback?.context.title ??
@@ -208,7 +222,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 if (!_isInitializing &&
                     _errorMessage == null &&
-                    showOverlayUi &&
+                    showExpandedOverlay &&
                     hasReadyVideo &&
                     controller != null &&
                     resolvedPlayback != null)
@@ -216,7 +230,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     controller: controller,
                     resolvedPlayback: resolvedPlayback,
                     layout: layout,
-                    title: resolvedPlayback.context.title,
                     isMuted: _isMuted,
                     selectedAudioTrack:
                         _selectedAudioTrack ??
@@ -237,6 +250,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 if (!_isInitializing &&
                     _errorMessage == null &&
+                    showExpandedOverlay &&
                     _statusMessage != null)
                   Positioned(
                     left: layout.pageHorizontalPadding,
@@ -245,6 +259,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 if (!_isInitializing &&
                     _errorMessage == null &&
+                    showExpandedOverlay &&
                     _interactionMessage != null)
                   Positioned(
                     left: layout.pageHorizontalPadding,
@@ -256,8 +271,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       child: _InteractionToast(message: _interactionMessage!),
                     ),
                   ),
-                if (resolvedPlayback?.isLive == true &&
-                    hasReadyVideo &&
+                if (showCompactLiveBadge &&
                     streamMetrics != null &&
                     _errorMessage == null)
                   Positioned(
@@ -271,6 +285,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     ),
                   ),
                 if (resolvedPlayback?.isLive != true &&
+                    showExpandedOverlay &&
                     playerValue?.isBuffering == true &&
                     _errorMessage == null)
                   Positioned(
@@ -443,8 +458,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           );
         });
         _runtimeRecoveryAttempts = 0;
-        _lastKnownPlaying = controller.value.isPlaying;
-        _revealPlaybackUi(autoHide: controller.value.isPlaying);
+        _lastKnownPlaying = _isPlaybackActive(controller.value);
+        _revealPlaybackUi(autoHide: _lastKnownPlaying);
         return;
       } catch (error) {
         final danglingController = attemptController;
@@ -506,12 +521,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     _trackBufferingRecovery(value);
 
-    if (value.isPlaying != _lastKnownPlaying) {
-      _lastKnownPlaying = value.isPlaying;
-      if (value.isPlaying) {
+    final playbackActive = _isPlaybackActive(value);
+    if (playbackActive != _lastKnownPlaying) {
+      _lastKnownPlaying = playbackActive;
+      if (playbackActive) {
+        _inactivePlaybackTimer?.cancel();
         _scheduleOverlayHide();
       } else {
-        _revealPlaybackUi(autoHide: false);
+        _scheduleOverlayRevealForStableInactivity();
       }
     }
 
@@ -574,6 +591,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
 
+    final recoveryStartedAt = _lastRuntimeRecoveryStartedAt;
+    if (recoveryStartedAt != null) {
+      final elapsed = DateTime.now().difference(recoveryStartedAt);
+      if (elapsed < const Duration(seconds: 45)) {
+        _recordTelemetry(
+          PlayerTelemetryEvent(
+            type: PlayerTelemetryEventType.runtimeRecoverySkipped,
+            message: 'Recuperacao ignorada por cooldown ativo.',
+            attributes: <String, Object?>{
+              'kind': issue.kind.name,
+              'elapsedMs': elapsed.inMilliseconds,
+              'cooldownMs': 45000,
+              'code': issue.code,
+            },
+          ),
+        );
+        return;
+      }
+    }
+
     if (!issue.retryable) {
       if (_errorMessage == null) {
         setState(() {
@@ -623,6 +660,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     _runtimeRecoveryAttempts = nextAttempt;
     final currentAttempt = nextAttempt;
+    _lastRuntimeRecoveryStartedAt = DateTime.now();
     _interactionMessageTimer?.cancel();
     setState(() {
       _showPlaybackUi = true;
@@ -1130,7 +1168,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return false;
     }
 
+    final overlayWasHidden = !_showPlaybackUi;
     _revealPlaybackUi();
+    if (overlayWasHidden) {
+      return true;
+    }
 
     if (_isInitializing) {
       return false;
@@ -1177,13 +1219,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
 
+    _inactivePlaybackTimer?.cancel();
+    final allowAutoHide =
+        autoHide && !_shouldKeepOverlayVisibleForCurrentLayout();
+
     if (!_showPlaybackUi) {
       setState(() {
         _showPlaybackUi = true;
       });
     }
 
-    if (autoHide) {
+    if (allowAutoHide) {
       _scheduleOverlayHide();
     } else {
       _overlayHideTimer?.cancel();
@@ -1192,9 +1238,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   void _scheduleOverlayHide() {
     _overlayHideTimer?.cancel();
-    final directionalNavigation =
-        MediaQuery.navigationModeOf(context) == NavigationMode.directional;
-    if (!directionalNavigation) {
+    if (_shouldKeepOverlayVisibleForCurrentLayout()) {
+      if (!_showPlaybackUi) {
+        setState(() {
+          _showPlaybackUi = true;
+        });
+      }
       return;
     }
 
@@ -1203,9 +1252,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         !_isInitializing &&
         _errorMessage == null &&
         _statusMessage == null &&
+        _interactionMessage == null &&
         controller != null &&
         controller.value.isInitialized &&
-        controller.value.isPlaying;
+        _isPlaybackActive(controller.value);
 
     if (!canHide) {
       return;
@@ -1218,6 +1268,70 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       setState(() {
         _showPlaybackUi = false;
       });
+    });
+  }
+
+  _PlayerOverlayVisibility _resolveOverlayVisibility({
+    required DeviceLayout layout,
+    required ResolvedPlayback? resolvedPlayback,
+    required VideoPlayerValue? playerValue,
+    required bool hasReadyVideo,
+    required _PlayerStreamMetrics? streamMetrics,
+  }) {
+    if (_shouldShowExpandedOverlay(layout: layout, playerValue: playerValue)) {
+      return _PlayerOverlayVisibility.expanded;
+    }
+
+    return _PlayerOverlayVisibility.hidden;
+  }
+
+  bool _shouldShowExpandedOverlay({
+    required DeviceLayout layout,
+    required VideoPlayerValue? playerValue,
+  }) {
+    if (widget.previewState != null) {
+      return true;
+    }
+
+    return _showPlaybackUi ||
+        _isInitializing ||
+        _errorMessage != null ||
+        _statusMessage != null ||
+        _interactionMessage != null ||
+        !_isPlaybackActive(playerValue);
+  }
+
+  bool _isPlaybackActive(VideoPlayerValue? value) {
+    if (value == null || !value.isInitialized) {
+      return false;
+    }
+    return value.isPlaying || value.isBuffering;
+  }
+
+  bool _shouldKeepOverlayVisibleForCurrentLayout() {
+    return false;
+  }
+
+  void _scheduleOverlayRevealForStableInactivity() {
+    _inactivePlaybackTimer?.cancel();
+    final controller = _controller;
+    final canSchedule =
+        !_isInitializing &&
+        _errorMessage == null &&
+        controller != null &&
+        controller.value.isInitialized;
+    if (!canSchedule) {
+      return;
+    }
+
+    _inactivePlaybackTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (!mounted || _isDisposing) {
+        return;
+      }
+      if (_isPlaybackActive(_controller?.value)) {
+        return;
+      }
+      _revealPlaybackUi(autoHide: false);
     });
   }
 
@@ -1272,6 +1386,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return key == LogicalKeyboardKey.escape ||
         key == LogicalKeyboardKey.goBack ||
         key == LogicalKeyboardKey.browserBack;
+  }
+
+  Future<void> _enterPlayerImmersiveMode() async {
+    try {
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } on Exception {
+      // Ignore platform/UI mode failures to avoid breaking playback.
+    }
+  }
+
+  Future<void> _restoreDefaultSystemUiMode() async {
+    try {
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    } on Exception {
+      // Ignore platform/UI mode failures during teardown.
+    }
   }
 
   bool _isMuteKey(LogicalKeyboardKey key) {
@@ -1450,96 +1580,86 @@ class _PlayerTopBar extends StatelessWidget {
           layout.pageHorizontalPadding,
           0,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(layout.isTv ? 24 : 18),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: layout.isTv ? 16 : 12,
-                vertical: layout.isTv ? 12 : 9,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xC9152234), const Color(0xA60A111E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
-              ),
-              child: Row(
+        child: Row(
+          children: [
+            PlayerControlButton(
+              interactiveKey: AppTestKeys.playerCloseButton,
+              icon: Icons.arrow_back_rounded,
+              label: 'Sair',
+              testId: AppTestKeys.playerCloseButtonId,
+              autofocus: !layout.isTv,
+              kind: PlayerControlButtonKind.subtle,
+              onPressed: onBack,
+            ),
+            SizedBox(width: layout.cardSpacing),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  PlayerControlButton(
-                    interactiveKey: AppTestKeys.playerCloseButton,
-                    icon: Icons.arrow_back_rounded,
-                    label: 'Sair',
-                    testId: AppTestKeys.playerCloseButtonId,
-                    autofocus: true,
-                    kind: PlayerControlButtonKind.subtle,
-                    onPressed: onBack,
-                  ),
-                  SizedBox(width: layout.cardSpacing),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontSize: layout.isTv ? 30 : 19.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        Text(
-                          isLive
-                              ? 'Transmissao ao vivo'
-                              : 'Reproducao sob demanda',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: layout.isTv ? 14 : 12,
-                              ),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontSize: layout.isTv ? 30 : 19.5,
+                      fontWeight: FontWeight.w700,
+                      shadows: const [
+                        Shadow(
+                          color: Color(0xB0000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 1),
                         ),
                       ],
                     ),
                   ),
-                  if (!isLive && layout.isTv)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: const Color(0x4D3A8AFF),
-                        border: Border.all(color: const Color(0x8873B4FF)),
-                      ),
-                      child: Text('VOD', style: chipStyle),
+                  Text(
+                    isLive ? 'Transmissao ao vivo' : 'Reproducao sob demanda',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.86),
+                      fontSize: layout.isTv ? 14 : 12,
+                      shadows: const [
+                        Shadow(
+                          color: Color(0xB0000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
-                  if (isLive) ...[
-                    if (layout.isTv) const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: const Color(0xCCFF5E69),
-                        border: Border.all(color: const Color(0xFFFF9AA2)),
-                      ),
-                      child: Text('AO VIVO', style: chipStyle),
-                    ),
-                  ],
+                  ),
                 ],
               ),
             ),
-          ),
+            if (!isLive && layout.isTv)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: const Color(0x4D3A8AFF),
+                  border: Border.all(color: const Color(0x8873B4FF)),
+                ),
+                child: Text('VOD', style: chipStyle),
+              ),
+            if (isLive) ...[
+              if (layout.isTv) const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: const Color(0xCCFF5E69),
+                  border: Border.all(color: const Color(0xFFFF9AA2)),
+                ),
+                child: Text('AO VIVO', style: chipStyle),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -1551,7 +1671,6 @@ class _PlayerControlDeck extends StatelessWidget {
     required this.controller,
     required this.resolvedPlayback,
     required this.layout,
-    required this.title,
     required this.isMuted,
     required this.selectedAudioTrack,
     required this.selectedSubtitleTrack,
@@ -1570,7 +1689,6 @@ class _PlayerControlDeck extends StatelessWidget {
   final VideoPlayerController controller;
   final ResolvedPlayback resolvedPlayback;
   final DeviceLayout layout;
-  final String title;
   final bool isMuted;
   final String? selectedAudioTrack;
   final String? selectedSubtitleTrack;
@@ -1593,6 +1711,9 @@ class _PlayerControlDeck extends StatelessWidget {
     final total = value.duration;
     final current = value.position;
     final remaining = total - current;
+    final mobileHorizontalInset = layout.isTv
+        ? layout.pageHorizontalPadding
+        : 0.0;
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -1600,9 +1721,9 @@ class _PlayerControlDeck extends StatelessWidget {
         top: false,
         child: Padding(
           padding: EdgeInsets.fromLTRB(
-            layout.pageHorizontalPadding,
+            mobileHorizontalInset,
             0,
-            layout.pageHorizontalPadding,
+            mobileHorizontalInset,
             layout.pageBottomPadding,
           ),
           child: _PlayerDeckContainer(
@@ -1611,42 +1732,6 @@ class _PlayerControlDeck extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      resolvedPlayback.isLive
-                          ? Icons.wifi_tethering_rounded
-                          : Icons.movie_filter_rounded,
-                      color: Colors.white.withValues(alpha: 0.86),
-                      size: layout.isTv ? 24 : 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontSize: layout.isTv ? 22 : 16.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ),
-                    if (resolvedPlayback.isLive)
-                      Text(
-                        'LIVE',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: const Color(0xFFFF8D95),
-                              letterSpacing: 1.1,
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                  ],
-                ),
-                SizedBox(height: layout.isTv ? 14 : 10),
                 if (isSeekable) ...[
                   _TimelinePanel(
                     layout: layout,
@@ -1707,6 +1792,7 @@ class _PlayerControlDeck extends StatelessWidget {
                                   : Icons.play_circle_rounded,
                               label: isPlaying ? 'Pausar' : 'Reproduzir',
                               onPressed: onTogglePlayback,
+                              autofocus: layout.isTv,
                               kind: PlayerControlButtonKind.primary,
                               prominent: true,
                             ),
@@ -1737,6 +1823,7 @@ class _PlayerControlDeck extends StatelessWidget {
                                   : Icons.play_circle_rounded,
                               label: isPlaying ? 'Pausar' : 'Reproduzir',
                               onPressed: onTogglePlayback,
+                              autofocus: layout.isTv,
                               kind: PlayerControlButtonKind.primary,
                               prominent: true,
                             ),
@@ -2155,34 +2242,14 @@ class _PlayerDeckContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = layout.isTv ? 26.0 : 20.0;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(radius),
-            gradient: LinearGradient(
-              colors: [const Color(0xCC111C2C), const Color(0xB20A101B)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(layout.isTv ? 18 : 14),
-            child: child,
-          ),
-        ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        layout.isTv ? 6 : 2,
+        layout.isTv ? 8 : 6,
+        layout.isTv ? 6 : 2,
+        layout.isTv ? 6 : 2,
       ),
+      child: child,
     );
   }
 }
@@ -2195,16 +2262,10 @@ class _TimelinePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(layout.isTv ? 13 : 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 16 : 14),
-        gradient: LinearGradient(
-          colors: [const Color(0x3376AAFF), const Color(0x1AFFFFFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        vertical: layout.isTv ? 8 : 6,
+        horizontal: layout.isTv ? 4 : 2,
       ),
       child: child,
     );
@@ -2219,20 +2280,10 @@ class _ControlsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: layout.isTv ? 16 : 11,
-        vertical: layout.isTv ? 14 : 10,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 18 : 14),
-        gradient: LinearGradient(
-          colors: [const Color(0x2E4A9CFF), const Color(0x1AFFFFFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        horizontal: layout.isTv ? 4 : 2,
+        vertical: layout.isTv ? 6 : 4,
       ),
       child: child,
     );

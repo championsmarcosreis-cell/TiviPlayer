@@ -66,3 +66,15 @@ final liveShortEpgProvider = FutureProvider.autoDispose
           .watch(getLiveShortEpgUseCaseProvider)
           .call(session, streamId: streamId, limit: 3);
     });
+
+final liveGuideEpgProvider = FutureProvider.autoDispose
+    .family<List<LiveEpgEntry>, String>((ref, streamId) async {
+      final session = ref.watch(currentSessionProvider);
+      if (session == null || streamId.trim().isEmpty) {
+        return const <LiveEpgEntry>[];
+      }
+
+      return ref
+          .watch(getLiveShortEpgUseCaseProvider)
+          .call(session, streamId: streamId, limit: 8);
+    });

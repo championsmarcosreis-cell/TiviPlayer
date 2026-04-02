@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_credentials.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_session.dart';
 import 'package:tiviplayer/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:tiviplayer/features/live/domain/entities/live_category.dart';
 import 'package:tiviplayer/features/live/domain/entities/live_epg_entry.dart';
 import 'package:tiviplayer/features/live/domain/entities/live_stream.dart';
 import 'package:tiviplayer/features/live/presentation/providers/live_providers.dart';
@@ -50,11 +51,13 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -520));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sem guia de programacao'), findsOneWidget);
+    expect(find.textContaining('Programacao nao informada'), findsWidgets);
     expect(find.textContaining('Canal com replay'), findsOneWidget);
   });
 
-  testWidgets('tv faz prefetch de EPG no card com autofocus', (tester) async {
+  testWidgets('tv abre guia com timeline e foco em bloco com EPG', (
+    tester,
+  ) async {
     final now = DateTime.now();
     final entries = _epgNowNext(now);
     final streamCalls = <String, int>{};
@@ -71,7 +74,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Agora: Jornal da Noite'), findsWidgets);
+    expect(find.text('Todos'), findsOneWidget);
+    expect(find.textContaining('Jornal da Noite'), findsWidgets);
     expect(streamCalls['stream-1'] ?? 0, greaterThanOrEqualTo(1));
   });
 }
@@ -81,14 +85,22 @@ Future<void> _pumpLiveScreen(
   required InterfaceMode interfaceMode,
   required List<LiveStream> streams,
   required Map<String, List<LiveEpgEntry>> epgByStreamId,
+  List<LiveCategory> categories = const [
+    LiveCategory(id: 'all-1', name: 'Esportes'),
+  ],
   void Function(String streamId)? onEpgRequest,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         currentSessionProvider.overrideWithValue(_session),
+        liveCategoriesProvider.overrideWith((ref) async => categories),
         liveStreamsProvider.overrideWith((ref, categoryId) async => streams),
         liveShortEpgProvider.overrideWith((ref, streamId) async {
+          onEpgRequest?.call(streamId);
+          return epgByStreamId[streamId] ?? const <LiveEpgEntry>[];
+        }),
+        liveGuideEpgProvider.overrideWith((ref, streamId) async {
           onEpgRequest?.call(streamId);
           return epgByStreamId[streamId] ?? const <LiveEpgEntry>[];
         }),

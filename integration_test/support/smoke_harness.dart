@@ -129,7 +129,7 @@ Future<SmokeConfig> launchAndLogin(WidgetTester tester) async {
 
   if (find.byKey(AppTestKeys.homeLiveCard).evaluate().isEmpty) {
     await dismissTextInput(tester);
-    await tapVisible(tester, find.byKey(AppTestKeys.loginSubmitButton));
+    await tapLoginSubmit(tester);
     await tester.pumpAndSettle(const Duration(seconds: 1));
     _logStage('launchAndLogin:submitted');
   }
@@ -439,24 +439,28 @@ Future<void> closePlayerAndReturnToVodDetailsByTap(WidgetTester tester) async {
   _logStage('closePlayerAndReturnToVodDetailsByTap:start');
 
   final closeButton = find.byKey(AppTestKeys.playerCloseButton);
-  await pumpUntilFound(
-    tester,
-    closeButton,
-    timeout: const Duration(seconds: 15),
-    description: 'botão Sair do player',
-  );
-
-  await tester.tapAt(const Offset(18, 18));
-  await tester.pumpAndSettle(const Duration(milliseconds: 300));
-
-  try {
-    await tester.ensureVisible(closeButton);
-    await tester.pumpAndSettle(const Duration(milliseconds: 250));
-    await tester.tap(closeButton, warnIfMissed: false);
-  } catch (_) {
-    _logStage('closePlayerAndReturnToVodDetailsByTap:tap_failed');
+  if (closeButton.evaluate().isEmpty) {
+    await tester.tapAt(const Offset(18, 18));
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
   }
-  await tester.pumpAndSettle(const Duration(seconds: 2));
+  if (closeButton.evaluate().isEmpty) {
+    final logicalSize = tester.view.physicalSize / tester.view.devicePixelRatio;
+    await tester.tapAt(Offset(logicalSize.width / 2, logicalSize.height / 2));
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+  }
+
+  if (closeButton.evaluate().isNotEmpty) {
+    try {
+      await tester.ensureVisible(closeButton);
+      await tester.pumpAndSettle(const Duration(milliseconds: 250));
+      await tester.tap(closeButton, warnIfMissed: false);
+    } catch (_) {
+      _logStage('closePlayerAndReturnToVodDetailsByTap:tap_failed');
+    }
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+  } else {
+    _logStage('closePlayerAndReturnToVodDetailsByTap:close_not_visible');
+  }
 
   if (find.byKey(AppTestKeys.vodPlayButton).evaluate().isEmpty) {
     _logStage('closePlayerAndReturnToVodDetailsByTap:fallback_pop_route');
@@ -672,6 +676,48 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle(const Duration(milliseconds: 300));
   await tester.tap(finder);
   await tester.pumpAndSettle(const Duration(milliseconds: 300));
+}
+
+Future<void> tapLoginSubmit(WidgetTester tester) async {
+  final byKey = find.byKey(AppTestKeys.loginSubmitButton);
+  if (byKey.evaluate().isNotEmpty) {
+    try {
+      await tapVisible(tester, byKey);
+      return;
+    } catch (_) {}
+  }
+
+  final byEntrar = find.text('Entrar');
+  if (byEntrar.evaluate().isNotEmpty) {
+    try {
+      await tapVisible(tester, byEntrar.first);
+      return;
+    } catch (_) {}
+  }
+
+  final byConectar = find.text('Conectar');
+  if (byConectar.evaluate().isNotEmpty) {
+    try {
+      await tapVisible(tester, byConectar.first);
+      return;
+    } catch (_) {}
+  }
+
+  if (byKey.evaluate().isNotEmpty) {
+    final box = tester.renderObject<RenderBox>(byKey.first);
+    final center = box.localToGlobal(box.size.center(Offset.zero));
+    await tester.tapAt(center);
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    return;
+  }
+
+  await pumpUntilFound(
+    tester,
+    byKey,
+    timeout: const Duration(seconds: 10),
+    description: 'botão Entrar',
+  );
+  await tapVisible(tester, byKey);
 }
 
 Future<void> dismissTextInput(WidgetTester tester) async {
