@@ -15,6 +15,64 @@ import java.util.Map;
 
 /** A video to be played by {@link VideoPlayer}. */
 public abstract class VideoAsset {
+  static final class PlaybackDecision {
+    private final boolean useVlcFallback;
+    @NonNull private final String engineName;
+    @NonNull private final String appliedRule;
+    @Nullable private final String fallbackReason;
+    @Nullable private final String probeResult;
+
+    private PlaybackDecision(
+        boolean useVlcFallback,
+        @NonNull String engineName,
+        @NonNull String appliedRule,
+        @Nullable String fallbackReason,
+        @Nullable String probeResult) {
+      this.useVlcFallback = useVlcFallback;
+      this.engineName = engineName;
+      this.appliedRule = appliedRule;
+      this.fallbackReason = fallbackReason;
+      this.probeResult = probeResult;
+    }
+
+    @NonNull
+    static PlaybackDecision exoPlayer(@NonNull String appliedRule, @Nullable String probeResult) {
+      return new PlaybackDecision(false, "exo_player", appliedRule, null, probeResult);
+    }
+
+    @NonNull
+    static PlaybackDecision libVlc(
+        @NonNull String appliedRule,
+        @NonNull String fallbackReason,
+        @Nullable String probeResult) {
+      return new PlaybackDecision(true, "lib_vlc", appliedRule, fallbackReason, probeResult);
+    }
+
+    boolean shouldUseVlcFallback() {
+      return useVlcFallback;
+    }
+
+    @NonNull
+    String getEngineName() {
+      return engineName;
+    }
+
+    @NonNull
+    String getAppliedRule() {
+      return appliedRule;
+    }
+
+    @Nullable
+    String getFallbackReason() {
+      return fallbackReason;
+    }
+
+    @Nullable
+    String getProbeResult() {
+      return probeResult;
+    }
+  }
+
   /**
    * Returns an asset from a local {@code asset:///} URL, i.e. an on-device asset.
    *
@@ -98,8 +156,13 @@ public abstract class VideoAsset {
     return null;
   }
 
+  @NonNull
+  public PlaybackDecision getPlaybackDecision() {
+    return PlaybackDecision.exoPlayer("default_exoplayer", null);
+  }
+
   public boolean shouldUseVlcFallback() {
-    return false;
+    return getPlaybackDecision().shouldUseVlcFallback();
   }
 
   /** Streaming formats that can be provided to the video player as a hint. */

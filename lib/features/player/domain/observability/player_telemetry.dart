@@ -1,4 +1,6 @@
 enum PlayerTelemetryEventType {
+  playbackRuntimePrepared,
+  playbackRuntimeReady,
   runtimeIssueClassified,
   runtimeRecoveryScheduled,
   runtimeRecoverySkipped,

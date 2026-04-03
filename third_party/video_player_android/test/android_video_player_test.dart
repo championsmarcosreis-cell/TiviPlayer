@@ -229,6 +229,32 @@ void main() {
       expect(creationOptions.userAgent, userAgent);
     });
 
+    test(
+      'create with network uses user agent header case-insensitively',
+      () async {
+        final (AndroidVideoPlayer player, MockAndroidVideoPlayerApi api, _) =
+            setUpMockPlayer(playerId: 1, textureId: 100);
+        when(api.createForTextureView(any)).thenAnswer(
+          (_) async => TexturePlayerIds(playerId: 2, textureId: 100),
+        );
+
+        const userAgent = 'Lowercase Test User Agent';
+        const headers = <String, String>{'user-agent': userAgent};
+        await player.create(
+          DataSource(
+            sourceType: DataSourceType.network,
+            uri: 'https://example.com',
+            httpHeaders: headers,
+          ),
+        );
+        final VerificationResult verification = verify(
+          api.createForTextureView(captureAny),
+        );
+        final creationOptions = verification.captured[0] as CreationOptions;
+        expect(creationOptions.userAgent, userAgent);
+      },
+    );
+
     test('create with file', () async {
       final (AndroidVideoPlayer player, MockAndroidVideoPlayerApi api, _) =
           setUpMockPlayer(playerId: 1, textureId: 100);

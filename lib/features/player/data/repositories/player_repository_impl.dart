@@ -116,7 +116,7 @@ class PlayerRepositoryImpl implements PlayerRepository {
       audioTracks: audioTracks,
       subtitleTracks: subtitleTracks,
       variants: variants,
-      httpHeaders: context.manifest.httpHeaders,
+      httpHeaders: context.manifest.normalizedHttpHeaders,
     );
   }
 

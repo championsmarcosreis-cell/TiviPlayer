@@ -59,41 +59,50 @@ final class XiaomiDeviceQuirks {
         .build();
   }
 
-  static boolean shouldUseVlcFallback(
+  @NonNull
+  static VideoAsset.PlaybackDecision resolvePlaybackDecision(
       @Nullable String assetUrl,
       @NonNull VideoAsset.StreamingFormat streamingFormat,
       @NonNull Map<String, String> httpHeaders,
       @Nullable String userAgent) {
     if (assetUrl == null || streamingFormat != VideoAsset.StreamingFormat.UNKNOWN) {
-      return false;
+      return VideoAsset.PlaybackDecision.exoPlayer("explicit_streaming_format", null);
     }
 
     Uri uri = Uri.parse(assetUrl);
     if (!isSupportedXtreamLiveUrl(uri)) {
-      return false;
+      return VideoAsset.PlaybackDecision.exoPlayer("non_xtream_live_stream", null);
     }
 
     String lastSegment = uri.getLastPathSegment();
     if (STREAM_IDS_REQUIRING_VLC_FALLBACK.contains(lastSegment)) {
-      Log.i(TAG, "Using LibVLC fallback because stream_id " + lastSegment + " is explicitly whitelisted.");
-      return true;
+      return VideoAsset.PlaybackDecision.libVlc(
+          "stream_id_whitelist",
+          "stream_id " + lastSegment + " is explicitly whitelisted",
+          null);
     }
 
     if (shouldApply()) {
-      return true;
+      return VideoAsset.PlaybackDecision.libVlc(
+          "xiaomi_brand_fallback",
+          "device brand requires Xiaomi/Redmi/Poco fallback",
+          null);
     }
 
     if (!shouldApplySamsungAdtsFallback()) {
-      return false;
+      return VideoAsset.PlaybackDecision.exoPlayer("no_matching_fallback_rule", null);
     }
 
     TransportStreamProbe.AudioProfile cachedProfile = SAMSUNG_STREAM_AUDIO_CACHE.get(assetUrl);
     if (cachedProfile == TransportStreamProbe.AudioProfile.AAC_ADTS) {
-      Log.i(TAG, "Using cached Samsung ADTS fallback decision for " + assetUrl);
-      return true;
+      return VideoAsset.PlaybackDecision.libVlc(
+          "samsung_adts_probe_cache",
+          "cached Samsung AAC ADTS detection",
+          cachedProfile.name());
     }
     if (cachedProfile == TransportStreamProbe.AudioProfile.OTHER_AUDIO) {
-      return false;
+      return VideoAsset.PlaybackDecision.exoPlayer(
+          "samsung_adts_probe_cache", cachedProfile.name());
     }
 
     TransportStreamProbe.AudioProfile detectedProfile =
@@ -105,11 +114,22 @@ final class XiaomiDeviceQuirks {
       SAMSUNG_STREAM_AUDIO_CACHE.put(assetUrl, detectedProfile);
     }
     if (detectedProfile == TransportStreamProbe.AudioProfile.AAC_ADTS) {
-      Log.i(TAG, "Using LibVLC fallback because Samsung probe detected AAC ADTS for " + assetUrl);
-      return true;
+      return VideoAsset.PlaybackDecision.libVlc(
+          "samsung_adts_probe",
+          "Samsung probe detected AAC ADTS",
+          detectedProfile.name());
     }
 
-    return false;
+    return VideoAsset.PlaybackDecision.exoPlayer("samsung_adts_probe", detectedProfile.name());
+  }
+
+  static boolean shouldUseVlcFallback(
+      @Nullable String assetUrl,
+      @NonNull VideoAsset.StreamingFormat streamingFormat,
+      @NonNull Map<String, String> httpHeaders,
+      @Nullable String userAgent) {
+    return resolvePlaybackDecision(assetUrl, streamingFormat, httpHeaders, userAgent)
+        .shouldUseVlcFallback();
   }
 
   @NonNull

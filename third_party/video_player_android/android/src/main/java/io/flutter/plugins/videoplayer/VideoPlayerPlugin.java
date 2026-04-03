@@ -5,6 +5,7 @@
 package io.flutter.plugins.videoplayer;
 
 import android.content.Context;
+import android.net.Uri;
 import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -102,13 +103,14 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   @Override
   public @NonNull TexturePlayerIds createForTextureView(@NonNull CreationOptions options) {
     final VideoAsset videoAsset = videoAssetWithOptions(options);
+    final VideoAsset.PlaybackDecision playbackDecision = videoAsset.getPlaybackDecision();
 
     long id = nextPlayerIdentifier++;
     final String streamInstance = Long.toString(id);
     TextureRegistry.SurfaceProducer handle = flutterState.textureRegistry.createSurfaceProducer();
     ManagedVideoPlayer videoPlayer;
-    if (videoAsset.shouldUseVlcFallback()) {
-      Log.i(TAG, "Applying LibVLC fallback for texture playback: " + options.getUri());
+    logPlaybackDecision("texture_view", options, videoAsset, playbackDecision);
+    if (playbackDecision.shouldUseVlcFallback()) {
       videoPlayer =
           XiaomiVlcVideoPlayer.create(
               flutterState.applicationContext,
@@ -167,6 +169,68 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         () -> VideoPlayerInstanceApi.Companion.setUp(messenger, null, channelSuffix));
 
     videoPlayers.put(id, player);
+  }
+
+  private void logPlaybackDecision(
+      @NonNull String viewType,
+      @NonNull CreationOptions options,
+      @NonNull VideoAsset videoAsset,
+      @NonNull VideoAsset.PlaybackDecision playbackDecision) {
+    final String fallbackReason =
+        playbackDecision.getFallbackReason() == null
+            ? "none"
+            : playbackDecision.getFallbackReason();
+    final String probeResult =
+        playbackDecision.getProbeResult() == null ? "none" : playbackDecision.getProbeResult();
+    final String formatHint =
+        options.getFormatHint() == null ? "none" : options.getFormatHint().name();
+    Log.i(
+        TAG,
+        "Playback decision"
+            + " viewType="
+            + viewType
+            + " engine="
+            + playbackDecision.getEngineName()
+            + " rule="
+            + playbackDecision.getAppliedRule()
+            + " fallbackReason="
+            + fallbackReason
+            + " probeResult="
+            + probeResult
+            + " formatHint="
+            + formatHint
+            + " headerKeys="
+            + videoAsset.getHttpHeaders().keySet()
+            + " hasUserAgent="
+            + hasUserAgent(videoAsset)
+            + " uri="
+            + summarizeUri(options.getUri()));
+  }
+
+  private boolean hasUserAgent(@NonNull VideoAsset videoAsset) {
+    final String userAgent = videoAsset.getUserAgent();
+    return userAgent != null && !userAgent.isEmpty();
+  }
+
+  @NonNull
+  private String summarizeUri(@Nullable String rawUri) {
+    if (rawUri == null || rawUri.isEmpty()) {
+      return "unknown";
+    }
+
+    try {
+      Uri uri = Uri.parse(rawUri);
+      String host = uri.getHost();
+      String lastPathSegment = uri.getLastPathSegment();
+      return uri.getScheme()
+          + "://"
+          + (host == null || host.isEmpty() ? "unknown-host" : host)
+          + "/..."
+          + "/"
+          + (lastPathSegment == null || lastPathSegment.isEmpty() ? "unknown" : lastPathSegment);
+    } catch (RuntimeException exception) {
+      return "unparseable";
+    }
   }
 
   @NonNull

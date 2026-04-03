@@ -1,6 +1,7 @@
 package io.flutter.plugins.videoplayer;
 
 import android.util.Log;
+import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -77,15 +78,24 @@ final class TransportStreamProbe {
       return future.get(FUTURE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
     } catch (TimeoutException exception) {
       future.cancel(true);
-      Log.w(TAG, "Timed out probing transport stream audio profile for " + assetUrl, exception);
+      Log.w(
+          TAG,
+          "Timed out probing transport stream audio profile for " + summarizeUri(assetUrl),
+          exception);
       return AudioProfile.UNKNOWN;
     } catch (InterruptedException exception) {
       future.cancel(true);
       Thread.currentThread().interrupt();
-      Log.w(TAG, "Interrupted while probing transport stream audio profile for " + assetUrl, exception);
+      Log.w(
+          TAG,
+          "Interrupted while probing transport stream audio profile for " + summarizeUri(assetUrl),
+          exception);
       return AudioProfile.UNKNOWN;
     } catch (ExecutionException exception) {
-      Log.w(TAG, "Failed to probe transport stream audio profile for " + assetUrl, exception);
+      Log.w(
+          TAG,
+          "Failed to probe transport stream audio profile for " + summarizeUri(assetUrl),
+          exception);
       return AudioProfile.UNKNOWN;
     }
   }
@@ -114,17 +124,30 @@ final class TransportStreamProbe {
       connection.connect();
       int responseCode = connection.getResponseCode();
       if (responseCode >= 400) {
-        Log.w(TAG, "Probe request returned HTTP " + responseCode + " for " + assetUrl);
+        Log.w(
+            TAG,
+            "Probe request returned HTTP "
+                + responseCode
+                + " for "
+                + summarizeUri(assetUrl));
         return AudioProfile.UNKNOWN;
       }
       try (InputStream inputStream = connection.getInputStream()) {
         byte[] sample = readProbeSample(inputStream);
         AudioProfile profile = inspectSample(sample, sample.length);
-        Log.i(TAG, "Detected transport stream audio profile " + profile + " for " + assetUrl);
+        Log.i(
+            TAG,
+            "Detected transport stream audio profile "
+                + profile
+                + " for "
+                + summarizeUri(assetUrl));
         return profile;
       }
     } catch (IOException exception) {
-      Log.w(TAG, "I/O error probing transport stream audio profile for " + assetUrl, exception);
+      Log.w(
+          TAG,
+          "I/O error probing transport stream audio profile for " + summarizeUri(assetUrl),
+          exception);
       return AudioProfile.UNKNOWN;
     } finally {
       if (connection != null) {
@@ -314,5 +337,26 @@ final class TransportStreamProbe {
         || streamType == 0x11
         || streamType == 0x81
         || streamType == 0x87;
+  }
+
+  @NonNull
+  private static String summarizeUri(@Nullable String rawUri) {
+    if (rawUri == null || rawUri.isEmpty()) {
+      return "unknown";
+    }
+
+    try {
+      Uri uri = Uri.parse(rawUri);
+      String host = uri.getHost();
+      String lastPathSegment = uri.getLastPathSegment();
+      return uri.getScheme()
+          + "://"
+          + (host == null || host.isEmpty() ? "unknown-host" : host)
+          + "/..."
+          + "/"
+          + (lastPathSegment == null || lastPathSegment.isEmpty() ? "unknown" : lastPathSegment);
+    } catch (RuntimeException exception) {
+      return "unparseable";
+    }
   }
 }

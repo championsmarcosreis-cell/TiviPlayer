@@ -23,6 +23,7 @@ final class HttpVideoAsset extends VideoAsset {
   @NonNull private final StreamingFormat streamingFormat;
   @NonNull private final Map<String, String> httpHeaders;
   @Nullable private final String userAgent;
+  @Nullable private PlaybackDecision playbackDecision;
 
   HttpVideoAsset(
       @Nullable String assetUrl,
@@ -94,7 +95,18 @@ final class HttpVideoAsset extends VideoAsset {
 
   @Override
   public boolean shouldUseVlcFallback() {
-    return XiaomiDeviceQuirks.shouldUseVlcFallback(assetUrl, streamingFormat, httpHeaders, userAgent);
+    return getPlaybackDecision().shouldUseVlcFallback();
+  }
+
+  @NonNull
+  @Override
+  public PlaybackDecision getPlaybackDecision() {
+    if (playbackDecision == null) {
+      playbackDecision =
+          XiaomiDeviceQuirks.resolvePlaybackDecision(
+              assetUrl, streamingFormat, httpHeaders, userAgent);
+    }
+    return playbackDecision;
   }
 
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.

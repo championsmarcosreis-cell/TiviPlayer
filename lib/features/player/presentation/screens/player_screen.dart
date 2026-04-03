@@ -424,9 +424,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         final resolvedPlayback = ref
             .read(resolvePlaybackUseCaseProvider)
             .call(session, playbackContext);
+        final runtimeContract = resolvedPlayback.runtimeContract;
+        final formatHint = _resolveVideoFormatHint(runtimeContract.sourceType);
+        final sanitizedRuntimeUri = _summarizeTelemetryUri(runtimeContract.uri);
+
+        _recordTelemetry(
+          PlayerTelemetryEvent(
+            type: PlayerTelemetryEventType.playbackRuntimePrepared,
+            message: 'Prepared playback runtime contract',
+            attributes: <String, Object?>{
+              'uri': sanitizedRuntimeUri,
+              'isLive': resolvedPlayback.isLive,
+              'sourceType': runtimeContract.sourceType.name,
+              'formatHint': formatHint?.name,
+              'httpHeaderCount': runtimeContract.httpHeaders.length,
+              'httpHeaderNames': runtimeContract.httpHeaders.keys.join(','),
+              'userAgent': runtimeContract.userAgent,
+            },
+          ),
+        );
 
         final controller = VideoPlayerController.networkUrl(
-          resolvedPlayback.uri,
+          runtimeContract.uri,
+          formatHint: formatHint,
+          httpHeaders: runtimeContract.httpHeaders,
         );
         attemptController = controller;
         await controller.initialize();
@@ -478,6 +499,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             manifest,
           );
         });
+        _recordTelemetry(
+          PlayerTelemetryEvent(
+            type: PlayerTelemetryEventType.playbackRuntimeReady,
+            message: 'Initialized playback runtime contract',
+            attributes: <String, Object?>{
+              'uri': sanitizedRuntimeUri,
+              'isLive': resolvedPlayback.isLive,
+              'sourceType': runtimeContract.sourceType.name,
+              'formatHint': formatHint?.name,
+              'httpHeaderCount': runtimeContract.httpHeaders.length,
+              'userAgent': runtimeContract.userAgent,
+            },
+          ),
+        );
         _runtimeRecoveryAttempts = 0;
         _lastKnownPlaying = _isPlaybackActive(controller.value);
         _revealPlaybackUi(autoHide: _lastKnownPlaying);
@@ -1540,6 +1575,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 }
 
+VideoFormat? _resolveVideoFormatHint(PlaybackSourceType sourceType) {
+  return switch (sourceType) {
+    PlaybackSourceType.hls => VideoFormat.hls,
+    PlaybackSourceType.dash => VideoFormat.dash,
+    PlaybackSourceType.progressive => VideoFormat.other,
+    PlaybackSourceType.unknown => null,
+  };
+}
+
+String _summarizeTelemetryUri(Uri uri) {
+  final host = uri.host.trim().isEmpty ? 'unknown-host' : uri.host;
+  final pathSegments = uri.pathSegments.where((segment) => segment.isNotEmpty);
+  final lastSegment = pathSegments.isEmpty ? 'unknown' : pathSegments.last;
+  final scheme = uri.scheme.trim().isEmpty ? 'unknown' : uri.scheme;
+  return '$scheme://$host/.../$lastSegment';
+}
+
 class _PlayerSurface extends StatelessWidget {
   const _PlayerSurface({required this.controller});
 
@@ -1578,10 +1630,7 @@ class _PlayerSurface extends StatelessWidget {
               ),
             )
           : Center(
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: videoStage,
-              ),
+              child: FittedBox(fit: BoxFit.contain, child: videoStage),
             ),
     );
   }

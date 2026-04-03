@@ -63,4 +63,39 @@ class PlaybackManifest {
       audioTracks.isNotEmpty || subtitleTracks.isNotEmpty;
 
   bool get hasVariants => variants.isNotEmpty;
+
+  Map<String, String> get normalizedHttpHeaders {
+    if (httpHeaders.isEmpty) {
+      return const <String, String>{};
+    }
+
+    final normalized = <String, String>{};
+    for (final entry in httpHeaders.entries) {
+      final key = entry.key.trim();
+      if (key.isEmpty) {
+        continue;
+      }
+
+      final canonicalKey = _canonicalHttpHeaderName(key);
+      normalized[canonicalKey] = entry.value;
+    }
+    return Map.unmodifiable(normalized);
+  }
+
+  String? get userAgent {
+    for (final entry in normalizedHttpHeaders.entries) {
+      if (entry.key == 'User-Agent') {
+        final value = entry.value.trim();
+        return value.isEmpty ? null : value;
+      }
+    }
+    return null;
+  }
+}
+
+String _canonicalHttpHeaderName(String key) {
+  if (key.toLowerCase() == 'user-agent') {
+    return 'User-Agent';
+  }
+  return key;
 }
