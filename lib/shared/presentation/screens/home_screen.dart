@@ -367,6 +367,12 @@ _ContinueWatchingData? _resolveContinueItem(
         containerExtension: entry.containerExtension,
         artworkUrl: entry.artworkUrl,
         resumePosition: resumeAt,
+        capabilities: switch (entry.contentType) {
+          PlaybackContentType.live =>
+            const PlaybackSessionCapabilities.liveLinear(),
+          PlaybackContentType.vod || PlaybackContentType.seriesEpisode =>
+            const PlaybackSessionCapabilities.onDemand(),
+        },
       ),
     ),
   );

@@ -39,6 +39,16 @@ void main() {
     expect(adapter.supportsAutoQualitySelection, isFalse);
   });
 
+  test('exposes no runtime audio capability or tracks', () async {
+    final isAvailable = await adapter.isAudioTrackSelectionAvailable(
+      playback: playback,
+    );
+    final tracks = await adapter.getAudioTracks(playback: playback);
+
+    expect(isAvailable, isFalse);
+    expect(tracks, isEmpty);
+  });
+
   test('returns notSupported for runtime selection requests', () async {
     final audioResult = await adapter.selectAudioTrack(
       playback: playback,

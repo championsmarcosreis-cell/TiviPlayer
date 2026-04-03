@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../domain/engine/player_engine_adapter.dart';
 import '../../domain/entities/playback_manifest.dart';
@@ -38,11 +39,99 @@ class AndroidChannelPlayerEngineAdapter implements PlayerEngineAdapter {
   bool get supportsAutoQualitySelection => _supportsAutoQualitySelection;
 
   @override
+  Future<bool> isAudioTrackSelectionAvailable({
+    required ResolvedPlayback playback,
+    VideoPlayerController? controller,
+  }) async {
+    await _capabilitiesFuture;
+    if (controller != null && controller.value.isInitialized) {
+      final isAvailable = controller.isAudioTrackSupportAvailable();
+      _supportsAudioTrackSelection = isAvailable;
+      return isAvailable;
+    }
+    return _supportsAudioTrackSelection;
+  }
+
+  @override
+  Future<List<PlaybackTrack>> getAudioTracks({
+    required ResolvedPlayback playback,
+    VideoPlayerController? controller,
+  }) async {
+    await _capabilitiesFuture;
+    if (controller == null || !controller.value.isInitialized) {
+      return const <PlaybackTrack>[];
+    }
+
+    final isAvailable = controller.isAudioTrackSupportAvailable();
+    _supportsAudioTrackSelection = isAvailable;
+    if (!isAvailable) {
+      return const <PlaybackTrack>[];
+    }
+
+    try {
+      final tracks = await controller.getAudioTracks();
+      return tracks
+          .map(_mapAudioTrack)
+          .where((track) => track.id.trim().isNotEmpty)
+          .toList(growable: false);
+    } on MissingPluginException {
+      _supportsAudioTrackSelection = false;
+      return const <PlaybackTrack>[];
+    } on PlatformException {
+      return const <PlaybackTrack>[];
+    } on StateError {
+      return const <PlaybackTrack>[];
+    }
+  }
+
+  @override
   Future<PlayerSelectionApplyResult> selectAudioTrack({
     required ResolvedPlayback playback,
     required PlaybackTrack track,
+    VideoPlayerController? controller,
   }) async {
     await _capabilitiesFuture;
+    if (controller != null && controller.value.isInitialized) {
+      final isAvailable = controller.isAudioTrackSupportAvailable();
+      _supportsAudioTrackSelection = isAvailable;
+      if (!isAvailable) {
+        return PlayerSelectionApplyResult.notSupported;
+      }
+
+      try {
+        await controller.selectAudioTrack(track.id);
+        _recordSelectionResult(
+          'selectAudioTrack',
+          PlayerSelectionApplyResult.applied,
+          raw: <String, Object?>{'mode': 'video_player', 'trackId': track.id},
+        );
+        return PlayerSelectionApplyResult.applied;
+      } on MissingPluginException {
+        return PlayerSelectionApplyResult.notSupported;
+      } on PlatformException catch (error) {
+        _recordSelectionResult(
+          'selectAudioTrack',
+          PlayerSelectionApplyResult.failed,
+          raw: <String, Object?>{
+            'mode': 'video_player',
+            'code': error.code,
+            'message': error.message,
+          },
+        );
+        return PlayerSelectionApplyResult.failed;
+      } on StateError catch (error) {
+        _recordSelectionResult(
+          'selectAudioTrack',
+          PlayerSelectionApplyResult.failed,
+          raw: <String, Object?>{
+            'mode': 'video_player',
+            'message': error.message,
+          },
+        );
+        return PlayerSelectionApplyResult.failed;
+      }
+    }
+
     return _invokeSelection('selectAudioTrack', <String, Object?>{
       ..._playbackPayload(playback),
       'track': _trackPayload(track),
@@ -146,6 +235,36 @@ class AndroidChannelPlayerEngineAdapter implements PlayerEngineAdapter {
       );
       return PlayerSelectionApplyResult.failed;
     }
+  }
+
+  PlaybackTrack _mapAudioTrack(VideoAudioTrack track) {
+    return PlaybackTrack(
+      id: track.id,
+      type: PlaybackTrackType.audio,
+      label: _resolveRuntimeAudioTrackLabel(track),
+      languageCode: track.language,
+      codec: track.codec,
+      isDefault: track.isSelected,
+    );
+  }
+
+  String _resolveRuntimeAudioTrackLabel(VideoAudioTrack track) {
+    final label = track.label?.trim();
+    if (label != null && label.isNotEmpty) {
+      return label;
+    }
+
+    final language = track.language?.trim();
+    if (language != null && language.isNotEmpty) {
+      return language.toUpperCase();
+    }
+
+    final codec = track.codec?.trim();
+    if (codec != null && codec.isNotEmpty) {
+      return codec.toUpperCase();
+    }
+
+    return 'Faixa ${track.id}';
   }
 
   Map<String, Object?> _playbackPayload(ResolvedPlayback playback) {

@@ -76,6 +76,8 @@ class VodDetailsScreen extends ConsumerWidget {
                           title: item.name,
                           containerExtension: item.containerExtension,
                           artworkUrl: item.coverUrl,
+                          capabilities:
+                              const PlaybackSessionCapabilities.onDemand(),
                         ),
                       ),
                       onToggleFavorite: () => ref

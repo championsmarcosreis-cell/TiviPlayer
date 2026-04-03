@@ -1,6 +1,7 @@
 import '../../domain/engine/player_engine_adapter.dart';
 import '../../domain/entities/playback_manifest.dart';
 import '../../domain/entities/resolved_playback.dart';
+import 'package:video_player/video_player.dart';
 
 class VideoPlayerEngineAdapter implements PlayerEngineAdapter {
   const VideoPlayerEngineAdapter();
@@ -18,9 +19,26 @@ class VideoPlayerEngineAdapter implements PlayerEngineAdapter {
   bool get supportsAutoQualitySelection => false;
 
   @override
+  Future<bool> isAudioTrackSelectionAvailable({
+    required ResolvedPlayback playback,
+    VideoPlayerController? controller,
+  }) async {
+    return false;
+  }
+
+  @override
+  Future<List<PlaybackTrack>> getAudioTracks({
+    required ResolvedPlayback playback,
+    VideoPlayerController? controller,
+  }) async {
+    return const <PlaybackTrack>[];
+  }
+
+  @override
   Future<PlayerSelectionApplyResult> selectAudioTrack({
     required ResolvedPlayback playback,
     required PlaybackTrack track,
+    VideoPlayerController? controller,
   }) async {
     return PlayerSelectionApplyResult.notSupported;
   }

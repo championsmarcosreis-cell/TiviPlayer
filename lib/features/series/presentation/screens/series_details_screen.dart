@@ -136,6 +136,7 @@ void _openEpisode(
       title: '${item.name} • ${episode.title}',
       containerExtension: episode.containerExtension,
       artworkUrl: item.coverUrl,
+      capabilities: const PlaybackSessionCapabilities.onDemand(),
     ),
   );
 }

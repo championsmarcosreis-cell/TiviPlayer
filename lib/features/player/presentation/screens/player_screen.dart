@@ -20,6 +20,7 @@ import '../../domain/entities/player_runtime_issue.dart';
 import '../../domain/entities/resolved_playback.dart';
 import '../../domain/observability/player_telemetry.dart';
 import '../providers/player_providers.dart';
+import '../support/player_screen_arguments.dart';
 import '../widgets/player_control_button.dart';
 
 class PlayerPreviewState {
@@ -43,16 +44,31 @@ enum _PlayerOverlayVisibility { expanded, compact, hidden }
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({
     super.key,
-    required this.playbackContext,
+    this.arguments,
+    this.playbackContext,
+    this.liveNavigation,
     this.previewState,
     this.recoveryPolicy = const PlayerRecoveryPolicy(),
-  });
+  }) : assert(
+         arguments == null ||
+             (playbackContext == null && liveNavigation == null),
+         'When PlayerScreenArguments is provided, do not pass playbackContext '
+         'or liveNavigation separately.',
+       );
 
   static const routePath = '/player';
 
+  final PlayerScreenArguments? arguments;
   final PlaybackContext? playbackContext;
+  final PlayerLiveNavigation? liveNavigation;
   final PlayerPreviewState? previewState;
   final PlayerRecoveryPolicy recoveryPolicy;
+
+  PlaybackContext? get initialPlaybackContext =>
+      arguments?.playbackContext ?? playbackContext;
+
+  PlayerLiveNavigation? get initialLiveNavigation =>
+      arguments?.liveNavigation ?? liveNavigation;
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
@@ -61,6 +77,7 @@ class PlayerScreen extends ConsumerStatefulWidget {
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   VideoPlayerController? _controller;
   PlaybackContext? _activePlaybackContext;
+  PlayerLiveNavigation? _activeLiveNavigation;
   ResolvedPlayback? _resolvedPlayback;
   String? _errorMessage;
   String? _statusMessage;
@@ -81,10 +98,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   DateTime? _lastRuntimeRecoveryStartedAt;
   bool _isMuted = false;
   double _lastVolumeBeforeMute = 1;
-  List<String> _audioTracks = const [];
+  List<PlaybackTrack> _audioTracks = const [];
   List<String> _subtitleTracks = const [];
   List<String> _qualityProfiles = const [];
-  String? _selectedAudioTrack;
+  bool _hasRuntimeAudioTrackSelection = false;
+  String? _selectedAudioTrackId;
   String? _selectedSubtitleTrack;
   String? _selectedQualityProfile;
   late final PlaybackHistoryController _playbackHistoryController;
@@ -96,7 +114,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
     unawaited(_enterPlayerImmersiveMode());
-    _activePlaybackContext = widget.playbackContext;
+    _activePlaybackContext =
+        widget.initialPlaybackContext ??
+        widget.initialLiveNavigation?.playbackContext;
+    _activeLiveNavigation = widget.initialLiveNavigation;
     _playbackHistoryController = ref.read(
       playbackHistoryControllerProvider.notifier,
     );
@@ -113,8 +134,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void didUpdateWidget(covariant PlayerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.playbackContext != oldWidget.playbackContext) {
-      _activePlaybackContext = widget.playbackContext;
+    if (widget.arguments != oldWidget.arguments ||
+        widget.playbackContext != oldWidget.playbackContext ||
+        widget.liveNavigation != oldWidget.liveNavigation) {
+      _activeLiveNavigation = widget.initialLiveNavigation;
+      _activePlaybackContext =
+          widget.initialPlaybackContext ??
+          widget.initialLiveNavigation?.playbackContext;
     }
   }
 
@@ -245,9 +271,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       resolvedPlayback: resolvedPlayback,
                       layout: layout,
                       isMuted: _isMuted,
-                      selectedAudioTrack:
-                          _selectedAudioTrack ??
-                          (_audioTracks.isEmpty ? null : _audioTracks.first),
+                      selectedAudioTrack: _selectedAudioTrackLabel,
+                      showAudioTrackSelector: _canSelectAudioTrack,
                       selectedSubtitleTrack: _selectedSubtitleTrack,
                       selectedQualityProfile: _selectedQualityProfile,
                       qualityLabel: streamMetrics?.qualityLabel,
@@ -336,7 +361,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _audioTracks = const [];
         _subtitleTracks = const [];
         _qualityProfiles = const [];
-        _selectedAudioTrack = null;
+        _hasRuntimeAudioTrackSelection = false;
+        _selectedAudioTrackId = null;
         _selectedSubtitleTrack = null;
         _selectedQualityProfile = null;
       });
@@ -382,7 +408,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _audioTracks = const [];
         _subtitleTracks = const [];
         _qualityProfiles = const [];
-        _selectedAudioTrack = null;
+        _hasRuntimeAudioTrackSelection = false;
+        _selectedAudioTrackId = null;
         _selectedSubtitleTrack = null;
         _selectedQualityProfile = null;
       });
@@ -453,7 +480,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         await controller.initialize();
         final resumePosition = playbackContext.resumePosition;
         if (resumePosition != null &&
-            resolvedPlayback.isSeekable &&
+            resolvedPlayback.canResume &&
             resumePosition > Duration.zero) {
           final maxResume =
               controller.value.duration - const Duration(seconds: 2);
@@ -468,8 +495,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ? 0.0
             : _lastVolumeBeforeMute.clamp(0.0, 1.0);
         await controller.setVolume(targetVolume);
-        final manifest = resolvedPlayback.manifest;
-        final audioTracks = _audioTrackLabels(manifest);
+        final runtimeAudioState = await _loadRuntimeAudioState(
+          controller,
+          resolvedPlayback,
+        );
+        final runtimeResolvedPlayback = runtimeAudioState.playback;
+        final manifest = runtimeResolvedPlayback.manifest;
         final subtitleTracks = _subtitleTrackLabels(manifest);
         final qualityProfiles = _qualityProfileLabels(manifest);
         controller.addListener(_handleControllerUpdate);
@@ -483,17 +514,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         }
 
         setState(() {
-          _resolvedPlayback = resolvedPlayback;
+          _resolvedPlayback = runtimeResolvedPlayback;
           _controller = controller;
           _isInitializing = false;
           _errorMessage = null;
           _statusMessage = null;
           _interactionMessage = null;
           _isRecoveringRuntime = false;
-          _audioTracks = audioTracks;
+          _audioTracks = runtimeAudioState.tracks;
           _subtitleTracks = subtitleTracks;
           _qualityProfiles = qualityProfiles;
-          _selectedAudioTrack = _resolveDefaultAudioTrackLabel(manifest);
+          _hasRuntimeAudioTrackSelection = runtimeAudioState.selectionAvailable;
+          _selectedAudioTrackId = runtimeAudioState.selectedTrackId;
           _selectedSubtitleTrack = _resolveDefaultSubtitleTrackLabel(manifest);
           _selectedQualityProfile = _resolveDefaultQualityProfileLabel(
             manifest,
@@ -540,7 +572,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _audioTracks = const [];
       _subtitleTracks = const [];
       _qualityProfiles = const [];
-      _selectedAudioTrack = null;
+      _hasRuntimeAudioTrackSelection = false;
+      _selectedAudioTrackId = null;
       _selectedSubtitleTrack = null;
       _selectedQualityProfile = null;
       _errorMessage = Failure.fromError(
@@ -756,7 +789,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _persistPlaybackProgress({bool force = false}) {
     final controller = _controller;
     final resolved = _resolvedPlayback;
-    if (controller == null || resolved == null || !resolved.isSeekable) {
+    if (controller == null || resolved == null || !resolved.canResume) {
       return;
     }
 
@@ -867,22 +900,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _selectAudioTrack() async {
+    final controller = _controller;
+    final resolvedPlayback = _resolvedPlayback;
     final tracks = _audioTracks;
-    if (tracks.isEmpty) {
+    if (!_canSelectAudioTrack ||
+        controller == null ||
+        resolvedPlayback == null ||
+        tracks.isEmpty) {
       _showInteractionMessage('Audio indisponivel');
       return;
     }
 
-    final selected = await _chooseTrack(
+    final options = buildAudioSelectionOptions(tracks);
+    final selectedTrackId = await _chooseSelectionOption(
       title: 'Faixa de audio',
-      tracks: tracks,
-      currentSelection: _selectedAudioTrack ?? tracks.first,
-      allowOff: false,
-      helperText: _playerEngineAdapter.supportsAudioTrackSelection
-          ? null
-          : 'A engine atual nao aplica troca de audio em runtime.',
+      options: options,
+      currentSelectionId:
+          _selectedAudioTrackId ?? _resolveSelectedAudioTrackId(tracks),
     );
-    if (!mounted || selected == null) {
+    if (!mounted || selectedTrackId == null) {
       return;
     }
     _recordTelemetry(
@@ -890,48 +926,120 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         type: PlayerTelemetryEventType.selectionRequested,
         message: 'Selecao de audio solicitada.',
         attributes: <String, Object?>{
-          'selected': selected,
-          'supports': _playerEngineAdapter.supportsAudioTrackSelection,
+          'selectedTrackId': selectedTrackId,
+          'supports': _hasRuntimeAudioTrackSelection,
         },
       ),
     );
-
-    final resolvedPlayback = _resolvedPlayback;
-    if (resolvedPlayback == null) {
-      _showInteractionMessage('Playback indisponivel');
-      return;
-    }
-    final track = _resolveTrackByLabel(
-      resolvedPlayback.manifest.audioTracks,
-      selected,
-    );
+    final track = _resolveAudioTrackById(tracks, selectedTrackId);
     if (track == null) {
       _showInteractionMessage('Faixa de audio invalida');
       return;
     }
 
-    setState(() {
-      _selectedAudioTrack = selected;
-    });
-
     final result = await _playerEngineAdapter.selectAudioTrack(
       playback: resolvedPlayback,
       track: track,
+      controller: controller,
     );
     if (!mounted || _isDisposing) {
       return;
     }
-    _showInteractionMessage(_audioSelectionMessage(selected, result));
+    if (result == PlayerSelectionApplyResult.applied) {
+      final runtimeAudioState = await _loadRuntimeAudioState(
+        controller,
+        resolvedPlayback,
+      );
+      if (!mounted || _isDisposing) {
+        return;
+      }
+      setState(() {
+        _resolvedPlayback = runtimeAudioState.playback;
+        _audioTracks = runtimeAudioState.tracks;
+        _hasRuntimeAudioTrackSelection = runtimeAudioState.selectionAvailable;
+        _selectedAudioTrackId = runtimeAudioState.selectedTrackId;
+      });
+    }
+    final selectedLabel = _displayAudioTrackLabel(track, tracks);
+    _showInteractionMessage(_audioSelectionMessage(selectedLabel, result));
     _recordTelemetry(
       PlayerTelemetryEvent(
         type: PlayerTelemetryEventType.selectionResult,
         message: 'Selecao de audio concluida.',
         attributes: <String, Object?>{
-          'selected': selected,
+          'selectedTrackId': selectedTrackId,
+          'selectedLabel': selectedLabel,
           'result': result.name,
         },
       ),
     );
+  }
+
+  Future<_RuntimeAudioState> _loadRuntimeAudioState(
+    VideoPlayerController controller,
+    ResolvedPlayback playback,
+  ) async {
+    final selectionAvailable = await _playerEngineAdapter
+        .isAudioTrackSelectionAvailable(
+          playback: playback,
+          controller: controller,
+        );
+    final tracks = selectionAvailable
+        ? await _playerEngineAdapter.getAudioTracks(
+            playback: playback,
+            controller: controller,
+          )
+        : const <PlaybackTrack>[];
+    final manifest = playback.manifest.copyWith(audioTracks: tracks);
+    final capabilities = playback.context.capabilities.copyWith(
+      hasAudioTracks: tracks.isNotEmpty,
+    );
+    final context = playback.context.copyWith(
+      manifest: manifest,
+      capabilities: capabilities,
+    );
+
+    return _RuntimeAudioState(
+      playback: playback.copyWith(context: context, manifest: manifest),
+      tracks: tracks,
+      selectionAvailable: selectionAvailable,
+      selectedTrackId: _resolveSelectedAudioTrackId(tracks),
+    );
+  }
+
+  bool get _canSelectAudioTrack =>
+      _hasRuntimeAudioTrackSelection && _audioTracks.length > 1;
+
+  String? get _selectedAudioTrackLabel {
+    final selectedTrack = _selectedAudioTrack;
+    if (selectedTrack == null) {
+      return null;
+    }
+
+    return _displayAudioTrackLabel(selectedTrack, _audioTracks);
+  }
+
+  PlaybackTrack? get _selectedAudioTrack {
+    if (_audioTracks.isEmpty) {
+      return null;
+    }
+
+    final selectedTrackId = _selectedAudioTrackId;
+    if (selectedTrackId != null) {
+      for (final track in _audioTracks) {
+        if (track.id == selectedTrackId) {
+          return track;
+        }
+      }
+    }
+
+    for (final track in _audioTracks) {
+      if (track.isDefault) {
+        return track;
+      }
+    }
+
+    return _audioTracks.first;
   }
 
   Future<void> _selectSubtitleTrack() async {
@@ -1180,13 +1288,75 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
   }
 
+  Future<String?> _chooseSelectionOption({
+    required String title,
+    required List<PlayerSelectionOption> options,
+    required String? currentSelectionId,
+    String? helperText,
+  }) async {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFF101826),
+      builder: (context) {
+        final effectiveCurrent =
+            currentSelectionId ?? (options.isEmpty ? null : options.first.id);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (helperText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    helperText,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                for (final option in options)
+                  ListTile(
+                    dense: true,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    title: Text(
+                      option.label,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    trailing: option.id == effectiveCurrent
+                        ? const Icon(Icons.check_rounded, color: Colors.white)
+                        : null,
+                    onTap: () => Navigator.of(context).pop(option.id),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _seekRelative(Duration offset) async {
     final controller = _controller;
     final resolvedPlayback = _resolvedPlayback;
 
     if (controller == null ||
         resolvedPlayback == null ||
-        !resolvedPlayback.isSeekable) {
+        !resolvedPlayback.canSeek) {
       return;
     }
     _revealPlaybackUi();
@@ -1207,37 +1377,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _showInteractionMessage('$direction${seconds}s');
   }
 
-  PlaybackContext? get _liveContextWithNavigation {
-    final contextData = _activePlaybackContext;
-    if (contextData == null || !contextData.hasLiveChannelNavigation) {
+  PlayerLiveNavigation? get _liveNavigationWithChannelSwitching {
+    final liveNavigation = _activeLiveNavigation;
+    if (liveNavigation == null || !liveNavigation.hasChannelNavigation) {
       return null;
     }
-    return contextData;
+    return liveNavigation;
   }
 
   bool get _canGoToPreviousLiveChannel =>
-      _liveContextWithNavigation?.previousLiveChannel != null;
+      _liveNavigationWithChannelSwitching?.previousChannel != null;
 
   bool get _canGoToNextLiveChannel =>
-      _liveContextWithNavigation?.nextLiveChannel != null;
+      _liveNavigationWithChannelSwitching?.nextChannel != null;
 
   Future<void> _navigateToAdjacentLiveChannel(int offset) async {
-    final contextData = _liveContextWithNavigation;
-    final currentIndex = contextData?.resolvedLiveChannelIndex;
-    if (contextData == null ||
-        currentIndex == null ||
-        _isInitializing ||
-        _isRecoveringRuntime) {
+    final liveNavigation = _liveNavigationWithChannelSwitching;
+    if (liveNavigation == null || _isInitializing || _isRecoveringRuntime) {
       return;
     }
 
-    final targetIndex = currentIndex + offset;
-    if (targetIndex < 0 || targetIndex >= contextData.liveChannels.length) {
+    final targetIndex = liveNavigation.boundedCurrentIndex + offset;
+    if (targetIndex < 0 || targetIndex >= liveNavigation.channels.length) {
       return;
     }
 
-    final nextContext = contextData.forLiveChannelIndex(targetIndex);
-    if (nextContext.itemId == contextData.itemId) {
+    final nextLiveNavigation = liveNavigation.forChannelIndex(targetIndex);
+    final nextContext = nextLiveNavigation.playbackContext;
+    if (nextContext.itemId == _activePlaybackContext?.itemId) {
       return;
     }
 
@@ -1250,6 +1417,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     setState(() {
       _activePlaybackContext = nextContext;
+      _activeLiveNavigation = nextLiveNavigation;
       _resolvedPlayback = null;
       _errorMessage = null;
       _statusMessage = null;
@@ -1263,7 +1431,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
 
     final positionLabel =
-        '${targetIndex + 1}/${nextContext.liveChannels.length}';
+        '${targetIndex + 1}/${nextLiveNavigation.channels.length}';
     _showInteractionMessage('$positionLabel • ${nextContext.title}');
   }
 
@@ -1337,7 +1505,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
 
     final resolved = _resolvedPlayback;
-    if (resolved == null || !resolved.isSeekable) {
+    if (resolved == null || !resolved.canSeek) {
       return false;
     }
 
@@ -1523,12 +1691,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   bool _isRightKey(LogicalKeyboardKey key) {
     return key == LogicalKeyboardKey.arrowRight;
-  }
-
-  bool _isBackKey(LogicalKeyboardKey key) {
-    return key == LogicalKeyboardKey.escape ||
-        key == LogicalKeyboardKey.goBack ||
-        key == LogicalKeyboardKey.browserBack;
   }
 
   Future<void> _enterPlayerImmersiveMode() async {
@@ -1875,6 +2037,7 @@ class _PlayerControlDeck extends StatelessWidget {
     required this.layout,
     required this.isMuted,
     required this.selectedAudioTrack,
+    required this.showAudioTrackSelector,
     required this.selectedSubtitleTrack,
     required this.selectedQualityProfile,
     required this.onToggleMute,
@@ -1897,6 +2060,7 @@ class _PlayerControlDeck extends StatelessWidget {
   final DeviceLayout layout;
   final bool isMuted;
   final String? selectedAudioTrack;
+  final bool showAudioTrackSelector;
   final String? selectedSubtitleTrack;
   final String? selectedQualityProfile;
   final VoidCallback onToggleMute;
@@ -1916,7 +2080,7 @@ class _PlayerControlDeck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final value = controller.value;
-    final isSeekable = resolvedPlayback.isSeekable;
+    final isSeekable = resolvedPlayback.canSeek;
     final isPlaying = value.isPlaying;
     final total = value.duration;
     final current = value.position;
@@ -2097,14 +2261,15 @@ class _PlayerControlDeck extends StatelessWidget {
                         onPressed: onToggleMute,
                         kind: PlayerControlButtonKind.subtle,
                       ),
-                      PlayerControlButton(
-                        icon: Icons.audiotrack_rounded,
-                        label: selectedAudioTrack == null
-                            ? 'Audio: auto'
-                            : 'Audio: $selectedAudioTrack',
-                        onPressed: onSelectAudioTrack,
-                        kind: PlayerControlButtonKind.subtle,
-                      ),
+                      if (showAudioTrackSelector)
+                        PlayerControlButton(
+                          icon: Icons.audiotrack_rounded,
+                          label: selectedAudioTrack == null
+                              ? 'Audio'
+                              : 'Audio: $selectedAudioTrack',
+                          onPressed: onSelectAudioTrack,
+                          kind: PlayerControlButtonKind.subtle,
+                        ),
                       PlayerControlButton(
                         icon: Icons.subtitles_rounded,
                         label: selectedSubtitleTrack == null
@@ -2762,11 +2927,49 @@ class _PlayerStreamMetrics {
   final String? liveLatencyLabel;
 }
 
-List<String> _audioTrackLabels(PlaybackManifest manifest) {
-  return manifest.audioTracks
-      .map((track) => track.label.trim())
-      .where((label) => label.isNotEmpty)
-      .toSet()
+class _RuntimeAudioState {
+  const _RuntimeAudioState({
+    required this.playback,
+    required this.tracks,
+    required this.selectionAvailable,
+    required this.selectedTrackId,
+  });
+
+  final ResolvedPlayback playback;
+  final List<PlaybackTrack> tracks;
+  final bool selectionAvailable;
+  final String? selectedTrackId;
+}
+
+@immutable
+class PlayerSelectionOption {
+  const PlayerSelectionOption({required this.id, required this.label});
+
+  final String id;
+  final String label;
+}
+
+@visibleForTesting
+List<PlayerSelectionOption> buildAudioSelectionOptions(
+  List<PlaybackTrack> tracks,
+) {
+  final baseLabelCounts = <String, int>{};
+  for (final track in tracks) {
+    final baseLabel = _audioTrackLabel(track);
+    baseLabelCounts[baseLabel] = (baseLabelCounts[baseLabel] ?? 0) + 1;
+  }
+
+  return tracks
+      .map(
+        (track) => PlayerSelectionOption(
+          id: track.id,
+          label: _displayAudioTrackLabel(
+            track,
+            tracks,
+            baseLabelCounts: baseLabelCounts,
+          ),
+        ),
+      )
       .toList(growable: false);
 }
 
@@ -2786,8 +2989,18 @@ List<String> _qualityProfileLabels(PlaybackManifest manifest) {
       .toList(growable: false);
 }
 
-String? _resolveDefaultAudioTrackLabel(PlaybackManifest manifest) {
-  return _resolveDefaultTrackLabel(manifest.audioTracks);
+String? _resolveSelectedAudioTrackId(List<PlaybackTrack> tracks) {
+  if (tracks.isEmpty) {
+    return null;
+  }
+
+  for (final track in tracks) {
+    if (track.isDefault) {
+      return track.id;
+    }
+  }
+
+  return tracks.first.id;
 }
 
 String? _resolveDefaultSubtitleTrackLabel(PlaybackManifest manifest) {
@@ -2855,6 +3068,60 @@ PlaybackTrack? _resolveTrackByLabel(List<PlaybackTrack> tracks, String label) {
   }
 
   return null;
+}
+
+PlaybackTrack? _resolveAudioTrackById(List<PlaybackTrack> tracks, String id) {
+  for (final track in tracks) {
+    if (track.id == id) {
+      return track;
+    }
+  }
+
+  return null;
+}
+
+String _audioTrackLabel(PlaybackTrack track) {
+  final label = track.label.trim();
+  if (label.isNotEmpty) {
+    return label;
+  }
+
+  final languageCode = track.languageCode?.trim();
+  if (languageCode != null && languageCode.isNotEmpty) {
+    return languageCode.toUpperCase();
+  }
+
+  final codec = track.codec?.trim();
+  if (codec != null && codec.isNotEmpty) {
+    return codec.toUpperCase();
+  }
+
+  return 'Faixa ${track.id}';
+}
+
+String _displayAudioTrackLabel(
+  PlaybackTrack track,
+  List<PlaybackTrack> tracks, {
+  Map<String, int>? baseLabelCounts,
+}) {
+  final baseLabel = _audioTrackLabel(track);
+  final counts =
+      baseLabelCounts ??
+      <String, int>{
+        for (final item in tracks)
+          _audioTrackLabel(item): tracks
+              .where(
+                (candidate) =>
+                    _audioTrackLabel(candidate) == _audioTrackLabel(item),
+              )
+              .length,
+      };
+
+  if ((counts[baseLabel] ?? 0) <= 1) {
+    return baseLabel;
+  }
+
+  return '$baseLabel • ${track.id}';
 }
 
 PlaybackVariant? _resolveVariantByLabel(

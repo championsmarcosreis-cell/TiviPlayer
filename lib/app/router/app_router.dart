@@ -9,6 +9,7 @@ import '../../features/live/presentation/screens/live_categories_screen.dart';
 import '../../features/live/presentation/screens/live_streams_screen.dart';
 import '../../features/player/domain/entities/playback_context.dart';
 import '../../features/player/presentation/screens/player_screen.dart';
+import '../../features/player/presentation/support/player_screen_arguments.dart';
 import '../../features/series/presentation/screens/series_categories_screen.dart';
 import '../../features/series/presentation/screens/series_details_screen.dart';
 import '../../features/series/presentation/screens/series_items_screen.dart';
@@ -80,8 +81,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: PlayerScreen.routePath,
-        builder: (context, state) =>
-            PlayerScreen(playbackContext: state.extra as PlaybackContext?),
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is PlayerScreenArguments) {
+            return PlayerScreen(arguments: extra);
+          }
+
+          return PlayerScreen(
+            arguments: extra == null
+                ? null
+                : PlayerScreenArguments.standalone(extra as PlaybackContext),
+          );
+        },
       ),
     ],
     redirect: (context, state) {

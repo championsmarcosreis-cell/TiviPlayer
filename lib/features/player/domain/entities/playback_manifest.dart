@@ -59,10 +59,28 @@ class PlaybackManifest {
   final List<PlaybackVariant> variants;
   final Map<String, String> httpHeaders;
 
-  bool get hasTrackMetadata =>
-      audioTracks.isNotEmpty || subtitleTracks.isNotEmpty;
+  PlaybackManifest copyWith({
+    PlaybackSourceType? sourceType,
+    List<PlaybackTrack>? audioTracks,
+    List<PlaybackTrack>? subtitleTracks,
+    List<PlaybackVariant>? variants,
+    Map<String, String>? httpHeaders,
+  }) {
+    return PlaybackManifest(
+      sourceType: sourceType ?? this.sourceType,
+      audioTracks: audioTracks ?? this.audioTracks,
+      subtitleTracks: subtitleTracks ?? this.subtitleTracks,
+      variants: variants ?? this.variants,
+      httpHeaders: httpHeaders ?? this.httpHeaders,
+    );
+  }
+
+  bool get hasAudioTracks => audioTracks.isNotEmpty;
+  bool get hasSubtitleTracks => subtitleTracks.isNotEmpty;
+  bool get hasTrackMetadata => hasAudioTracks || hasSubtitleTracks;
 
   bool get hasVariants => variants.isNotEmpty;
+  bool get hasQualityVariants => hasVariants;
 
   Map<String, String> get normalizedHttpHeaders {
     if (httpHeaders.isEmpty) {
