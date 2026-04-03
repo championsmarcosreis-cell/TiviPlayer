@@ -155,7 +155,9 @@ public final class XiaomiVlcVideoPlayer
 
   private void prepareAndPlay(@NonNull VideoAsset asset, @NonNull VideoPlayerOptions options) {
     Media media = new Media(libVlc, uri);
-    media.setHWDecoderEnabled(true, false);
+    XiaomiDeviceQuirks.VlcHardwareDecodingDecision hardwareDecodingDecision =
+        XiaomiDeviceQuirks.getSamsungVlcHardwareDecodingDecision(uri);
+    media.setHWDecoderEnabled(!hardwareDecodingDecision.shouldDisableHardwareDecoding(), false);
     media.addOption(":network-caching=" + LIVE_CACHE_MS);
     media.addOption(":live-caching=" + LIVE_CACHE_MS);
     media.addOption(":clock-jitter=0");
@@ -172,6 +174,25 @@ public final class XiaomiVlcVideoPlayer
     setVolume(options.mixWithOthers ? 1.0 : 1.0);
     videoPlayerEvents.onPlaybackStateChanged(PlatformPlaybackState.BUFFERING);
     mediaPlayer.play();
+    if (hardwareDecodingDecision.shouldDisableHardwareDecoding()) {
+      Log.w(
+          TAG,
+          "Samsung LibVLC mode: HW decode OFF for streamId="
+              + XiaomiDeviceQuirks.getXtreamStreamId(uri)
+              + " reason="
+              + hardwareDecodingDecision.getReason()
+              + " uri="
+              + uri);
+    } else {
+      Log.i(
+          TAG,
+          "Samsung LibVLC mode: HW decode ON for streamId="
+              + XiaomiDeviceQuirks.getXtreamStreamId(uri)
+              + " reason="
+              + hardwareDecodingDecision.getReason()
+              + " uri="
+              + uri);
+    }
     Log.i(TAG, "Started LibVLC fallback for Xiaomi URL " + uri);
   }
 

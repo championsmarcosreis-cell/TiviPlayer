@@ -5,11 +5,15 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -31,6 +35,13 @@ final class TransportStreamProbe {
   private static final int FUTURE_TIMEOUT_MS = 1800;
   private static final int PAT_PID = 0x0000;
   private static final int AAC_ADTS_STREAM_TYPE = 0x0F;
+  private static final int PTS_CLOCK_HZ = 90_000;
+  private static final int H264_VIDEO_STREAM_TYPE = 0x1B;
+  private static final int H265_VIDEO_STREAM_TYPE = 0x24;
+  private static final int MPEG2_VIDEO_STREAM_TYPE = 0x02;
+  private static final float FPS_24ISH_MIN = 23.5f;
+  private static final float FPS_24ISH_MAX = 24.5f;
+  private static final float SAMSUNG_PROBLEM_CADENCE_MIN_FPS = 40.0f;
   private static final ExecutorService PROBE_EXECUTOR =
       Executors.newSingleThreadExecutor(
           new ThreadFactory() {
@@ -61,17 +72,114 @@ final class TransportStreamProbe {
     }
   }
 
+  enum VideoFrameRateProfile {
+    UNKNOWN,
+    FPS_24ISH,
+    OTHER
+  }
+
+  static final class StreamInfo {
+    @NonNull private final AudioProfile audioProfile;
+    @NonNull private final VideoFrameRateProfile videoFrameRateProfile;
+    private final float estimatedFramesPerSecond;
+    private final int videoPid;
+    private final int videoStreamType;
+
+    StreamInfo(
+        @NonNull AudioProfile audioProfile,
+        @NonNull VideoFrameRateProfile videoFrameRateProfile,
+        float estimatedFramesPerSecond,
+        int videoPid,
+        int videoStreamType) {
+      this.audioProfile = audioProfile;
+      this.videoFrameRateProfile = videoFrameRateProfile;
+      this.estimatedFramesPerSecond = estimatedFramesPerSecond;
+      this.videoPid = videoPid;
+      this.videoStreamType = videoStreamType;
+    }
+
+    @NonNull
+    AudioProfile getAudioProfile() {
+      return audioProfile;
+    }
+
+    @NonNull
+    VideoFrameRateProfile getVideoFrameRateProfile() {
+      return videoFrameRateProfile;
+    }
+
+    float getEstimatedFramesPerSecond() {
+      return estimatedFramesPerSecond;
+    }
+
+    boolean isCacheable() {
+      return audioProfile.isCacheable() || !Float.isNaN(estimatedFramesPerSecond);
+    }
+
+    boolean shouldDisableSamsungHardwareDecoding() {
+      return audioProfile == AudioProfile.AAC_ADTS && matchesSamsungProblemCadence();
+    }
+
+    boolean matchesSamsungProblemCadence() {
+      return !Float.isNaN(estimatedFramesPerSecond)
+          && estimatedFramesPerSecond >= SAMSUNG_PROBLEM_CADENCE_MIN_FPS;
+    }
+
+    @NonNull
+    String toSummaryString() {
+      String fpsSummary =
+          Float.isNaN(estimatedFramesPerSecond)
+              ? "unknown_fps"
+              : String.format(Locale.US, "%.2ffps", estimatedFramesPerSecond);
+      String videoPidSummary = videoPid >= 0 ? String.valueOf(videoPid) : "unknown";
+      String streamTypeSummary =
+          videoStreamType >= 0 ? String.format(Locale.US, "0x%02X", videoStreamType) : "unknown";
+      return "audio="
+          + audioProfile
+          + ", videoFrameRateProfile="
+          + videoFrameRateProfile
+          + ", fps="
+          + fpsSummary
+          + ", samsungProblemCadence="
+          + matchesSamsungProblemCadence()
+          + ", videoPid="
+          + videoPidSummary
+          + ", videoStreamType="
+          + streamTypeSummary;
+    }
+  }
+
+  private static final class ProgramMapInfo {
+    @NonNull final AudioProfile audioProfile;
+    final int videoPid;
+    final int videoStreamType;
+
+    ProgramMapInfo(@NonNull AudioProfile audioProfile, int videoPid, int videoStreamType) {
+      this.audioProfile = audioProfile;
+      this.videoPid = videoPid;
+      this.videoStreamType = videoStreamType;
+    }
+  }
+
   @NonNull
   static AudioProfile probeAudioProfile(
       @NonNull String assetUrl,
       @NonNull Map<String, String> httpHeaders,
       @Nullable String userAgent) {
-    Future<AudioProfile> future =
+    return probeStreamInfo(assetUrl, httpHeaders, userAgent).getAudioProfile();
+  }
+
+  @NonNull
+  static StreamInfo probeStreamInfo(
+      @NonNull String assetUrl,
+      @NonNull Map<String, String> httpHeaders,
+      @Nullable String userAgent) {
+    Future<StreamInfo> future =
         PROBE_EXECUTOR.submit(
-            new Callable<AudioProfile>() {
+            new Callable<StreamInfo>() {
               @Override
-              public AudioProfile call() {
-                return probeAudioProfileBlocking(assetUrl, httpHeaders, userAgent);
+              public StreamInfo call() {
+                return probeStreamInfoBlocking(assetUrl, httpHeaders, userAgent);
               }
             });
     try {
@@ -80,28 +188,28 @@ final class TransportStreamProbe {
       future.cancel(true);
       Log.w(
           TAG,
-          "Timed out probing transport stream audio profile for " + summarizeUri(assetUrl),
+          "Timed out probing transport stream info for " + summarizeUri(assetUrl),
           exception);
-      return AudioProfile.UNKNOWN;
+      return new StreamInfo(AudioProfile.UNKNOWN, VideoFrameRateProfile.UNKNOWN, Float.NaN, -1, -1);
     } catch (InterruptedException exception) {
       future.cancel(true);
       Thread.currentThread().interrupt();
       Log.w(
           TAG,
-          "Interrupted while probing transport stream audio profile for " + summarizeUri(assetUrl),
+          "Interrupted while probing transport stream info for " + summarizeUri(assetUrl),
           exception);
-      return AudioProfile.UNKNOWN;
+      return new StreamInfo(AudioProfile.UNKNOWN, VideoFrameRateProfile.UNKNOWN, Float.NaN, -1, -1);
     } catch (ExecutionException exception) {
       Log.w(
           TAG,
-          "Failed to probe transport stream audio profile for " + summarizeUri(assetUrl),
+          "Failed to probe transport stream info for " + summarizeUri(assetUrl),
           exception);
-      return AudioProfile.UNKNOWN;
+      return new StreamInfo(AudioProfile.UNKNOWN, VideoFrameRateProfile.UNKNOWN, Float.NaN, -1, -1);
     }
   }
 
   @NonNull
-  private static AudioProfile probeAudioProfileBlocking(
+  private static StreamInfo probeStreamInfoBlocking(
       @NonNull String assetUrl,
       @NonNull Map<String, String> httpHeaders,
       @Nullable String userAgent) {
@@ -111,7 +219,7 @@ final class TransportStreamProbe {
       connection.setInstanceFollowRedirects(true);
       connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
       connection.setReadTimeout(READ_TIMEOUT_MS);
-      connection.setRequestMethod("GET");
+        connection.setRequestMethod("GET");
       connection.setRequestProperty("Accept-Encoding", "identity");
       connection.setRequestProperty("Connection", "close");
       connection.setRequestProperty("Range", "bytes=0-" + (MAX_PROBE_BYTES - 1));
@@ -130,25 +238,25 @@ final class TransportStreamProbe {
                 + responseCode
                 + " for "
                 + summarizeUri(assetUrl));
-        return AudioProfile.UNKNOWN;
+        return new StreamInfo(AudioProfile.UNKNOWN, VideoFrameRateProfile.UNKNOWN, Float.NaN, -1, -1);
       }
       try (InputStream inputStream = connection.getInputStream()) {
         byte[] sample = readProbeSample(inputStream);
-        AudioProfile profile = inspectSample(sample, sample.length);
+        StreamInfo streamInfo = inspectSampleInfo(sample, sample.length);
         Log.i(
             TAG,
-            "Detected transport stream audio profile "
-                + profile
+            "Detected transport stream info "
+                + streamInfo.toSummaryString()
                 + " for "
                 + summarizeUri(assetUrl));
-        return profile;
+        return streamInfo;
       }
     } catch (IOException exception) {
       Log.w(
           TAG,
-          "I/O error probing transport stream audio profile for " + summarizeUri(assetUrl),
+          "I/O error probing transport stream info for " + summarizeUri(assetUrl),
           exception);
-      return AudioProfile.UNKNOWN;
+      return new StreamInfo(AudioProfile.UNKNOWN, VideoFrameRateProfile.UNKNOWN, Float.NaN, -1, -1);
     } finally {
       if (connection != null) {
         connection.disconnect();
@@ -175,18 +283,26 @@ final class TransportStreamProbe {
   @VisibleForTesting
   @NonNull
   static AudioProfile inspectSample(@NonNull byte[] sample, int length) {
+    return inspectSampleInfo(sample, length).getAudioProfile();
+  }
+
+  @VisibleForTesting
+  @NonNull
+  static StreamInfo inspectSampleInfo(@NonNull byte[] sample, int length) {
     if (length < TRANSPORT_STREAM_PACKET_SIZE * REQUIRED_SYNC_PACKETS) {
-      return AudioProfile.UNKNOWN;
+      return new StreamInfo(AudioProfile.UNKNOWN, VideoFrameRateProfile.UNKNOWN, Float.NaN, -1, -1);
     }
 
     int syncOffset = findTransportStreamSyncOffset(sample, length);
     if (syncOffset < 0) {
-      return AudioProfile.OTHER_STREAM;
+      return new StreamInfo(AudioProfile.OTHER_STREAM, VideoFrameRateProfile.UNKNOWN, Float.NaN, -1, -1);
     }
 
     int programMapPid = -1;
     boolean foundProgramMap = false;
     boolean foundAudioDescriptor = false;
+    int videoPid = -1;
+    int videoStreamType = -1;
     for (int packetOffset = syncOffset;
         packetOffset + TRANSPORT_STREAM_PACKET_SIZE <= length;
         packetOffset += TRANSPORT_STREAM_PACKET_SIZE) {
@@ -223,21 +339,37 @@ final class TransportStreamProbe {
       }
 
       foundProgramMap = true;
-      AudioProfile profile =
-          parseAudioProfileFromProgramMap(
-              sample, payloadOffset, packetOffset + TRANSPORT_STREAM_PACKET_SIZE);
-      if (profile == AudioProfile.AAC_ADTS) {
-        return AudioProfile.AAC_ADTS;
+      ProgramMapInfo programMapInfo =
+          parseProgramMapInfo(sample, payloadOffset, packetOffset + TRANSPORT_STREAM_PACKET_SIZE);
+      if (programMapInfo.videoPid >= 0) {
+        videoPid = programMapInfo.videoPid;
+        videoStreamType = programMapInfo.videoStreamType;
       }
-      if (profile == AudioProfile.OTHER_AUDIO) {
+      if (programMapInfo.audioProfile == AudioProfile.AAC_ADTS) {
+        float estimatedFramesPerSecond = estimateVideoFrameRate(sample, length, syncOffset, videoPid);
+        return new StreamInfo(
+            AudioProfile.AAC_ADTS,
+            classifyFrameRate(estimatedFramesPerSecond),
+            estimatedFramesPerSecond,
+            videoPid,
+            videoStreamType);
+      }
+      if (programMapInfo.audioProfile == AudioProfile.OTHER_AUDIO) {
         foundAudioDescriptor = true;
       }
     }
 
+    float estimatedFramesPerSecond = estimateVideoFrameRate(sample, length, syncOffset, videoPid);
+    AudioProfile audioProfile = AudioProfile.UNKNOWN;
     if (foundAudioDescriptor || foundProgramMap) {
-      return AudioProfile.OTHER_AUDIO;
+      audioProfile = AudioProfile.OTHER_AUDIO;
     }
-    return AudioProfile.UNKNOWN;
+    return new StreamInfo(
+        audioProfile,
+        classifyFrameRate(estimatedFramesPerSecond),
+        estimatedFramesPerSecond,
+        videoPid,
+        videoStreamType);
   }
 
   private static int findTransportStreamSyncOffset(@NonNull byte[] sample, int length) {
@@ -281,33 +413,47 @@ final class TransportStreamProbe {
   }
 
   @NonNull
-  private static AudioProfile parseAudioProfileFromProgramMap(
+  private static ProgramMapInfo parseProgramMapInfo(
       @NonNull byte[] sample, int payloadOffset, int packetEnd) {
     int sectionOffset = skipPointerField(sample, payloadOffset, packetEnd);
     if (!isPsiHeaderAvailable(sample, sectionOffset, packetEnd) || (sample[sectionOffset] & 0xFF) != 0x02) {
-      return AudioProfile.UNKNOWN;
+      return new ProgramMapInfo(AudioProfile.UNKNOWN, -1, -1);
     }
     int sectionLength = parseSectionLength(sample, sectionOffset);
     int sectionEnd = Math.min(sectionOffset + 3 + sectionLength, packetEnd);
     if (sectionEnd - sectionOffset < 16) {
-      return AudioProfile.UNKNOWN;
+      return new ProgramMapInfo(AudioProfile.UNKNOWN, -1, -1);
     }
     int programInfoLength =
         ((sample[sectionOffset + 10] & 0x0F) << 8) | (sample[sectionOffset + 11] & 0xFF);
     int streamOffset = sectionOffset + 12 + programInfoLength;
     boolean foundAudioDescriptor = false;
+    boolean foundAdtsAudio = false;
+    int videoPid = -1;
+    int videoStreamType = -1;
     while (streamOffset + 5 <= sectionEnd - 4) {
       int streamType = sample[streamOffset] & 0xFF;
+      int elementaryPid =
+          ((sample[streamOffset + 1] & 0x1F) << 8) | (sample[streamOffset + 2] & 0xFF);
       int esInfoLength = ((sample[streamOffset + 3] & 0x0F) << 8) | (sample[streamOffset + 4] & 0xFF);
       if (streamType == AAC_ADTS_STREAM_TYPE) {
-        return AudioProfile.AAC_ADTS;
+        foundAdtsAudio = true;
       }
       if (isKnownAudioStreamType(streamType)) {
         foundAudioDescriptor = true;
       }
+      if (videoPid < 0 && isKnownVideoStreamType(streamType)) {
+        videoPid = elementaryPid;
+        videoStreamType = streamType;
+      }
       streamOffset += 5 + esInfoLength;
     }
-    return foundAudioDescriptor ? AudioProfile.OTHER_AUDIO : AudioProfile.UNKNOWN;
+    return new ProgramMapInfo(
+        foundAdtsAudio
+            ? AudioProfile.AAC_ADTS
+            : (foundAudioDescriptor ? AudioProfile.OTHER_AUDIO : AudioProfile.UNKNOWN),
+        videoPid,
+        videoStreamType);
   }
 
   private static boolean isPsiHeaderAvailable(@NonNull byte[] sample, int sectionOffset, int packetEnd) {
@@ -337,6 +483,116 @@ final class TransportStreamProbe {
         || streamType == 0x11
         || streamType == 0x81
         || streamType == 0x87;
+  }
+
+  private static boolean isKnownVideoStreamType(int streamType) {
+    return streamType == H264_VIDEO_STREAM_TYPE
+        || streamType == H265_VIDEO_STREAM_TYPE
+        || streamType == MPEG2_VIDEO_STREAM_TYPE;
+  }
+
+  private static float estimateVideoFrameRate(
+      @NonNull byte[] sample, int length, int syncOffset, int videoPid) {
+    if (videoPid < 0) {
+      return Float.NaN;
+    }
+
+    long previousPts = -1L;
+    List<Long> deltas = new ArrayList<>();
+    for (int packetOffset = syncOffset;
+        packetOffset + TRANSPORT_STREAM_PACKET_SIZE <= length;
+        packetOffset += TRANSPORT_STREAM_PACKET_SIZE) {
+      if ((sample[packetOffset] & 0xFF) != 0x47) {
+        continue;
+      }
+      int pid = ((sample[packetOffset + 1] & 0x1F) << 8) | (sample[packetOffset + 2] & 0xFF);
+      if (pid != videoPid) {
+        continue;
+      }
+
+      int adaptationFieldControl = (sample[packetOffset + 3] >> 4) & 0x03;
+      if (adaptationFieldControl == 0 || adaptationFieldControl == 2) {
+        continue;
+      }
+
+      int payloadOffset = packetOffset + 4;
+      if (adaptationFieldControl == 3) {
+        int adaptationLength = sample[payloadOffset] & 0xFF;
+        payloadOffset += 1 + adaptationLength;
+      }
+      if (payloadOffset >= packetOffset + TRANSPORT_STREAM_PACKET_SIZE) {
+        continue;
+      }
+
+      boolean payloadStart = (sample[packetOffset + 1] & 0x40) != 0;
+      if (!payloadStart) {
+        continue;
+      }
+
+      long currentPts =
+          parsePesPresentationTimestamp(
+              sample, payloadOffset, packetOffset + TRANSPORT_STREAM_PACKET_SIZE);
+      if (currentPts < 0L) {
+        continue;
+      }
+      if (previousPts >= 0L) {
+        long delta = currentPts - previousPts;
+        if (delta > 0L && delta <= PTS_CLOCK_HZ) {
+          deltas.add(delta);
+          if (deltas.size() >= 4) {
+            break;
+          }
+        }
+      }
+      previousPts = currentPts;
+    }
+
+    if (deltas.isEmpty()) {
+      return Float.NaN;
+    }
+
+    Collections.sort(deltas);
+    long medianDelta = deltas.get(deltas.size() / 2);
+    if (medianDelta <= 0L) {
+      return Float.NaN;
+    }
+    return PTS_CLOCK_HZ / (float) medianDelta;
+  }
+
+  private static long parsePesPresentationTimestamp(
+      @NonNull byte[] sample, int payloadOffset, int packetEnd) {
+    if (payloadOffset + 14 > packetEnd) {
+      return -1L;
+    }
+    if ((sample[payloadOffset] & 0xFF) != 0x00
+        || (sample[payloadOffset + 1] & 0xFF) != 0x00
+        || (sample[payloadOffset + 2] & 0xFF) != 0x01) {
+      return -1L;
+    }
+    int ptsDtsFlags = (sample[payloadOffset + 7] >> 6) & 0x03;
+    if (ptsDtsFlags != 0x02 && ptsDtsFlags != 0x03) {
+      return -1L;
+    }
+    int ptsOffset = payloadOffset + 9;
+    if (ptsOffset + 5 > packetEnd) {
+      return -1L;
+    }
+    return (((long) ((sample[ptsOffset] >> 1) & 0x07)) << 30)
+        | (((long) (sample[ptsOffset + 1] & 0xFF)) << 22)
+        | (((long) ((sample[ptsOffset + 2] >> 1) & 0x7F)) << 15)
+        | (((long) (sample[ptsOffset + 3] & 0xFF)) << 7)
+        | ((sample[ptsOffset + 4] >> 1) & 0x7F);
+  }
+
+  @NonNull
+  private static VideoFrameRateProfile classifyFrameRate(float framesPerSecond) {
+    if (Float.isNaN(framesPerSecond) || framesPerSecond <= 0f) {
+      return VideoFrameRateProfile.UNKNOWN;
+    }
+    if (framesPerSecond >= FPS_24ISH_MIN && framesPerSecond <= FPS_24ISH_MAX) {
+      return VideoFrameRateProfile.FPS_24ISH;
+    }
+    return VideoFrameRateProfile.OTHER;
   }
 
   @NonNull

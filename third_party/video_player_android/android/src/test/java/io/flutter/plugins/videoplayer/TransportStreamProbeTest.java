@@ -16,6 +16,7 @@ public final class TransportStreamProbeTest {
   private static final int PAT_PID = 0x0000;
   private static final int PMT_PID = 0x0100;
   private static final int AUDIO_PID = 0x0101;
+  private static final int VIDEO_PID = 0x0102;
 
   @Test
   public void inspectSampleDetectsAacAdtsAudioInProgramMap() {
@@ -35,6 +36,32 @@ public final class TransportStreamProbeTest {
         TransportStreamProbe.inspectSample(sample, sample.length);
 
     assertEquals(TransportStreamProbe.AudioProfile.OTHER_AUDIO, profile);
+  }
+
+  @Test
+  public void inspectSampleInfoDetectsHighTransportCadenceForSamsungGuard() {
+    byte[] sample =
+        createTransportStreamSampleWithVideo(
+            0x0F, 0x1B, 0L, 1501L, 3002L, 4503L, 6004L);
+
+    TransportStreamProbe.StreamInfo streamInfo =
+        TransportStreamProbe.inspectSampleInfo(sample, sample.length);
+
+    assertEquals(TransportStreamProbe.AudioProfile.AAC_ADTS, streamInfo.getAudioProfile());
+    assertTrue(streamInfo.shouldDisableSamsungHardwareDecoding());
+  }
+
+  @Test
+  public void inspectSampleInfoKeepsLowTransportCadenceOutOfSamsungGuard() {
+    byte[] sample =
+        createTransportStreamSampleWithVideo(
+            0x0F, 0x1B, 0L, 9009L, 18018L, 27027L, 36036L);
+
+    TransportStreamProbe.StreamInfo streamInfo =
+        TransportStreamProbe.inspectSampleInfo(sample, sample.length);
+
+    assertEquals(TransportStreamProbe.AudioProfile.AAC_ADTS, streamInfo.getAudioProfile());
+    assertFalse(streamInfo.shouldDisableSamsungHardwareDecoding());
   }
 
   @Test
@@ -70,10 +97,30 @@ public final class TransportStreamProbeTest {
   private static byte[] createTransportStreamSample(int audioStreamType) {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     outputStream.writeBytes(createPsiPacket(PAT_PID, createPatSection(PMT_PID), 0));
-    outputStream.writeBytes(createPsiPacket(PMT_PID, createPmtSection(AUDIO_PID, audioStreamType), 1));
+    outputStream.writeBytes(
+        createPsiPacket(PMT_PID, createPmtSection(AUDIO_PID, audioStreamType, -1, -1), 1));
     outputStream.writeBytes(createNullPacket(2));
     outputStream.writeBytes(createNullPacket(3));
     outputStream.writeBytes(createNullPacket(4));
+    return outputStream.toByteArray();
+  }
+
+  private static byte[] createTransportStreamSampleWithVideo(
+      int audioStreamType, int videoStreamType, long... videoPtsValues) {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    outputStream.writeBytes(createPsiPacket(PAT_PID, createPatSection(PMT_PID), 0));
+    outputStream.writeBytes(
+        createPsiPacket(
+            PMT_PID, createPmtSection(AUDIO_PID, audioStreamType, VIDEO_PID, videoStreamType), 1));
+    int continuityCounter = 2;
+    for (long ptsValue : videoPtsValues) {
+      outputStream.writeBytes(createPesPacket(VIDEO_PID, ptsValue, continuityCounter));
+      continuityCounter = (continuityCounter + 1) & 0x0F;
+    }
+    while (continuityCounter <= 6) {
+      outputStream.writeBytes(createNullPacket(continuityCounter));
+      continuityCounter++;
+    }
     return outputStream.toByteArray();
   }
 
@@ -98,11 +145,13 @@ public final class TransportStreamProbeTest {
     return section;
   }
 
-  private static byte[] createPmtSection(int audioPid, int audioStreamType) {
-    byte[] section = new byte[21];
+  private static byte[] createPmtSection(
+      int audioPid, int audioStreamType, int videoPid, int videoStreamType) {
+    boolean includeVideo = videoPid >= 0 && videoStreamType >= 0;
+    byte[] section = new byte[includeVideo ? 26 : 21];
     section[0] = 0x02;
     section[1] = (byte) 0xB0;
-    section[2] = 0x12;
+    section[2] = (byte) (includeVideo ? 0x17 : 0x12);
     section[3] = 0x00;
     section[4] = 0x01;
     section[5] = (byte) 0xC1;
@@ -117,10 +166,22 @@ public final class TransportStreamProbeTest {
     section[14] = (byte) (audioPid & 0xFF);
     section[15] = (byte) 0xF0;
     section[16] = 0x00;
-    section[17] = 0x00;
-    section[18] = 0x00;
-    section[19] = 0x00;
-    section[20] = 0x00;
+    if (includeVideo) {
+      section[17] = (byte) videoStreamType;
+      section[18] = (byte) (0xE0 | ((videoPid >> 8) & 0x1F));
+      section[19] = (byte) (videoPid & 0xFF);
+      section[20] = (byte) 0xF0;
+      section[21] = 0x00;
+      section[22] = 0x00;
+      section[23] = 0x00;
+      section[24] = 0x00;
+      section[25] = 0x00;
+    } else {
+      section[17] = 0x00;
+      section[18] = 0x00;
+      section[19] = 0x00;
+      section[20] = 0x00;
+    }
     return section;
   }
 
@@ -134,6 +195,34 @@ public final class TransportStreamProbeTest {
 
   private static byte[] createNullPacket(int continuityCounter) {
     return createEmptyPacket(0x1FFF, false, continuityCounter);
+  }
+
+  private static byte[] createPesPacket(int pid, long ptsValue, int continuityCounter) {
+    byte[] packet = createEmptyPacket(pid, true, continuityCounter);
+    int payloadOffset = 4;
+    byte[] ptsBytes = encodePts(ptsValue);
+    packet[payloadOffset] = 0x00;
+    packet[payloadOffset + 1] = 0x00;
+    packet[payloadOffset + 2] = 0x01;
+    packet[payloadOffset + 3] = (byte) 0xE0;
+    packet[payloadOffset + 4] = 0x00;
+    packet[payloadOffset + 5] = 0x00;
+    packet[payloadOffset + 6] = (byte) 0x80;
+    packet[payloadOffset + 7] = (byte) 0x80;
+    packet[payloadOffset + 8] = 0x05;
+    System.arraycopy(ptsBytes, 0, packet, payloadOffset + 9, ptsBytes.length);
+    packet[payloadOffset + 14] = 0x00;
+    return packet;
+  }
+
+  private static byte[] encodePts(long ptsValue) {
+    byte[] pts = new byte[5];
+    pts[0] = (byte) (((0x02 << 4) | (((ptsValue >> 30) & 0x07) << 1) | 0x01) & 0xFF);
+    pts[1] = (byte) ((ptsValue >> 22) & 0xFF);
+    pts[2] = (byte) (((((ptsValue >> 15) & 0x7F) << 1) | 0x01) & 0xFF);
+    pts[3] = (byte) ((ptsValue >> 7) & 0xFF);
+    pts[4] = (byte) ((((ptsValue & 0x7F) << 1) | 0x01) & 0xFF);
+    return pts;
   }
 
   private static byte[] createEmptyPacket(int pid, boolean payloadStart, int continuityCounter) {

@@ -33,10 +33,29 @@ final class XiaomiDeviceQuirks {
   // stable in VLC. Keep this list intentionally small and evidence-based.
   private static final Set<String> STREAM_IDS_REQUIRING_VLC_FALLBACK =
       new HashSet<>(Arrays.asList("95", "96", "119"));
-  private static final Map<String, TransportStreamProbe.AudioProfile> SAMSUNG_STREAM_AUDIO_CACHE =
+  private static final Map<String, TransportStreamProbe.StreamInfo> SAMSUNG_STREAM_INFO_CACHE =
       new ConcurrentHashMap<>();
 
   private XiaomiDeviceQuirks() {}
+
+  static final class VlcHardwareDecodingDecision {
+    private final boolean disableHardwareDecoding;
+    @NonNull private final String reason;
+
+    VlcHardwareDecodingDecision(boolean disableHardwareDecoding, @NonNull String reason) {
+      this.disableHardwareDecoding = disableHardwareDecoding;
+      this.reason = reason;
+    }
+
+    boolean shouldDisableHardwareDecoding() {
+      return disableHardwareDecoding;
+    }
+
+    @NonNull
+    String getReason() {
+      return reason;
+    }
+  }
 
   static boolean shouldApply() {
     return matchesXiaomiBrand(Build.MANUFACTURER) || matchesXiaomiBrand(Build.BRAND);
@@ -74,12 +93,19 @@ final class XiaomiDeviceQuirks {
       return VideoAsset.PlaybackDecision.exoPlayer("non_xtream_live_stream", null);
     }
 
+    TransportStreamProbe.StreamInfo samsungStreamInfo = null;
+    if (shouldApplySamsungAdtsFallback()) {
+      samsungStreamInfo =
+          getSamsungStreamInfo(
+              assetUrl, httpHeaders != null ? httpHeaders : Collections.emptyMap(), userAgent);
+    }
+
     String lastSegment = uri.getLastPathSegment();
     if (STREAM_IDS_REQUIRING_VLC_FALLBACK.contains(lastSegment)) {
       return VideoAsset.PlaybackDecision.libVlc(
           "stream_id_whitelist",
           "stream_id " + lastSegment + " is explicitly whitelisted",
-          null);
+          samsungStreamInfo != null ? samsungStreamInfo.toSummaryString() : null);
     }
 
     if (shouldApply()) {
@@ -93,34 +119,20 @@ final class XiaomiDeviceQuirks {
       return VideoAsset.PlaybackDecision.exoPlayer("no_matching_fallback_rule", null);
     }
 
-    TransportStreamProbe.AudioProfile cachedProfile = SAMSUNG_STREAM_AUDIO_CACHE.get(assetUrl);
-    if (cachedProfile == TransportStreamProbe.AudioProfile.AAC_ADTS) {
-      return VideoAsset.PlaybackDecision.libVlc(
-          "samsung_adts_probe_cache",
-          "cached Samsung AAC ADTS detection",
-          cachedProfile.name());
-    }
-    if (cachedProfile == TransportStreamProbe.AudioProfile.OTHER_AUDIO) {
-      return VideoAsset.PlaybackDecision.exoPlayer(
-          "samsung_adts_probe_cache", cachedProfile.name());
+    if (samsungStreamInfo == null) {
+      return VideoAsset.PlaybackDecision.exoPlayer("samsung_stream_probe", null);
     }
 
-    TransportStreamProbe.AudioProfile detectedProfile =
-        TransportStreamProbe.probeAudioProfile(
-            assetUrl,
-            httpHeaders != null ? httpHeaders : Collections.emptyMap(),
-            userAgent);
-    if (detectedProfile.isCacheable()) {
-      SAMSUNG_STREAM_AUDIO_CACHE.put(assetUrl, detectedProfile);
-    }
+    TransportStreamProbe.AudioProfile detectedProfile = samsungStreamInfo.getAudioProfile();
     if (detectedProfile == TransportStreamProbe.AudioProfile.AAC_ADTS) {
       return VideoAsset.PlaybackDecision.libVlc(
-          "samsung_adts_probe",
-          "Samsung probe detected AAC ADTS",
-          detectedProfile.name());
+          "samsung_adts_probe_cache",
+          "cached Samsung stream probe detected AAC ADTS",
+          samsungStreamInfo.toSummaryString());
     }
 
-    return VideoAsset.PlaybackDecision.exoPlayer("samsung_adts_probe", detectedProfile.name());
+    return VideoAsset.PlaybackDecision.exoPlayer(
+        "samsung_adts_probe_cache", samsungStreamInfo.toSummaryString());
   }
 
   static boolean shouldUseVlcFallback(
@@ -130,6 +142,43 @@ final class XiaomiDeviceQuirks {
       @Nullable String userAgent) {
     return resolvePlaybackDecision(assetUrl, streamingFormat, httpHeaders, userAgent)
         .shouldUseVlcFallback();
+  }
+
+  @NonNull
+  static VlcHardwareDecodingDecision getSamsungVlcHardwareDecodingDecision(@Nullable Uri uri) {
+    if (!shouldApplySamsungAdtsFallback()) {
+      return new VlcHardwareDecodingDecision(false, "non_samsung_device");
+    }
+    if (uri == null) {
+      return new VlcHardwareDecodingDecision(false, "missing_uri");
+    }
+
+    TransportStreamProbe.StreamInfo streamInfo = SAMSUNG_STREAM_INFO_CACHE.get(uri.toString());
+    if (streamInfo == null) {
+      return new VlcHardwareDecodingDecision(false, "missing_cached_probe");
+    }
+
+    if (streamInfo.shouldDisableSamsungHardwareDecoding()) {
+      return new VlcHardwareDecodingDecision(
+          true,
+          "cached_stream_probe matched Samsung HW decode guard ("
+              + streamInfo.toSummaryString()
+              + ")");
+    }
+
+    return new VlcHardwareDecodingDecision(
+        false,
+        "cached_stream_probe kept HW decode enabled ("
+            + streamInfo.toSummaryString()
+            + ")");
+  }
+
+  @Nullable
+  static String getXtreamStreamId(@Nullable Uri uri) {
+    if (uri == null) {
+      return null;
+    }
+    return uri.getLastPathSegment();
   }
 
   @NonNull
@@ -198,5 +247,23 @@ final class XiaomiDeviceQuirks {
       }
     }
     return segmentCount >= 3;
+  }
+
+  @NonNull
+  private static TransportStreamProbe.StreamInfo getSamsungStreamInfo(
+      @NonNull String assetUrl,
+      @NonNull Map<String, String> httpHeaders,
+      @Nullable String userAgent) {
+    TransportStreamProbe.StreamInfo cachedStreamInfo = SAMSUNG_STREAM_INFO_CACHE.get(assetUrl);
+    if (cachedStreamInfo != null) {
+      return cachedStreamInfo;
+    }
+
+    TransportStreamProbe.StreamInfo detectedStreamInfo =
+        TransportStreamProbe.probeStreamInfo(assetUrl, httpHeaders, userAgent);
+    if (detectedStreamInfo.isCacheable()) {
+      SAMSUNG_STREAM_INFO_CACHE.put(assetUrl, detectedStreamInfo);
+    }
+    return detectedStreamInfo;
   }
 }
