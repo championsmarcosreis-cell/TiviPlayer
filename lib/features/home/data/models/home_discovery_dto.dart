@@ -166,6 +166,7 @@ class HomeDiscoveryRailDto {
 class HomeDiscoveryItemDto {
   const HomeDiscoveryItemDto({
     required this.id,
+    this.streamId,
     required this.title,
     required this.subtitle,
     required this.description,
@@ -186,6 +187,7 @@ class HomeDiscoveryItemDto {
   });
 
   final String? id;
+  final String? streamId;
   final String? title;
   final String? subtitle;
   final String? description;
@@ -214,6 +216,9 @@ class HomeDiscoveryItemDto {
 
     return HomeDiscoveryItemDto(
       id: XtreamParsers.asString(map['id']),
+      streamId:
+          XtreamParsers.asString(map['stream_id']) ??
+          XtreamParsers.asString(map['streamId']),
       title: XtreamParsers.asString(map['title']),
       subtitle: XtreamParsers.asString(map['subtitle']),
       description: XtreamParsers.asString(map['description']),

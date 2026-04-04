@@ -31,6 +31,66 @@ const _session = XtreamSession(
 );
 
 void main() {
+  test('segura hero mobile enquanto o discovery ainda está carregando', () {
+    expect(
+      shouldHoldMobileHeroForDiscovery(
+        const AsyncValue<HomeDiscoveryDto?>.loading(),
+        discoveryHome: null,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldHoldMobileHeroForDiscovery(
+        const AsyncValue<HomeDiscoveryDto?>.data(null),
+        discoveryHome: null,
+      ),
+      isFalse,
+    );
+  });
+
+  test(
+    'resolve playback live do discovery com fallback estável no cliente',
+    () {
+      const discoveryItem = HomeDiscoveryItemDto(
+        id: 'live-41',
+        title: 'DISCOVERY TURBO',
+        subtitle: 'Ao vivo',
+        description: null,
+        image: 'https://example.com/discoveryturbo.png',
+        backdrop: null,
+        mediaType: 'TV',
+        contentId: '999',
+        tmdbId: null,
+        rating: null,
+        year: null,
+        genres: <String>[],
+        runtime: null,
+        provider: null,
+        channelNumber: 148,
+        progress: null,
+        badges: <String>['LIVE'],
+        genreIds: <int>[],
+      );
+      const liveStreams = <LiveStream>[
+        LiveStream(
+          id: '41',
+          name: 'DISCOVERY TURBO',
+          hasArchive: false,
+          isAdult: false,
+        ),
+      ];
+
+      expect(
+        resolveDiscoveryLivePlaybackItemId(discoveryItem, liveStreams),
+        '41',
+      );
+      expect(
+        resolveDiscoveryLivePlaybackItemId(discoveryItem, const <LiveStream>[]),
+        '41',
+      );
+    },
+  );
+
   testWidgets('home mostra status da assinatura sem expor URL técnica', (
     tester,
   ) async {

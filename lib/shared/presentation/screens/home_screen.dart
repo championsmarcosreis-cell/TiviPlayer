@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/formatting/display_formatters.dart';
-import '../../../core/network/xtream_parsers.dart';
 import '../../../core/tv/tv_focusable.dart';
 import '../../../features/auth/domain/entities/xtream_session.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
@@ -20,6 +19,7 @@ import '../../../features/player/domain/entities/playback_context.dart';
 import '../../../features/player/domain/entities/playback_history_entry.dart';
 import '../../../features/player/presentation/controllers/playback_history_controller.dart';
 import '../../../features/player/presentation/screens/player_screen.dart';
+import '../../../features/player/presentation/support/player_screen_arguments.dart';
 import '../../../features/series/domain/entities/series_item.dart';
 import '../../../features/series/presentation/providers/series_providers.dart';
 import '../../../features/series/presentation/screens/series_categories_screen.dart';
@@ -295,13 +295,18 @@ class HomeScreen extends ConsumerWidget {
     final useDiscoverySeries = discoverySeriesCards.isNotEmpty;
     final useDiscoveryAnime = discoveryAnimeCards.isNotEmpty;
 
-    final effectiveHero =
-        _resolveMobileHeroChoiceFromDiscovery(
-          hero: discoveryHome?.hero,
-          context: context,
-          liveStreams: resolvedLive ?? const <LiveStream>[],
-        ) ??
-        hero;
+    final shouldHoldHeroForDiscovery = shouldHoldMobileHeroForDiscovery(
+      homeDiscoveryState,
+      discoveryHome: discoveryHome,
+    );
+    final effectiveHero = shouldHoldHeroForDiscovery
+        ? _buildPendingDiscoveryHeroChoice()
+        : (_resolveMobileHeroChoiceFromDiscovery(
+                hero: discoveryHome?.hero,
+                context: context,
+                liveStreams: resolvedLive ?? const <LiveStream>[],
+              ) ??
+              hero);
     final effectiveContinueItem =
         discoveryHome != null && discoveryHome.hasContinueWatchingField
         ? _resolveContinueItemFromDiscovery(
@@ -533,6 +538,18 @@ class _HomeHeroChoice {
   final VoidCallback onPrimary;
   final VoidCallback onSecondary;
   final List<String> metadata;
+}
+
+class _DiscoveryLiveMatch {
+  const _DiscoveryLiveMatch({
+    required this.streamIndex,
+    required this.stream,
+    required this.playbackItemId,
+  });
+
+  final int streamIndex;
+  final LiveStream? stream;
+  final String? playbackItemId;
 }
 
 T? _asyncDataOrNull<T>(AsyncValue<T> value) {
@@ -1824,6 +1841,28 @@ _HomeHeroChoice _resolveMobileHeroChoice({
   );
 }
 
+_HomeHeroChoice _buildPendingDiscoveryHeroChoice() {
+  return _HomeHeroChoice(
+    title: 'Preparando sua seleção',
+    kicker: 'Carregando novidades',
+    description:
+        'Organizando os destaques da sua home para entrar direto no que vale assistir.',
+    imageUrl: null,
+    primaryLabel: 'Aguarde',
+    secondaryLabel: 'Aguarde',
+    onPrimary: () {},
+    onSecondary: () {},
+    metadata: const ['Home', 'Catálogo'],
+  );
+}
+
+bool shouldHoldMobileHeroForDiscovery(
+  AsyncValue<HomeDiscoveryDto?> discoveryState, {
+  required HomeDiscoveryDto? discoveryHome,
+}) {
+  return discoveryHome == null && discoveryState.isLoading;
+}
+
 String _resolveMobileRailTitle({
   required String? slug,
   required String? rawTitle,
@@ -2127,15 +2166,12 @@ _HomeRailCardData? _buildDiscoveryRailCard({
       (railLayout?.toLowerCase() ?? '').contains('carousel') || isLive;
   final primaryArtwork = item.preferredArtwork;
   final contentId = item.contentId?.trim();
+  final liveMatch = isLive
+      ? _resolveDiscoveryLiveMatch(item: item, liveStreams: liveStreams)
+      : null;
 
   if (isLive) {
-    final streamIndex = liveStreams.indexWhere(
-      (stream) =>
-          stream.id == contentId ||
-          stream.id ==
-              XtreamParsers.asString(item.id)?.replaceFirst('live-', ''),
-    );
-    final liveStream = streamIndex >= 0 ? liveStreams[streamIndex] : null;
+    final liveStream = liveMatch?.stream;
     final noEpgLabel = liveStream?.hasArchive == true
         ? 'Ao vivo com replay'
         : 'Ao vivo agora';
@@ -2152,11 +2188,13 @@ _HomeRailCardData? _buildDiscoveryRailCard({
       imageUrl: primaryArtwork,
       icon: Icons.live_tv_rounded,
       onPressed: () {
-        if (streamIndex >= 0) {
-          context.push(
-            PlayerScreen.routePath,
-            extra: buildLivePlaybackContext(liveStreams, streamIndex),
-          );
+        final playerArguments = _buildDiscoveryLivePlayerArguments(
+          item: item,
+          liveMatch: liveMatch,
+          liveStreams: liveStreams,
+        );
+        if (playerArguments != null) {
+          context.push(PlayerScreen.routePath, extra: playerArguments);
           return;
         }
         _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
@@ -2307,19 +2345,21 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
           mediaType == 'tv show' ||
           isAnime);
   final contentId = item.contentId?.trim();
-  final streamIndex = liveStreams.indexWhere(
-    (stream) => stream.id == contentId,
-  );
+  final liveMatch = isLive
+      ? _resolveDiscoveryLiveMatch(item: item, liveStreams: liveStreams)
+      : null;
 
   void onPrimary() {
-    if (isLive && streamIndex >= 0) {
-      context.push(
-        PlayerScreen.routePath,
-        extra: buildLivePlaybackContext(liveStreams, streamIndex),
-      );
-      return;
-    }
     if (isLive) {
+      final playerArguments = _buildDiscoveryLivePlayerArguments(
+        item: item,
+        liveMatch: liveMatch,
+        liveStreams: liveStreams,
+      );
+      if (playerArguments != null) {
+        context.push(PlayerScreen.routePath, extra: playerArguments);
+        return;
+      }
       _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
       return;
     }
@@ -2403,6 +2443,122 @@ _HomeHeroChoice? _resolveMobileHeroChoiceFromDiscovery({
   );
 }
 
+String? resolveDiscoveryLivePlaybackItemId(
+  HomeDiscoveryItemDto item,
+  List<LiveStream> liveStreams,
+) {
+  return _resolveDiscoveryLiveMatch(
+    item: item,
+    liveStreams: liveStreams,
+  )?.playbackItemId;
+}
+
+_DiscoveryLiveMatch? _resolveDiscoveryLiveMatch({
+  required HomeDiscoveryItemDto item,
+  required List<LiveStream> liveStreams,
+}) {
+  final candidateIds = <String>[];
+  void addCandidate(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty || candidateIds.contains(trimmed)) {
+      return;
+    }
+    candidateIds.add(trimmed);
+  }
+
+  addCandidate(item.streamId);
+  if (item.id?.trim().startsWith('live-') == true) {
+    addCandidate(item.id!.trim().replaceFirst('live-', ''));
+  }
+  addCandidate(item.contentId);
+  addCandidate(item.id);
+
+  for (final candidateId in candidateIds) {
+    final streamIndex = liveStreams.indexWhere(
+      (stream) => stream.id == candidateId,
+    );
+    if (streamIndex >= 0) {
+      return _DiscoveryLiveMatch(
+        streamIndex: streamIndex,
+        stream: liveStreams[streamIndex],
+        playbackItemId: liveStreams[streamIndex].id,
+      );
+    }
+  }
+
+  final normalizedTitle = _normalizeDiscoveryLiveKey(item.title);
+  if (normalizedTitle.isNotEmpty) {
+    final streamIndex = liveStreams.indexWhere(
+      (stream) => _normalizeDiscoveryLiveKey(stream.name) == normalizedTitle,
+    );
+    if (streamIndex >= 0) {
+      return _DiscoveryLiveMatch(
+        streamIndex: streamIndex,
+        stream: liveStreams[streamIndex],
+        playbackItemId: liveStreams[streamIndex].id,
+      );
+    }
+  }
+
+  final fallbackPlaybackId = candidateIds.firstWhere(
+    (value) => !value.startsWith('live-'),
+    orElse: () => '',
+  );
+  if (fallbackPlaybackId.isNotEmpty) {
+    return _DiscoveryLiveMatch(
+      streamIndex: -1,
+      stream: null,
+      playbackItemId: fallbackPlaybackId,
+    );
+  }
+
+  return null;
+}
+
+PlayerScreenArguments? _buildDiscoveryLivePlayerArguments({
+  required HomeDiscoveryItemDto item,
+  required _DiscoveryLiveMatch? liveMatch,
+  required List<LiveStream> liveStreams,
+}) {
+  if (liveMatch?.streamIndex != null && liveMatch!.streamIndex >= 0) {
+    return buildLivePlaybackContext(liveStreams, liveMatch.streamIndex);
+  }
+
+  final playbackItemId = liveMatch?.playbackItemId?.trim();
+  if (playbackItemId == null || playbackItemId.isEmpty) {
+    return null;
+  }
+
+  final matchedStream = liveMatch?.stream;
+  return PlayerScreenArguments.standalone(
+    PlaybackContext(
+      contentType: PlaybackContentType.live,
+      itemId: playbackItemId,
+      title: item.title?.trim().isNotEmpty == true
+          ? item.title!.trim()
+          : 'Canal ao vivo',
+      containerExtension: matchedStream?.containerExtension,
+      artworkUrl: matchedStream?.iconUrl ?? item.preferredArtwork,
+      capabilities: matchedStream?.hasArchive == true
+          ? const PlaybackSessionCapabilities.liveReplayAvailable()
+          : const PlaybackSessionCapabilities.liveLinear(),
+    ),
+  );
+}
+
+String _normalizeDiscoveryLiveKey(String? value) {
+  final normalized = value?.trim().toLowerCase() ?? '';
+  if (normalized.isEmpty) {
+    return '';
+  }
+
+  return normalized
+      .replaceAll('&', ' e ')
+      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
 _ContinueWatchingData? _resolveContinueItemFromDiscovery({
   required HomeDiscoveryItemDto? item,
   required BuildContext context,
@@ -2428,9 +2584,9 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
   final contentId = item.contentId?.trim();
   final progress = (item.progress ?? 0).clamp(0.0, 1.0);
   final remainingPercent = ((1 - progress) * 100).clamp(0, 100).round();
-  final streamIndex = liveStreams.indexWhere(
-    (stream) => stream.id == contentId,
-  );
+  final liveMatch = isLive
+      ? _resolveDiscoveryLiveMatch(item: item, liveStreams: liveStreams)
+      : null;
 
   return _ContinueWatchingData(
     title: item.title!.trim(),
@@ -2457,14 +2613,16 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
         ? Icons.tv_rounded
         : Icons.movie_creation_outlined,
     onPressed: () {
-      if (isLive && streamIndex >= 0) {
-        context.push(
-          PlayerScreen.routePath,
-          extra: buildLivePlaybackContext(liveStreams, streamIndex),
-        );
-        return;
-      }
       if (isLive) {
+        final playerArguments = _buildDiscoveryLivePlayerArguments(
+          item: item,
+          liveMatch: liveMatch,
+          liveStreams: liveStreams,
+        );
+        if (playerArguments != null) {
+          context.push(PlayerScreen.routePath, extra: playerArguments);
+          return;
+        }
         _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
         return;
       }

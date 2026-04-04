@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiviplayer/core/di/providers.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_credentials.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_session.dart';
 import 'package:tiviplayer/features/auth/presentation/controllers/auth_controller.dart';
@@ -25,9 +27,15 @@ void main() {
   );
 
   testWidgets('exibe status e vencimento quando disponíveis', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final preferences = await SharedPreferences.getInstance();
+
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [currentSessionProvider.overrideWith((ref) => session)],
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => preferences),
+          currentSessionProvider.overrideWith((ref) => session),
+        ],
         child: const MaterialApp(home: AccountScreen()),
       ),
     );
@@ -40,6 +48,7 @@ void main() {
     expect(find.text('Período de teste'), findsOneWidget);
     expect(find.text('Conexões ativas'), findsOneWidget);
     expect(find.text('America/Sao_Paulo'), findsOneWidget);
+    expect(find.text('Sair da conta'), findsOneWidget);
     expect(find.textContaining('provider.example'), findsNothing);
     expect(find.textContaining('8080'), findsNothing);
   });

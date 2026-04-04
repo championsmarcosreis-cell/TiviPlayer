@@ -179,6 +179,14 @@ class AccountScreen extends ConsumerWidget {
                                 style: Theme.of(context).textTheme.bodyLarge,
                               ),
                             ],
+                            SizedBox(height: layout.sectionSpacing + 2),
+                            FilledButton.icon(
+                              onPressed: () => ref
+                                  .read(authControllerProvider.notifier)
+                                  .logout(),
+                              icon: const Icon(Icons.logout_rounded),
+                              label: const Text('Sair da conta'),
+                            ),
                             if (layout.isTv) ...[
                               SizedBox(height: layout.sectionSpacing + 2),
                               interfaceModeInline,
