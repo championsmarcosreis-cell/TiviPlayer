@@ -10,6 +10,7 @@ import '../../../../shared/presentation/layout/interface_mode_heuristics.dart';
 import '../../../../shared/presentation/layout/interface_mode_scope.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/interface_mode_selector_card.dart';
+import '../../../../shared/widgets/mobile_primary_dock.dart';
 import '../controllers/auth_controller.dart';
 
 class AccountScreen extends ConsumerWidget {
@@ -22,13 +23,15 @@ class AccountScreen extends ConsumerWidget {
     final session = ref.watch(currentSessionProvider);
     final preferredInterfaceMode = ref.watch(interfaceModeControllerProvider);
     final deviceProfileAsync = ref.watch(deviceInteractionProfileProvider);
-    final deviceProfile =
-        deviceProfileAsync is AsyncData ? deviceProfileAsync.value : null;
+    final deviceProfile = deviceProfileAsync is AsyncData
+        ? deviceProfileAsync.value
+        : null;
     if (session == null) {
       return AppScaffold(
         title: 'Minha assinatura',
         subtitle: 'Informações do acesso sincronizadas com sua conta.',
         showBack: true,
+        mobileBottomBar: const MobilePrimaryDock(),
         onBack: () {
           if (context.canPop()) {
             context.pop();
@@ -90,6 +93,7 @@ class AccountScreen extends ConsumerWidget {
       title: 'Minha assinatura',
       subtitle: 'Informações do acesso sincronizadas com sua conta.',
       showBack: true,
+      mobileBottomBar: const MobilePrimaryDock(),
       onBack: () {
         if (context.canPop()) {
           context.pop();
@@ -368,11 +372,7 @@ class _AccountInterfaceModeInline extends StatelessWidget {
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            title,
-            const SizedBox(height: 10),
-            selector,
-          ],
+          children: [title, const SizedBox(height: 10), selector],
         );
       },
     );

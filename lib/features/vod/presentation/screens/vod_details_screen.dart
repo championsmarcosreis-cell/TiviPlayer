@@ -15,6 +15,7 @@ import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
+import '../../../../shared/widgets/mobile_primary_dock.dart';
 import '../providers/vod_providers.dart';
 
 class VodDetailsScreen extends ConsumerWidget {
@@ -37,6 +38,7 @@ class VodDetailsScreen extends ConsumerWidget {
       subtitle: 'Detalhe do titulo',
       showBack: true,
       showBrand: false,
+      mobileBottomBar: const MobilePrimaryDock(),
       child: AsyncStateBuilder(
         value: info,
         dataBuilder: (item) {

@@ -8,6 +8,7 @@ import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/presentation/screens/home_screen.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
+import '../../../../shared/widgets/mobile_primary_dock.dart';
 import '../../domain/entities/live_category.dart';
 import '../../domain/entities/live_epg_entry.dart';
 import '../../domain/entities/live_stream.dart';
@@ -97,6 +98,7 @@ class _LiveCategoriesViewState extends ConsumerState<_LiveCategoriesView> {
       showBack: true,
       showBrand: false,
       decoratedHeader: false,
+      mobileBottomBar: const MobilePrimaryDock(),
       onBack: () => context.go(HomeScreen.routePath),
       child: categoriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

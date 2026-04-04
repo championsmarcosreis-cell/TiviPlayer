@@ -7,6 +7,7 @@ import 'package:tiviplayer/core/di/providers.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_credentials.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_session.dart';
 import 'package:tiviplayer/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:tiviplayer/features/home/presentation/providers/home_discovery_providers.dart';
 import 'package:tiviplayer/features/auth/presentation/screens/login_screen.dart';
 import 'package:tiviplayer/features/live/domain/entities/live_stream.dart';
 import 'package:tiviplayer/features/live/presentation/providers/live_providers.dart';
@@ -53,6 +54,7 @@ void main() {
         liveStreamsProvider.overrideWith((ref, categoryId) async => _live),
         vodStreamsProvider.overrideWith((ref, categoryId) async => _vod),
         seriesItemsProvider.overrideWith((ref, categoryId) async => _series),
+        homeDiscoveryProvider.overrideWith((ref, limit) async => null),
       ],
     );
     await _captureScenario(
@@ -113,6 +115,7 @@ void main() {
         liveStreamsProvider.overrideWith((ref, categoryId) async => _live),
         vodStreamsProvider.overrideWith((ref, categoryId) async => _vod),
         seriesItemsProvider.overrideWith((ref, categoryId) async => _series),
+        homeDiscoveryProvider.overrideWith((ref, limit) async => null),
       ],
     );
     await _captureScenario(

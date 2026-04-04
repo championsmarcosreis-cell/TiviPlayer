@@ -7,6 +7,7 @@ import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/presentation/screens/home_screen.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
+import '../../../../shared/widgets/mobile_primary_dock.dart';
 import '../providers/series_providers.dart';
 import 'series_items_screen.dart';
 
@@ -24,6 +25,7 @@ class SeriesCategoriesScreen extends ConsumerWidget {
       subtitle: 'Escolha uma coleção para abrir temporadas e episódios.',
       showBack: true,
       showBrand: false,
+      mobileBottomBar: const MobilePrimaryDock(),
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,

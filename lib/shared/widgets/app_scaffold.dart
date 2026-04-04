@@ -16,6 +16,9 @@ class AppScaffold extends StatelessWidget {
     this.onBack,
     this.decoratedHeader = true,
     this.showBrand = true,
+    this.showHeader = true,
+    this.mobileBottomBar,
+    this.mobileBottomInset = 92,
   });
 
   final String title;
@@ -26,6 +29,9 @@ class AppScaffold extends StatelessWidget {
   final VoidCallback? onBack;
   final bool decoratedHeader;
   final bool showBrand;
+  final bool showHeader;
+  final Widget? mobileBottomBar;
+  final double mobileBottomInset;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +71,9 @@ class AppScaffold extends StatelessWidget {
                     constraints: constraints,
                   );
                   final horizontalPadding = layout.pageHorizontalPadding;
+                  final effectiveMobileBottomBar = layout.isTv
+                      ? null
+                      : mobileBottomBar;
 
                   return Padding(
                     padding: EdgeInsets.fromLTRB(
@@ -76,26 +85,54 @@ class AppScaffold extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _AppScaffoldHeader(
-                          title: title,
-                          subtitle: subtitle,
-                          actions: actions,
-                          showBack: showBack,
-                          onBack: onBack,
-                          layout: layout,
-                          decoratedHeader: decoratedHeader,
-                          showBrand: showBrand,
-                        ),
-                        SizedBox(height: layout.sectionSpacing + 4),
+                        if (showHeader) ...[
+                          _AppScaffoldHeader(
+                            title: title,
+                            subtitle: subtitle,
+                            actions: actions,
+                            showBack: showBack,
+                            onBack: onBack,
+                            layout: layout,
+                            decoratedHeader: decoratedHeader,
+                            showBrand: showBrand,
+                          ),
+                          SizedBox(height: layout.sectionSpacing + 4),
+                        ],
                         Expanded(
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: layout.maxContentWidth,
+                          child: Stack(
+                            children: [
+                              Align(
+                                alignment: Alignment.topCenter,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: layout.maxContentWidth,
+                                  ),
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: effectiveMobileBottomBar == null
+                                          ? 0
+                                          : mobileBottomInset,
+                                    ),
+                                    child: child,
+                                  ),
+                                ),
                               ),
-                              child: child,
-                            ),
+                              if (effectiveMobileBottomBar != null)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: layout.maxContentWidth,
+                                      ),
+                                      child: effectiveMobileBottomBar,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ],

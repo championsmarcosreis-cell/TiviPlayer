@@ -4,10 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/formatting/display_formatters.dart';
+import '../../../core/network/xtream_parsers.dart';
 import '../../../core/tv/tv_focusable.dart';
 import '../../../features/auth/domain/entities/xtream_session.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../../features/auth/presentation/screens/account_screen.dart';
+import '../../../features/home/data/models/home_discovery_dto.dart';
+import '../../../features/home/presentation/providers/home_discovery_providers.dart';
 import '../../../features/live/domain/entities/live_epg_entry.dart';
 import '../../../features/live/domain/entities/live_stream.dart';
 import '../../../features/live/presentation/providers/live_providers.dart';
@@ -30,6 +33,7 @@ import '../layout/device_layout.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/branded_artwork.dart';
 import '../../widgets/brand_logo.dart';
+import '../../widgets/mobile_primary_dock.dart';
 import '../../widgets/tv_stage.dart';
 
 const _kHomeTvFocusColor = Color(0xFFAF7BFF);
@@ -65,23 +69,16 @@ class HomeScreen extends ConsumerWidget {
     final livePreview = ref.watch(liveStreamsProvider(null));
     final vodPreview = ref.watch(vodStreamsProvider(null));
     final seriesPreview = ref.watch(seriesItemsProvider(null));
+    final homeDiscoveryState = headerLayout.isTv
+        ? const AsyncValue<HomeDiscoveryDto?>.data(null)
+        : ref.watch(homeDiscoveryProvider(12));
     final playbackHistory = ref.watch(playbackHistoryControllerProvider);
     final expiresAt = DisplayFormatters.humanizeDate(session.expirationDate);
 
-    final mobileTopActions = [
-      _HomeQuickAction(
-        title: 'Guia ao vivo',
-        description: 'Abrir guia',
-        icon: Icons.live_tv_rounded,
-        interactiveKey: AppTestKeys.homeLiveCard,
-        testId: AppTestKeys.homeLiveCardId,
-        badge: 'LIVE',
-        onTap: () =>
-            _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
-      ),
+    final mobilePrimaryActions = [
       _HomeQuickAction(
         title: 'Filmes',
-        description: 'Catalogo',
+        description: 'Biblioteca',
         icon: Icons.movie_creation_outlined,
         interactiveKey: AppTestKeys.homeMoviesCard,
         testId: AppTestKeys.homeMoviesCardId,
@@ -89,8 +86,8 @@ class HomeScreen extends ConsumerWidget {
             _openPrimaryDestination(context, VodCategoriesScreen.routePath),
       ),
       _HomeQuickAction(
-        title: 'Series',
-        description: 'Colecoes',
+        title: 'Séries',
+        description: 'Biblioteca',
         icon: Icons.tv_rounded,
         interactiveKey: AppTestKeys.homeSeriesCard,
         testId: AppTestKeys.homeSeriesCardId,
@@ -98,30 +95,22 @@ class HomeScreen extends ConsumerWidget {
             _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
       ),
       _HomeQuickAction(
-        title: 'Minha assinatura',
-        description: DisplayFormatters.humanizeAccountStatus(
-          session.accountStatus,
-        ),
-        icon: Icons.verified_user_rounded,
-        interactiveKey: AppTestKeys.homeAccountCard,
-        testId: AppTestKeys.homeAccountCardId,
-        onTap: () => context.push(AccountScreen.routePath),
+        title: 'Anime',
+        description: 'Biblioteca',
+        icon: Icons.auto_awesome_rounded,
+        badge: 'ANIME',
+        onTap: () =>
+            _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
       ),
       _HomeQuickAction(
-        title: 'Conta',
-        description: 'Preferencias e dados da conta',
-        icon: Icons.verified_user_rounded,
-        interactiveKey: AppTestKeys.homeAccountAction,
-        kind: _HomeQuickActionKind.utility,
-        onTap: () => context.push(AccountScreen.routePath),
-      ),
-      _HomeQuickAction(
-        title: 'Sair',
-        description: 'Encerrar sessao neste aparelho',
-        icon: Icons.logout_rounded,
-        interactiveKey: AppTestKeys.homeLogoutButton,
-        kind: _HomeQuickActionKind.utility,
-        onTap: () => ref.read(authControllerProvider.notifier).logout(),
+        title: 'TV ao vivo',
+        description: 'Canais',
+        icon: Icons.live_tv_rounded,
+        interactiveKey: AppTestKeys.homeLiveCard,
+        testId: AppTestKeys.homeLiveCardId,
+        badge: 'LIVE',
+        onTap: () =>
+            _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
       ),
     ];
 
@@ -182,10 +171,171 @@ class HomeScreen extends ConsumerWidget {
     final resolvedVod = _asyncDataOrNull(vodPreview);
     final resolvedSeries = _asyncDataOrNull(seriesPreview);
     final resolvedLive = _asyncDataOrNull(livePreview);
+    final discoveryHome = _asyncDataOrNull(homeDiscoveryState);
     final vodCards = _buildVodCards(resolvedVod, context);
     final seriesCards = _buildSeriesCards(resolvedSeries, context);
     final liveCards = _buildLiveCards(resolvedLive, context);
+    final animeCards = _buildAnimeCards(
+      vodCards: vodCards,
+      seriesCards: seriesCards,
+    );
+    final hero = _resolveMobileHeroChoice(
+      context: context,
+      liveCards: liveCards,
+      vodCards: vodCards,
+      seriesCards: seriesCards,
+      animeCards: animeCards,
+    );
     final continueItem = _resolveContinueItem(playbackHistory, context);
+    final discoveryHeroSliderRail = _resolveDiscoveryLibraryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.heroSlider,
+      slug: 'hero-slider',
+    );
+    final discoveryHighlightsRail = _resolveDiscoveryLibraryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.highlights,
+      slug: 'highlights',
+    );
+    final discoveryLiveRail = _resolveDiscoveryLibraryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.liveLibrary,
+      slug: 'live-library',
+    );
+    final discoveryMoviesRail = _resolveDiscoveryLibraryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.moviesLibrary,
+      slug: 'movies-library',
+    );
+    final discoverySeriesRail = _resolveDiscoveryLibraryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.seriesLibrary,
+      slug: 'series-library',
+    );
+    final discoveryAnimeRail = _resolveDiscoveryLibraryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.animeLibrary,
+      slug: 'anime-library',
+    );
+    final fallbackLiveRail = _resolveDiscoveryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.liveNow,
+      slug: 'live-now',
+    );
+    final fallbackMoviesRail = _resolveDiscoveryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.moviesForToday,
+      slug: 'movies-for-today',
+    );
+    final fallbackSeriesRail = _resolveDiscoveryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.seriesToBinge,
+      slug: 'series-to-binge',
+    );
+    final fallbackAnimeRail = _resolveDiscoveryRail(
+      home: discoveryHome,
+      primary: discoveryHome?.animeSpotlight,
+      slug: 'anime-spotlight',
+    );
+
+    final discoveryHeroSliderChoices = _buildDiscoveryHeroSliderChoices(
+      rail: discoveryHeroSliderRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final discoveryHighlightsCards = _buildDiscoveryRailCards(
+      rail: discoveryHighlightsRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final discoveryLiveCards = _buildDiscoveryRailCards(
+      rail: discoveryLiveRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final discoveryMoviesCards = _buildDiscoveryRailCards(
+      rail: discoveryMoviesRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final discoverySeriesCards = _buildDiscoveryRailCards(
+      rail: discoverySeriesRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final discoveryAnimeCards = _buildDiscoveryRailCards(
+      rail: discoveryAnimeRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final fallbackDiscoveryLiveCards = _buildDiscoveryRailCards(
+      rail: fallbackLiveRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final fallbackDiscoveryMoviesCards = _buildDiscoveryRailCards(
+      rail: fallbackMoviesRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final fallbackDiscoverySeriesCards = _buildDiscoveryRailCards(
+      rail: fallbackSeriesRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final fallbackDiscoveryAnimeCards = _buildDiscoveryRailCards(
+      rail: fallbackAnimeRail,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
+    final useDiscoveryHeroSlider = discoveryHeroSliderChoices.isNotEmpty;
+    final useDiscoveryHighlights = discoveryHighlightsCards.isNotEmpty;
+    final useDiscoveryLive = discoveryLiveCards.isNotEmpty;
+    final useDiscoveryMovies = discoveryMoviesCards.isNotEmpty;
+    final useDiscoverySeries = discoverySeriesCards.isNotEmpty;
+    final useDiscoveryAnime = discoveryAnimeCards.isNotEmpty;
+
+    final effectiveHero =
+        _resolveMobileHeroChoiceFromDiscovery(
+          hero: discoveryHome?.hero,
+          context: context,
+          liveStreams: resolvedLive ?? const <LiveStream>[],
+        ) ??
+        hero;
+    final effectiveContinueItem =
+        discoveryHome != null && discoveryHome.hasContinueWatchingField
+        ? _resolveContinueItemFromDiscovery(
+            item: discoveryHome.continueWatching,
+            context: context,
+            liveStreams: resolvedLive ?? const <LiveStream>[],
+          )
+        : continueItem;
+    final effectiveLiveCards = useDiscoveryLive
+        ? discoveryLiveCards
+        : fallbackDiscoveryLiveCards.isNotEmpty
+        ? fallbackDiscoveryLiveCards
+        : liveCards;
+    final effectiveMoviesCards = useDiscoveryMovies
+        ? discoveryMoviesCards
+        : fallbackDiscoveryMoviesCards.isNotEmpty
+        ? fallbackDiscoveryMoviesCards
+        : vodCards;
+    final effectiveSeriesCards = useDiscoverySeries
+        ? discoverySeriesCards
+        : fallbackDiscoverySeriesCards.isNotEmpty
+        ? fallbackDiscoverySeriesCards
+        : seriesCards;
+    final effectiveAnimeCards = useDiscoveryAnime
+        ? discoveryAnimeCards
+        : fallbackDiscoveryAnimeCards.isNotEmpty
+        ? fallbackDiscoveryAnimeCards
+        : animeCards;
+    final discoveryAdditionalRails = _buildAdditionalDiscoveryRails(
+      home: discoveryHome,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+      discoveryState: homeDiscoveryState,
+    );
 
     if (headerLayout.isTv) {
       return WillPopScope(
@@ -208,20 +358,99 @@ class HomeScreen extends ConsumerWidget {
     return WillPopScope(
       onWillPop: () => _handleHomeExitRequest(context),
       child: AppScaffold(
-        title: 'Inicio',
-        subtitle: 'Sua central para ao vivo e catalogo sob demanda.',
-        decoratedHeader: true,
-        showBrand: true,
+        title: '',
+        decoratedHeader: false,
+        showBrand: false,
+        showHeader: false,
         actions: const [],
+        mobileBottomBar: const MobilePrimaryDock(),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final layout = DeviceLayout.of(context, constraints: constraints);
             final homeBody = _MobileHomeExperience(
               layout: layout,
-              topActions: mobileTopActions,
-              continueItem: continueItem,
-              liveCards: liveCards,
-              liveState: livePreview,
+              fallbackHero: effectiveHero,
+              heroSlider: useDiscoveryHeroSlider
+                  ? discoveryHeroSliderChoices
+                  : const <_HomeHeroChoice>[],
+              primaryActions: mobilePrimaryActions,
+              continueItem: effectiveContinueItem,
+              liveHeading: _resolveMobileRailTitle(
+                slug: discoveryLiveRail?.slug ?? fallbackLiveRail?.slug,
+                rawTitle: discoveryLiveRail?.title ?? fallbackLiveRail?.title,
+                fallback: 'TV ao vivo',
+              ),
+              liveSubtitle: _resolveMobileRailSubtitle(
+                slug: discoveryLiveRail?.slug ?? fallbackLiveRail?.slug,
+                rawDescription:
+                    discoveryLiveRail?.description ??
+                    fallbackLiveRail?.description,
+                fallback: 'Canais ao vivo para assistir agora.',
+              ),
+              liveCards: effectiveLiveCards,
+              highlightsHeading: _resolveMobileRailTitle(
+                slug: discoveryHighlightsRail?.slug,
+                rawTitle: discoveryHighlightsRail?.title,
+                fallback: 'Destaques',
+              ),
+              highlightsSubtitle: _resolveMobileRailSubtitle(
+                slug: discoveryHighlightsRail?.slug,
+                rawDescription: discoveryHighlightsRail?.description,
+                fallback: 'Uma seleção editorial para começar a sessão.',
+              ),
+              highlightsCards: discoveryHighlightsCards,
+              vodHeading: _resolveMobileRailTitle(
+                slug: discoveryMoviesRail?.slug ?? fallbackMoviesRail?.slug,
+                rawTitle:
+                    discoveryMoviesRail?.title ?? fallbackMoviesRail?.title,
+                fallback: 'Filmes',
+              ),
+              vodSubtitle: _resolveMobileRailSubtitle(
+                slug: discoveryMoviesRail?.slug ?? fallbackMoviesRail?.slug,
+                rawDescription:
+                    discoveryMoviesRail?.description ??
+                    fallbackMoviesRail?.description,
+                fallback: 'Filmes para escolher e assistir agora.',
+              ),
+              vodCards: effectiveMoviesCards,
+              seriesHeading: _resolveMobileRailTitle(
+                slug: discoverySeriesRail?.slug ?? fallbackSeriesRail?.slug,
+                rawTitle:
+                    discoverySeriesRail?.title ?? fallbackSeriesRail?.title,
+                fallback: 'Séries',
+              ),
+              seriesSubtitle: _resolveMobileRailSubtitle(
+                slug: discoverySeriesRail?.slug ?? fallbackSeriesRail?.slug,
+                rawDescription:
+                    discoverySeriesRail?.description ??
+                    fallbackSeriesRail?.description,
+                fallback: 'Séries para seguir episódio após episódio.',
+              ),
+              seriesCards: effectiveSeriesCards,
+              animeHeading: _resolveMobileRailTitle(
+                slug: discoveryAnimeRail?.slug ?? fallbackAnimeRail?.slug,
+                rawTitle: discoveryAnimeRail?.title ?? fallbackAnimeRail?.title,
+                fallback: 'Anime',
+              ),
+              animeSubtitle: _resolveMobileRailSubtitle(
+                slug: discoveryAnimeRail?.slug ?? fallbackAnimeRail?.slug,
+                rawDescription:
+                    discoveryAnimeRail?.description ??
+                    fallbackAnimeRail?.description,
+                fallback: 'Uma seleção para entrar no universo anime.',
+              ),
+              animeCards: effectiveAnimeCards,
+              liveState: useDiscoveryLive ? homeDiscoveryState : livePreview,
+              highlightsState: homeDiscoveryState,
+              vodState: useDiscoveryMovies ? homeDiscoveryState : vodPreview,
+              seriesState: useDiscoverySeries
+                  ? homeDiscoveryState
+                  : seriesPreview,
+              animeState: useDiscoveryAnime
+                  ? homeDiscoveryState
+                  : _combineRailStates([vodPreview, seriesPreview]),
+              showHighlights: useDiscoveryHighlights,
+              additionalRails: discoveryAdditionalRails,
             );
 
             return Scrollbar(
@@ -292,6 +521,7 @@ class _HomeHeroChoice {
     required this.secondaryLabel,
     required this.onPrimary,
     required this.onSecondary,
+    this.metadata = const <String>[],
   });
 
   final String title;
@@ -302,7 +532,7 @@ class _HomeHeroChoice {
   final String secondaryLabel;
   final VoidCallback onPrimary;
   final VoidCallback onSecondary;
-  final List<String> metadata = const <String>[];
+  final List<String> metadata;
 }
 
 T? _asyncDataOrNull<T>(AsyncValue<T> value) {
@@ -1432,41 +1662,1090 @@ String _buildLiveSectionSubtitle({
   return 'Canais ao vivo para assistir agora';
 }
 
+List<_HomeRailCardData> _buildAnimeCards({
+  required List<_HomeRailCardData> vodCards,
+  required List<_HomeRailCardData> seriesCards,
+}) {
+  final candidates = <_HomeRailCardData>[...seriesCards, ...vodCards];
+
+  return candidates
+      .where((card) => _looksLikeAnime(card.title, card.subtitle))
+      .take(12)
+      .map(
+        (card) => _HomeRailCardData(
+          title: card.title,
+          subtitle: card.subtitle,
+          imageUrl: card.imageUrl,
+          icon: card.icon,
+          onPressed: card.onPressed,
+          badge: 'ANIME',
+          aspectRatio: card.aspectRatio,
+          imagePadding: card.imagePadding,
+          fit: card.fit,
+          liveStreamId: card.liveStreamId,
+          supportsLiveEpg: card.supportsLiveEpg,
+          noEpgFallbackLabel: card.noEpgFallbackLabel,
+          hasReplay: card.hasReplay,
+        ),
+      )
+      .toList();
+}
+
+bool _looksLikeAnime(String title, String subtitle) {
+  final haystack = '${title.toLowerCase()} ${subtitle.toLowerCase()}';
+  const animeKeywords = <String>[
+    'anime',
+    'animé',
+    'manga',
+    'otaku',
+    'naruto',
+    'one piece',
+    'dragon ball',
+    'demon slayer',
+    'jujutsu',
+    'bleach',
+    'pokemon',
+    'attack on titan',
+  ];
+
+  return animeKeywords.any(haystack.contains);
+}
+
+AsyncValue<void> _combineRailStates(List<AsyncValue<dynamic>> states) {
+  final hasData = states.any(
+    (state) => state.when(
+      data: (_) => true,
+      loading: () => false,
+      error: (error, stackTrace) => false,
+    ),
+  );
+
+  if (states.any((state) => state.isLoading) && !hasData) {
+    return const AsyncValue.loading();
+  }
+
+  for (final state in states) {
+    if (state is AsyncError<dynamic> && !hasData) {
+      return AsyncValue.error(state.error, state.stackTrace);
+    }
+  }
+
+  return const AsyncValue.data(null);
+}
+
+_HomeHeroChoice _resolveMobileHeroChoice({
+  required BuildContext context,
+  required List<_HomeRailCardData> liveCards,
+  required List<_HomeRailCardData> vodCards,
+  required List<_HomeRailCardData> seriesCards,
+  required List<_HomeRailCardData> animeCards,
+}) {
+  if (liveCards.isNotEmpty) {
+    final liveChoice = liveCards.firstWhere(
+      (card) => card.supportsLiveEpg,
+      orElse: () => liveCards.first,
+    );
+    return _HomeHeroChoice(
+      title: liveChoice.title,
+      kicker: 'Ao vivo agora',
+      description:
+          'Abra o canal com contexto ao vivo e entre no que está acontecendo.',
+      imageUrl: liveChoice.imageUrl,
+      primaryLabel: 'Assistir ao vivo',
+      secondaryLabel: 'Abrir guia',
+      onPrimary: liveChoice.onPressed,
+      onSecondary: () =>
+          _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
+      metadata: const ['LIVE', 'Agora'],
+    );
+  }
+
+  if (vodCards.isNotEmpty) {
+    final vodChoice = vodCards.first;
+    return _HomeHeroChoice(
+      title: vodChoice.title,
+      kicker: 'Chegou agora',
+      description: 'Comece por um filme escolhido para abrir sua sessão.',
+      imageUrl: vodChoice.imageUrl,
+      primaryLabel: 'Assistir agora',
+      secondaryLabel: 'Ver filmes',
+      onPrimary: vodChoice.onPressed,
+      onSecondary: () =>
+          _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+      metadata: const ['Filme', 'Sob demanda'],
+    );
+  }
+
+  if (animeCards.isNotEmpty) {
+    final animeChoice = animeCards.first;
+    return _HomeHeroChoice(
+      title: animeChoice.title,
+      kicker: 'Chegou agora',
+      description: 'Uma escolha para começar sua sessão de anime.',
+      imageUrl: animeChoice.imageUrl,
+      primaryLabel: 'Abrir agora',
+      secondaryLabel: 'Ver animes',
+      onPrimary: animeChoice.onPressed,
+      onSecondary: () =>
+          _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
+      metadata: const ['Anime', 'Novidade'],
+    );
+  }
+
+  if (seriesCards.isNotEmpty) {
+    final seriesChoice = seriesCards.first;
+    return _HomeHeroChoice(
+      title: seriesChoice.title,
+      kicker: 'Chegou agora',
+      description: 'Uma série para começar ou retomar agora.',
+      imageUrl: seriesChoice.imageUrl,
+      primaryLabel: 'Abrir agora',
+      secondaryLabel: 'Ver séries',
+      onPrimary: seriesChoice.onPressed,
+      onSecondary: () =>
+          _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
+      metadata: const ['Série', 'Novidade'],
+    );
+  }
+
+  return _HomeHeroChoice(
+    title: 'Descubra algo para assistir',
+    kicker: 'Sua sessão começa aqui',
+    description:
+        'Entre no catálogo para encontrar filmes, séries e canais ao vivo.',
+    imageUrl: null,
+    primaryLabel: 'Abrir filmes',
+    secondaryLabel: 'Abrir guia',
+    onPrimary: () =>
+        _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+    onSecondary: () =>
+        _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
+    metadata: const ['Ao vivo', 'Filmes', 'Séries'],
+  );
+}
+
+String _resolveMobileRailTitle({
+  required String? slug,
+  required String? rawTitle,
+  required String fallback,
+}) {
+  final normalizedSlug = slug?.trim().toLowerCase() ?? '';
+  switch (normalizedSlug) {
+    case 'hero-slider':
+      return 'Novidades';
+    case 'highlights':
+      return 'Destaques';
+    case 'live-library':
+      return 'TV ao vivo';
+    case 'movies-library':
+      return 'Filmes';
+    case 'series-library':
+      return 'Séries';
+    case 'anime-library':
+      return 'Anime';
+    case 'live-now':
+      return 'Canais ao vivo';
+    case 'trending-now':
+      return 'Em destaque';
+    case 'movies-for-today':
+      return 'Filmes para ver agora';
+    case 'series-to-binge':
+      return 'Séries para maratonar';
+    case 'anime-spotlight':
+      return 'Anime';
+  }
+
+  final normalizedTitle = _cleanDiscoveryText(rawTitle);
+  if (normalizedTitle == null) {
+    return fallback;
+  }
+  if (normalizedTitle.toUpperCase() == normalizedTitle &&
+      normalizedTitle.contains('_')) {
+    return fallback;
+  }
+  return normalizedTitle;
+}
+
+String _resolveMobileRailSubtitle({
+  required String? slug,
+  required String? rawDescription,
+  required String fallback,
+}) {
+  final normalizedSlug = slug?.trim().toLowerCase() ?? '';
+  switch (normalizedSlug) {
+    case 'hero-slider':
+      return 'Escolhas para começar a sessão sem perder tempo.';
+    case 'highlights':
+      return 'Uma seleção editorial para abrir a sessão.';
+    case 'live-library':
+      return 'Canais ao vivo para assistir agora.';
+    case 'movies-library':
+      return 'Filmes adicionados ao catálogo para escolher agora.';
+    case 'series-library':
+      return 'Séries para começar ou retomar no seu ritmo.';
+    case 'anime-library':
+      return 'Anime para mergulhar em maratonas e novos episódios.';
+    case 'live-now':
+      return 'Entre ao vivo e escolha o que assistir agora.';
+    case 'trending-now':
+      return 'Títulos que estão chamando atenção agora.';
+    case 'movies-for-today':
+      return 'Filmes para escolher e assistir agora.';
+    case 'series-to-binge':
+      return 'Séries para seguir episódio após episódio.';
+    case 'anime-spotlight':
+      return 'Uma seleção para entrar no universo anime.';
+  }
+
+  final normalizedDescription = _cleanDiscoveryText(rawDescription);
+  if (normalizedDescription == null ||
+      _containsTechnicalDiscoveryLanguage(normalizedDescription)) {
+    return fallback;
+  }
+  return normalizedDescription;
+}
+
+String? _cleanDiscoveryText(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+
+  return trimmed
+      .replaceAll('TMDB', '')
+      .replaceAll('tmdb', '')
+      .replaceAll('EPG', '')
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .replaceAll(RegExp(r'\s+([.,;:])'), r'$1')
+      .trim();
+}
+
+bool _containsTechnicalDiscoveryLanguage(String value) {
+  final normalized = value.toLowerCase();
+  return normalized.contains('tmdb') ||
+      normalized.contains('epg') ||
+      normalized.contains('fallback') ||
+      normalized.contains('prioriza') ||
+      normalized.contains('ranking real') ||
+      normalized.contains('heur') ||
+      normalized.contains('source') ||
+      normalized.contains('rationale') ||
+      normalized.contains('tempo real');
+}
+
+String _resolveDiscoveryBadgeLabel({
+  required bool isLive,
+  required bool isSeries,
+  required bool isAnime,
+  required List<String> badges,
+  String fallback = 'FILME',
+}) {
+  if (isLive) {
+    return 'AO VIVO';
+  }
+  if (isAnime) {
+    return 'ANIME';
+  }
+  if (isSeries) {
+    return 'SÉRIE';
+  }
+
+  for (final badge in badges) {
+    final normalized = badge.trim().toUpperCase();
+    if (normalized == 'TRENDING' || normalized == 'TRENDING_NOW') {
+      return 'DESTAQUE';
+    }
+    if (normalized == 'TOP') {
+      return 'TOP';
+    }
+  }
+
+  return fallback;
+}
+
+String _resolveDiscoveryItemSubtitle({
+  required HomeDiscoveryItemDto item,
+  required bool isLive,
+  required bool isSeries,
+  required bool isAnime,
+  required String fallback,
+}) {
+  final rawSubtitle = _cleanDiscoveryText(item.subtitle);
+  if (rawSubtitle != null &&
+      !_containsTechnicalDiscoveryLanguage(rawSubtitle)) {
+    switch (rawSubtitle.toLowerCase()) {
+      case 'tv series':
+      case 'series':
+      case 'serie':
+        return 'Série';
+      case 'vod':
+        return 'Filme';
+      case 'tv':
+        return 'Ao vivo';
+      case 'anime':
+        return 'Anime';
+      default:
+        return rawSubtitle;
+    }
+  }
+
+  if (isLive) {
+    return 'Canal ao vivo';
+  }
+  if (isAnime) {
+    return 'Anime';
+  }
+  if (isSeries) {
+    return 'Série';
+  }
+  return fallback;
+}
+
+List<String> _resolveDiscoveryHeroMetadata({
+  required HomeDiscoveryItemDto item,
+  required bool isLive,
+  required bool isSeries,
+}) {
+  final values = <String>[
+    if (isLive)
+      'Ao vivo'
+    else if (_looksLikeAnime(
+      item.title ?? '',
+      item.subtitle ?? item.description ?? '',
+    ))
+      'Anime'
+    else if (isSeries)
+      'Série'
+    else
+      'Filme',
+    if (item.year != null) '${item.year}',
+  ];
+
+  final highlightBadge = item.badges
+      .map((badge) => badge.trim().toUpperCase())
+      .where((badge) => badge == 'TOP' || badge == 'TRENDING')
+      .map((badge) => badge == 'TRENDING' ? 'Destaque' : 'Top')
+      .toList();
+  values.addAll(highlightBadge.take(1));
+
+  return values;
+}
+
+HomeDiscoveryRailDto? _resolveDiscoveryRail({
+  required HomeDiscoveryDto? home,
+  required HomeDiscoveryRailDto? primary,
+  required String slug,
+}) {
+  if (primary != null) {
+    return primary;
+  }
+  if (home == null) {
+    return null;
+  }
+
+  final normalizedSlug = slug.trim().toLowerCase();
+  for (final rail in home.rails) {
+    if (rail.slug?.trim().toLowerCase() == normalizedSlug) {
+      return rail;
+    }
+  }
+  return null;
+}
+
+HomeDiscoveryRailDto? _resolveDiscoveryLibraryRail({
+  required HomeDiscoveryDto? home,
+  required HomeDiscoveryRailDto? primary,
+  required String slug,
+}) {
+  if (primary != null) {
+    return primary;
+  }
+
+  final normalizedSlug = slug.trim().toLowerCase();
+  for (final rail in home?.libraries ?? const <HomeDiscoveryRailDto>[]) {
+    if (rail.slug?.trim().toLowerCase() == normalizedSlug) {
+      return rail;
+    }
+  }
+
+  return _resolveDiscoveryRail(home: home, primary: null, slug: normalizedSlug);
+}
+
+List<_HomeRailCardData> _buildDiscoveryRailCards({
+  required HomeDiscoveryRailDto? rail,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+}) {
+  if (rail == null || rail.items.isEmpty) {
+    return const <_HomeRailCardData>[];
+  }
+
+  return rail.items
+      .map(
+        (item) => _buildDiscoveryRailCard(
+          item: item,
+          railLayout: rail.layout,
+          context: context,
+          liveStreams: liveStreams,
+        ),
+      )
+      .whereType<_HomeRailCardData>()
+      .toList();
+}
+
+_HomeRailCardData? _buildDiscoveryRailCard({
+  required HomeDiscoveryItemDto item,
+  required String? railLayout,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+}) {
+  final title = item.title?.trim();
+  if (title == null || title.isEmpty) {
+    return null;
+  }
+
+  final mediaType = item.mediaType?.trim().toLowerCase() ?? '';
+  final badgesUpper = item.badges.map((entry) => entry.trim().toUpperCase());
+  final hasLiveBadge = badgesUpper.contains('LIVE');
+  final isLive =
+      hasLiveBadge ||
+      mediaType == 'tv' ||
+      mediaType == 'live' ||
+      mediaType.contains('channel');
+  final isAnime =
+      badgesUpper.contains('ANIME') ||
+      mediaType.contains('anime') ||
+      _looksLikeAnime(title, item.subtitle ?? item.description ?? '');
+  final isSeries =
+      !isLive &&
+      (mediaType.contains('series') ||
+          mediaType == 'tvseries' ||
+          mediaType == 'tv_show' ||
+          mediaType == 'tv show' ||
+          isAnime);
+  final prefersLandscape =
+      (railLayout?.toLowerCase() ?? '').contains('carousel') || isLive;
+  final primaryArtwork = item.preferredArtwork;
+  final contentId = item.contentId?.trim();
+
+  if (isLive) {
+    final streamIndex = liveStreams.indexWhere(
+      (stream) =>
+          stream.id == contentId ||
+          stream.id ==
+              XtreamParsers.asString(item.id)?.replaceFirst('live-', ''),
+    );
+    final liveStream = streamIndex >= 0 ? liveStreams[streamIndex] : null;
+    final noEpgLabel = liveStream?.hasArchive == true
+        ? 'Ao vivo com replay'
+        : 'Ao vivo agora';
+
+    return _HomeRailCardData(
+      title: title,
+      subtitle: _resolveDiscoveryItemSubtitle(
+        item: item,
+        isLive: true,
+        isSeries: false,
+        isAnime: false,
+        fallback: noEpgLabel,
+      ),
+      imageUrl: primaryArtwork,
+      icon: Icons.live_tv_rounded,
+      onPressed: () {
+        if (streamIndex >= 0) {
+          context.push(
+            PlayerScreen.routePath,
+            extra: buildLivePlaybackContext(liveStreams, streamIndex),
+          );
+          return;
+        }
+        _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
+      },
+      badge: _resolveDiscoveryBadgeLabel(
+        isLive: true,
+        isSeries: false,
+        isAnime: false,
+        badges: item.badges,
+      ),
+      aspectRatio: 16 / 9,
+      imagePadding: const EdgeInsets.all(18),
+      fit: BoxFit.contain,
+      liveStreamId: liveStream?.id,
+      supportsLiveEpg: liveStream?.epgChannelId?.trim().isNotEmpty == true,
+      noEpgFallbackLabel: noEpgLabel,
+      hasReplay: liveStream?.hasArchive == true,
+    );
+  }
+
+  if (isSeries) {
+    return _HomeRailCardData(
+      title: title,
+      subtitle: _resolveDiscoveryItemSubtitle(
+        item: item,
+        isLive: false,
+        isSeries: true,
+        isAnime: isAnime,
+        fallback: isAnime ? 'Anime' : 'Série para maratonar',
+      ),
+      imageUrl: primaryArtwork,
+      icon: Icons.tv_rounded,
+      onPressed: () {
+        if (contentId != null && contentId.isNotEmpty) {
+          context.push(SeriesDetailsScreen.buildLocation(contentId));
+          return;
+        }
+        _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
+      },
+      badge: _resolveDiscoveryBadgeLabel(
+        isLive: false,
+        isSeries: true,
+        isAnime: isAnime,
+        badges: item.badges,
+        fallback: 'SÉRIE',
+      ),
+      aspectRatio: prefersLandscape ? 16 / 9 : 2 / 3,
+    );
+  }
+
+  final fallbackSubtitle = _resolveDiscoveryItemSubtitle(
+    item: item,
+    isLive: false,
+    isSeries: false,
+    isAnime: false,
+    fallback: item.rating != null
+        ? 'Nota ${item.rating!.toStringAsFixed(1)}'
+        : (item.year != null ? '${item.year}' : 'Filme'),
+  );
+  final normalizedBadge = _resolveDiscoveryBadgeLabel(
+    isLive: false,
+    isSeries: false,
+    isAnime: false,
+    badges: item.badges,
+    fallback: 'FILME',
+  );
+
+  return _HomeRailCardData(
+    title: title,
+    subtitle: fallbackSubtitle,
+    imageUrl: primaryArtwork,
+    icon: Icons.movie_creation_outlined,
+    onPressed: () {
+      if (contentId != null && contentId.isNotEmpty) {
+        context.push(VodDetailsScreen.buildLocation(contentId));
+        return;
+      }
+      _openPrimaryDestination(context, VodCategoriesScreen.routePath);
+    },
+    badge: normalizedBadge,
+    aspectRatio: prefersLandscape ? 16 / 9 : 2 / 3,
+  );
+}
+
+List<_HomeHeroChoice> _buildDiscoveryHeroSliderChoices({
+  required HomeDiscoveryRailDto? rail,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+}) {
+  if (rail == null || rail.items.isEmpty) {
+    return const <_HomeHeroChoice>[];
+  }
+
+  return rail.items
+      .map(
+        (item) => _buildHeroChoiceFromDiscoveryItem(
+          item: item,
+          context: context,
+          liveStreams: liveStreams,
+          semanticKicker: _resolveHeroSliderSemanticKicker(rail),
+        ),
+      )
+      .whereType<_HomeHeroChoice>()
+      .toList(growable: false);
+}
+
+String _resolveHeroSliderSemanticKicker(HomeDiscoveryRailDto rail) {
+  final slug = rail.slug?.trim().toLowerCase() ?? '';
+  if (slug == 'hero-slider') {
+    return 'Novidade';
+  }
+
+  final title = _cleanDiscoveryText(rail.title)?.toLowerCase() ?? '';
+  if (title.contains('novidade') || title.contains('recente')) {
+    return 'Novidade';
+  }
+  return 'Chegou agora';
+}
+
+_HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
+  required HomeDiscoveryItemDto? item,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+  String? semanticKicker,
+}) {
+  if (item == null || item.title?.trim().isEmpty != false) {
+    return null;
+  }
+
+  final mediaType = item.mediaType?.trim().toLowerCase() ?? '';
+  final isLive =
+      mediaType == 'tv' ||
+      mediaType == 'live' ||
+      mediaType.contains('channel') ||
+      item.badges.any((badge) => badge.toUpperCase() == 'LIVE');
+  final isAnime =
+      !isLive &&
+      (mediaType.contains('anime') ||
+          _looksLikeAnime(
+            item.title ?? '',
+            item.subtitle ?? item.description ?? '',
+          ));
+  final isSeries =
+      !isLive &&
+      (mediaType.contains('series') ||
+          mediaType == 'tvseries' ||
+          mediaType == 'tv_show' ||
+          mediaType == 'tv show' ||
+          isAnime);
+  final contentId = item.contentId?.trim();
+  final streamIndex = liveStreams.indexWhere(
+    (stream) => stream.id == contentId,
+  );
+
+  void onPrimary() {
+    if (isLive && streamIndex >= 0) {
+      context.push(
+        PlayerScreen.routePath,
+        extra: buildLivePlaybackContext(liveStreams, streamIndex),
+      );
+      return;
+    }
+    if (isLive) {
+      _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
+      return;
+    }
+    if (isSeries) {
+      if (contentId != null && contentId.isNotEmpty) {
+        context.push(SeriesDetailsScreen.buildLocation(contentId));
+        return;
+      }
+      _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
+      return;
+    }
+    if (contentId != null && contentId.isNotEmpty) {
+      context.push(VodDetailsScreen.buildLocation(contentId));
+      return;
+    }
+    _openPrimaryDestination(context, VodCategoriesScreen.routePath);
+  }
+
+  void onSecondary() {
+    if (isLive) {
+      _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
+      return;
+    }
+    if (isSeries) {
+      _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
+      return;
+    }
+    _openPrimaryDestination(context, VodCategoriesScreen.routePath);
+  }
+
+  final cleanedDescription = _cleanDiscoveryText(item.description);
+
+  return _HomeHeroChoice(
+    title: item.title!.trim(),
+    kicker:
+        semanticKicker ??
+        (isLive
+            ? 'Ao vivo agora'
+            : isAnime || isSeries
+            ? 'Chegou agora'
+            : 'Chegou agora'),
+    description: cleanedDescription?.isNotEmpty == true
+        ? cleanedDescription!
+        : isLive
+        ? 'Entre direto em um canal ao vivo.'
+        : isAnime
+        ? 'Uma escolha para começar sua sessão de anime.'
+        : isSeries
+        ? 'Uma série para puxar a próxima maratona.'
+        : 'Uma escolha para começar sua sessão.',
+    imageUrl: item.backdrop ?? item.image,
+    primaryLabel: isLive
+        ? 'Assistir ao vivo'
+        : isSeries
+        ? 'Abrir agora'
+        : 'Assistir agora',
+    secondaryLabel: isLive
+        ? 'Ver canais'
+        : isSeries
+        ? 'Ver séries'
+        : 'Ver filmes',
+    onPrimary: onPrimary,
+    onSecondary: onSecondary,
+    metadata: _resolveDiscoveryHeroMetadata(
+      item: item,
+      isLive: isLive,
+      isSeries: isSeries,
+    ),
+  );
+}
+
+_HomeHeroChoice? _resolveMobileHeroChoiceFromDiscovery({
+  required HomeDiscoveryHeroDto? hero,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+}) {
+  return _buildHeroChoiceFromDiscoveryItem(
+    item: hero?.item,
+    context: context,
+    liveStreams: liveStreams,
+  );
+}
+
+_ContinueWatchingData? _resolveContinueItemFromDiscovery({
+  required HomeDiscoveryItemDto? item,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+}) {
+  if (item == null || item.title?.trim().isEmpty != false) {
+    return null;
+  }
+
+  final mediaType = item.mediaType?.trim().toLowerCase() ?? '';
+  final isLive =
+      mediaType == 'tv' ||
+      mediaType == 'live' ||
+      mediaType.contains('channel') ||
+      item.badges.any((badge) => badge.toUpperCase() == 'LIVE');
+  final isSeries =
+      !isLive &&
+      (mediaType.contains('series') ||
+          mediaType == 'tvseries' ||
+          mediaType == 'tv_show' ||
+          mediaType == 'tv show' ||
+          mediaType.contains('anime'));
+  final contentId = item.contentId?.trim();
+  final progress = (item.progress ?? 0).clamp(0.0, 1.0);
+  final remainingPercent = ((1 - progress) * 100).clamp(0, 100).round();
+  final streamIndex = liveStreams.indexWhere(
+    (stream) => stream.id == contentId,
+  );
+
+  return _ContinueWatchingData(
+    title: item.title!.trim(),
+    subtitle: _resolveDiscoveryItemSubtitle(
+      item: item,
+      isLive: isLive,
+      isSeries: isSeries,
+      isAnime:
+          !isLive && _looksLikeAnime(item.title ?? '', item.subtitle ?? ''),
+      fallback: isLive
+          ? 'Ao vivo'
+          : isSeries
+          ? 'Série'
+          : 'Filme',
+    ),
+    progress: progress,
+    remainingLabel: progress > 0
+        ? '$remainingPercent% restante'
+        : 'Retomar agora',
+    imageUrl: item.preferredArtwork,
+    icon: isLive
+        ? Icons.live_tv_rounded
+        : isSeries
+        ? Icons.tv_rounded
+        : Icons.movie_creation_outlined,
+    onPressed: () {
+      if (isLive && streamIndex >= 0) {
+        context.push(
+          PlayerScreen.routePath,
+          extra: buildLivePlaybackContext(liveStreams, streamIndex),
+        );
+        return;
+      }
+      if (isLive) {
+        _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
+        return;
+      }
+      if (isSeries) {
+        if (contentId != null && contentId.isNotEmpty) {
+          context.push(SeriesDetailsScreen.buildLocation(contentId));
+          return;
+        }
+        _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
+        return;
+      }
+      if (contentId != null && contentId.isNotEmpty) {
+        context.push(VodDetailsScreen.buildLocation(contentId));
+        return;
+      }
+      _openPrimaryDestination(context, VodCategoriesScreen.routePath);
+    },
+  );
+}
+
+List<_DiscoveryAdditionalRail> _buildAdditionalDiscoveryRails({
+  required HomeDiscoveryDto? home,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+  required AsyncValue<dynamic> discoveryState,
+}) {
+  if (home == null || home.rails.isEmpty) {
+    return const <_DiscoveryAdditionalRail>[];
+  }
+
+  const reservedSlugs = <String>{
+    'hero-slider',
+    'highlights',
+    'live-library',
+    'movies-library',
+    'series-library',
+    'anime-library',
+    'live-now',
+    'trending-now',
+    'movies-for-today',
+    'series-to-binge',
+    'anime-spotlight',
+  };
+
+  final result = <_DiscoveryAdditionalRail>[];
+  for (final rail in home.rails) {
+    final slug = rail.slug?.trim().toLowerCase() ?? '';
+    if (reservedSlugs.contains(slug)) {
+      continue;
+    }
+
+    final cards = _buildDiscoveryRailCards(
+      rail: rail,
+      context: context,
+      liveStreams: liveStreams,
+    );
+    if (cards.isEmpty) {
+      continue;
+    }
+
+    result.add(
+      _DiscoveryAdditionalRail(
+        title: _resolveMobileRailTitle(
+          slug: rail.slug,
+          rawTitle: rail.title,
+          fallback: 'Coleção em destaque',
+        ),
+        subtitle: _resolveMobileRailSubtitle(
+          slug: rail.slug,
+          rawDescription: rail.description,
+          fallback: 'Uma seleção para descobrir algo novo.',
+        ),
+        icon: _resolveDiscoveryRailIcon(slug),
+        cards: cards,
+        state: discoveryState,
+        onViewAll: () {
+          if (slug.contains('live')) {
+            _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
+            return;
+          }
+          if (slug.contains('series') || slug.contains('anime')) {
+            _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
+            return;
+          }
+          _openPrimaryDestination(context, VodCategoriesScreen.routePath);
+        },
+      ),
+    );
+  }
+
+  return result;
+}
+
+IconData _resolveDiscoveryRailIcon(String slug) {
+  if (slug.contains('live')) {
+    return Icons.live_tv_rounded;
+  }
+  if (slug.contains('series')) {
+    return Icons.tv_rounded;
+  }
+  if (slug.contains('anime')) {
+    return Icons.auto_awesome_rounded;
+  }
+  if (slug.contains('movie')) {
+    return Icons.local_movies_rounded;
+  }
+  if (slug.contains('trend')) {
+    return Icons.local_fire_department_rounded;
+  }
+  return Icons.explore_rounded;
+}
+
+class _DiscoveryAdditionalRail {
+  const _DiscoveryAdditionalRail({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.cards,
+    required this.state,
+    required this.onViewAll,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<_HomeRailCardData> cards;
+  final AsyncValue<dynamic> state;
+  final VoidCallback onViewAll;
+}
+
 class _MobileHomeExperience extends StatelessWidget {
   const _MobileHomeExperience({
     required this.layout,
-    required this.topActions,
+    required this.fallbackHero,
+    required this.heroSlider,
+    required this.primaryActions,
     required this.continueItem,
+    required this.liveHeading,
+    required this.liveSubtitle,
     required this.liveCards,
+    required this.highlightsHeading,
+    required this.highlightsSubtitle,
+    required this.highlightsCards,
+    required this.vodHeading,
+    required this.vodSubtitle,
+    required this.vodCards,
+    required this.seriesHeading,
+    required this.seriesSubtitle,
+    required this.seriesCards,
+    required this.animeHeading,
+    required this.animeSubtitle,
+    required this.animeCards,
     required this.liveState,
+    required this.highlightsState,
+    required this.vodState,
+    required this.seriesState,
+    required this.animeState,
+    required this.showHighlights,
+    required this.additionalRails,
   });
 
   final DeviceLayout layout;
-  final List<_HomeQuickAction> topActions;
+  final _HomeHeroChoice fallbackHero;
+  final List<_HomeHeroChoice> heroSlider;
+  final List<_HomeQuickAction> primaryActions;
   final _ContinueWatchingData? continueItem;
+  final String liveHeading;
+  final String liveSubtitle;
   final List<_HomeRailCardData> liveCards;
+  final String highlightsHeading;
+  final String highlightsSubtitle;
+  final List<_HomeRailCardData> highlightsCards;
+  final String vodHeading;
+  final String vodSubtitle;
+  final List<_HomeRailCardData> vodCards;
+  final String seriesHeading;
+  final String seriesSubtitle;
+  final List<_HomeRailCardData> seriesCards;
+  final String animeHeading;
+  final String animeSubtitle;
+  final List<_HomeRailCardData> animeCards;
   final AsyncValue<dynamic> liveState;
+  final AsyncValue<dynamic> highlightsState;
+  final AsyncValue<dynamic> vodState;
+  final AsyncValue<dynamic> seriesState;
+  final AsyncValue<dynamic> animeState;
+  final bool showHighlights;
+  final List<_DiscoveryAdditionalRail> additionalRails;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _MobileTopActionStrip(layout: layout, actions: topActions),
+        const _MobileTopBar(),
+        SizedBox(height: layout.sectionSpacing + 2),
+        _MobileHeroSlider(
+          layout: layout,
+          slides: heroSlider,
+          fallbackHero: fallbackHero,
+        ),
+        SizedBox(height: layout.sectionSpacing + 4),
+        _MobileTopActionStrip(layout: layout, actions: primaryActions),
+        if (continueItem != null) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _ContinueWatchingCard(layout: layout, item: continueItem),
+        ],
+        if (showHighlights) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _HomeRailSection(
+            layout: layout,
+            title: highlightsHeading,
+            subtitle: highlightsSubtitle,
+            icon: Icons.auto_awesome_rounded,
+            onViewAll: () =>
+                _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+            cards: highlightsCards,
+            state: highlightsState,
+          ),
+        ],
         SizedBox(height: layout.sectionSpacing + 10),
         _HomeRailSection(
           layout: layout,
-          title: 'No ar agora',
-          subtitle: 'Entre pelo live com contexto do que esta acontecendo.',
+          title: liveHeading,
+          subtitle: liveSubtitle,
           icon: Icons.live_tv_rounded,
           onViewAll: () =>
               _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
           cards: liveCards,
           state: liveState,
         ),
-        if (continueItem != null) ...[
+        SizedBox(height: layout.sectionSpacing + 10),
+        _HomeRailSection(
+          layout: layout,
+          title: vodHeading,
+          subtitle: vodSubtitle,
+          icon: Icons.local_movies_rounded,
+          onViewAll: () =>
+              _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+          cards: vodCards,
+          state: vodState,
+        ),
+        SizedBox(height: layout.sectionSpacing + 10),
+        _HomeRailSection(
+          layout: layout,
+          title: seriesHeading,
+          subtitle: seriesSubtitle,
+          icon: Icons.tv_rounded,
+          onViewAll: () => _openPrimaryDestination(
+            context,
+            SeriesCategoriesScreen.routePath,
+          ),
+          cards: seriesCards,
+          state: seriesState,
+        ),
+        if (animeCards.isNotEmpty) ...[
           SizedBox(height: layout.sectionSpacing + 10),
-          _ContinueWatchingCard(layout: layout, item: continueItem),
+          _HomeRailSection(
+            layout: layout,
+            title: animeHeading,
+            subtitle: animeSubtitle,
+            icon: Icons.auto_awesome_rounded,
+            onViewAll: () => _openPrimaryDestination(
+              context,
+              SeriesCategoriesScreen.routePath,
+            ),
+            cards: animeCards,
+            state: animeState,
+          ),
+        ],
+        for (final rail in additionalRails) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _HomeRailSection(
+            layout: layout,
+            title: rail.title,
+            subtitle: rail.subtitle,
+            icon: rail.icon,
+            onViewAll: rail.onViewAll,
+            cards: rail.cards,
+            state: rail.state,
+          ),
         ],
       ],
     );
@@ -1657,6 +2936,17 @@ class _TvTopNavigationButton extends StatelessWidget {
   }
 }
 
+class _MobileTopBar extends StatelessWidget {
+  const _MobileTopBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [BrandWordmark(height: 24, compact: true, showTagline: false)],
+    );
+  }
+}
+
 class _MobileTopActionStrip extends StatelessWidget {
   const _MobileTopActionStrip({required this.layout, required this.actions});
 
@@ -1665,184 +2955,341 @@ class _MobileTopActionStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.surface.withValues(alpha: 0.84),
-            colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-          ],
-        ),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.34)),
-      ),
-      child: SizedBox(
-        height: layout.width >= 720 ? 126 : 96,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          itemCount: actions.length,
-          separatorBuilder: (context, index) =>
-              SizedBox(width: layout.cardSpacing - 2),
-          itemBuilder: (context, index) {
-            return _MobileTopActionCard(layout: layout, action: actions[index]);
-          },
-        ),
+      padding: EdgeInsets.zero,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final action in actions) _MobileTopActionChip(action: action),
+        ],
       ),
     );
   }
 }
 
-class _MobileTopActionCard extends StatelessWidget {
-  const _MobileTopActionCard({required this.layout, required this.action});
+class _MobileTopActionChip extends StatelessWidget {
+  const _MobileTopActionChip({required this.action});
 
-  final DeviceLayout layout;
   final _HomeQuickAction action;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isUtility = action.kind == _HomeQuickActionKind.utility;
     final isLive = action.badge == 'LIVE';
-    final accentColor = isLive ? colorScheme.secondary : colorScheme.primary;
-    final cardWidth = isUtility
-        ? (layout.width >= 720 ? 110.0 : 88.0)
-        : (layout.width >= 720 ? 132.0 : 112.0);
+    final isAnime = action.badge == 'ANIME';
+    final accent = isLive
+        ? const Color(0xFFEF5457)
+        : isAnime
+        ? const Color(0xFFFFB347)
+        : colorScheme.primary;
 
-    return SizedBox(
-      width: cardWidth,
-      child: TvFocusable(
-        autofocus: false,
-        interactiveKey: action.interactiveKey,
-        testId: action.testId,
-        onPressed: action.onTap,
-        builder: (context, focused) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: focused
-                    ? [
-                        const Color(0x22FF6A1A),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.94,
-                        ),
-                      ]
-                    : isLive
-                    ? [
-                        const Color(0x2221C7FF),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.9,
-                        ),
-                      ]
-                    : isUtility
-                    ? [
-                        colorScheme.surface.withValues(alpha: 0.72),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.62,
-                        ),
-                      ]
-                    : [
-                        colorScheme.surface.withValues(alpha: 0.84),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.72,
-                        ),
-                      ],
-              ),
-              border: Border.all(
-                color: focused
-                    ? colorScheme.primary
-                    : isLive
-                    ? colorScheme.secondary.withValues(alpha: 0.44)
-                    : isUtility
-                    ? colorScheme.outline.withValues(alpha: 0.34)
-                    : colorScheme.outline.withValues(alpha: 0.42),
-                width: focused ? 2 : 1,
-              ),
+    return TvFocusable(
+      interactiveKey: action.interactiveKey,
+      testId: action.testId,
+      onPressed: action.onTap,
+      builder: (context, focused) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: focused
+                ? accent.withValues(alpha: 0.18)
+                : colorScheme.surface.withValues(alpha: 0.56),
+            border: Border.all(
+              color: focused
+                  ? accent.withValues(alpha: 0.92)
+                  : colorScheme.outline.withValues(alpha: 0.28),
+              width: focused ? 1.8 : 1,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          ),
+          child: Text(
+            action.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MobileHeroSlider extends StatefulWidget {
+  const _MobileHeroSlider({
+    required this.layout,
+    required this.slides,
+    required this.fallbackHero,
+  });
+
+  final DeviceLayout layout;
+  final List<_HomeHeroChoice> slides;
+  final _HomeHeroChoice fallbackHero;
+
+  @override
+  State<_MobileHeroSlider> createState() => _MobileHeroSliderState();
+}
+
+class _MobileHeroSliderState extends State<_MobileHeroSlider> {
+  late final PageController _controller;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.slides.isEmpty) {
+      return _CinematicHeroCard(
+        layout: widget.layout,
+        hero: widget.fallbackHero,
+        tvMode: false,
+      );
+    }
+
+    final slides = widget.slides;
+    final availableWidth =
+        MediaQuery.sizeOf(context).width -
+        (widget.layout.pageHorizontalPadding * 2);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: availableWidth / (16 / 8.8),
+          child: PageView.builder(
+            controller: _controller,
+            physics: const BouncingScrollPhysics(),
+            onPageChanged: (index) {
+              if (_currentIndex != index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              }
+            },
+            itemCount: slides.length,
+            itemBuilder: (context, index) {
+              return _MobileHeroSlideCard(
+                layout: widget.layout,
+                hero: slides[index],
+                hint: slides.length > 1
+                    ? 'Deslize para trocar • ${index + 1}/${slides.length}'
+                    : 'Toque para abrir',
+              );
+            },
+          ),
+        ),
+        if (slides.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var index = 0; index < slides.length; index++) ...[
+                if (index > 0) const SizedBox(width: 6),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: index == _currentIndex ? 18 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: index == _currentIndex
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.24),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MobileHeroSlideCard extends StatelessWidget {
+  const _MobileHeroSlideCard({
+    required this.layout,
+    required this.hero,
+    required this.hint,
+  });
+
+  final DeviceLayout layout;
+  final _HomeHeroChoice hero;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final imageUrl = BrandedArtwork.normalizeArtworkUrl(hero.imageUrl);
+    final metadata = hero.metadata.take(3).join('  •  ');
+
+    return TvFocusable(
+      onPressed: hero.onPrimary,
+      builder: (context, focused) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: focused
+                  ? colorScheme.primary
+                  : colorScheme.outline.withValues(alpha: 0.42),
+              width: focused ? 1.8 : 1,
+            ),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (imageUrl != null)
+                Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                  headers: const {'Accept-Encoding': 'identity'},
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
+                )
+              else
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF0F1A2E), Color(0xFF172842)],
+                    ),
+                  ),
+                ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Color(0xF004080F),
+                      Color(0xCC050A13),
+                      Color(0x78050A13),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Container(
-                      width: isUtility ? 28 : 32,
-                      height: isUtility ? 28 : 32,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: accentColor.withValues(alpha: 0.16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
                       ),
-                      child: Icon(
-                        action.icon,
-                        size: isUtility ? 15 : 17,
-                        color: accentColor,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: const Color(0xCCFF6A1A),
+                      ),
+                      child: Text(
+                        hero.kicker.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: Colors.black,
+                              letterSpacing: 0.9,
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                     ),
-                    const Spacer(),
-                    if (action.badge != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                    const SizedBox(height: 10),
+                    Text(
+                      hero.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontSize: 28,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0xB8000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      hero.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.86),
+                        height: 1.22,
+                      ),
+                    ),
+                    if (metadata.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        metadata,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.84,
+                              ),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.play_circle_fill_rounded,
+                          size: 18,
+                          color: colorScheme.primary,
                         ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: accentColor.withValues(alpha: 0.16),
-                          border: Border.all(
-                            color: accentColor.withValues(alpha: 0.32),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            hint,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.82,
+                                  ),
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                         ),
-                        child: Text(
-                          action.badge!,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                letterSpacing: 0.7,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ),
+                      ],
+                    ),
                   ],
                 ),
-                const Spacer(),
-                Text(
-                  action.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: isUtility ? 13 : 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.08,
-                  ),
-                ),
-                if (!isUtility) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    action.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontSize: 11,
-                      color: colorScheme.onSurface.withValues(alpha: 0.74),
-                      height: 1.2,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1870,7 +3317,7 @@ class _CinematicHeroCard extends StatelessWidget {
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.44)),
       ),
       child: AspectRatio(
-        aspectRatio: tvMode ? 16 / 3.9 : 16 / 12,
+        aspectRatio: tvMode ? 16 / 3.9 : 16 / 9.8,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compactMobile = !tvMode && constraints.maxHeight < 260;
@@ -2070,6 +3517,12 @@ class _CinematicHeroCard extends StatelessWidget {
                             icon: const Icon(Icons.play_arrow_rounded),
                             label: Text(hero.primaryLabel),
                           ),
+                          if (!tvMode)
+                            OutlinedButton.icon(
+                              onPressed: hero.onSecondary,
+                              icon: const Icon(Icons.explore_rounded),
+                              label: Text(hero.secondaryLabel),
+                            ),
                         ],
                       ),
                     ],
@@ -2124,11 +3577,11 @@ class _ContinueWatchingCard extends StatelessWidget {
     final cardPadding = useCompactTvVariant
         ? 16.0
         : (layout.isTv ? 14.0 : 12.0);
-    final headerSize = useCompactTvVariant ? 24.0 : 30.0;
+    final headerSize = useCompactTvVariant ? 24.0 : (layout.isTv ? 30.0 : 22.0);
     final artworkWidth = useCompactTvVariant
         ? 148.0
         : (layout.isTv ? 180.0 : 150.0);
-    final titleSize = useCompactTvVariant ? 23.0 : (layout.isTv ? 28.0 : 26.0);
+    final titleSize = useCompactTvVariant ? 23.0 : (layout.isTv ? 28.0 : 19.0);
     final progressHeight = useCompactTvVariant
         ? 8.0
         : (layout.isTv ? 9.0 : 8.0);
@@ -2387,7 +3840,6 @@ class _HomeQuickAction {
     required this.description,
     required this.icon,
     required this.onTap,
-    this.kind = _HomeQuickActionKind.primary,
     this.badge,
     this.interactiveKey,
     this.testId,
@@ -2397,13 +3849,10 @@ class _HomeQuickAction {
   final String description;
   final IconData icon;
   final VoidCallback onTap;
-  final _HomeQuickActionKind kind;
   final String? badge;
   final Key? interactiveKey;
   final String? testId;
 }
-
-enum _HomeQuickActionKind { primary, utility }
 
 class _HomeRailCardData {
   const _HomeRailCardData({
@@ -2448,13 +3897,13 @@ List<_HomeRailCardData> _buildVodCards(
   return items.take(14).map((item) {
     final subtitle = item.rating?.trim().isNotEmpty == true
         ? 'Nota ${item.rating}'
-        : 'Filme';
+        : 'Sob demanda';
     return _HomeRailCardData(
       title: item.name,
       subtitle: subtitle,
       imageUrl: item.coverUrl,
       icon: Icons.movie_creation_outlined,
-      badge: item.rating?.trim().isNotEmpty == true ? 'HD' : null,
+      badge: 'FILME',
       onPressed: () => context.push(VodDetailsScreen.buildLocation(item.id)),
     );
   }).toList();
@@ -2469,11 +3918,15 @@ List<_HomeRailCardData> _buildSeriesCards(
   }
 
   return items.take(14).map((item) {
+    final isAnime = _looksLikeAnime(item.name, item.plot ?? '');
     return _HomeRailCardData(
       title: item.name,
-      subtitle: item.plot?.trim().isNotEmpty == true ? item.plot! : 'Serie',
+      subtitle: item.plot?.trim().isNotEmpty == true
+          ? item.plot!
+          : 'Série para maratonar',
       imageUrl: item.coverUrl,
       icon: Icons.tv_rounded,
+      badge: isAnime ? 'ANIME' : 'SÉRIE',
       onPressed: () => context.push(SeriesDetailsScreen.buildLocation(item.id)),
     );
   }).toList();
@@ -2804,6 +4257,7 @@ class _HomeRailCard extends StatelessWidget {
                         ),
                       ),
                     if (data.badge != null)
+                      // Mobile shows humanized badges; TV keeps the compact wording.
                       Positioned(
                         top: 8,
                         left: 8,
@@ -2813,13 +4267,16 @@ class _HomeRailCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: data.badge == 'LIVE'
+                            color:
+                                data.badge == 'LIVE' || data.badge == 'AO VIVO'
                                 ? const Color(0xCCFF4A57)
                                 : Colors.black.withValues(alpha: 0.65),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            data.badge!,
+                            !layout.isTv && data.badge == 'LIVE'
+                                ? 'AO VIVO'
+                                : data.badge!,
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   letterSpacing: 0.7,

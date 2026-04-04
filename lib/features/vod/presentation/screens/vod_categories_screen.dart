@@ -8,6 +8,7 @@ import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
+import '../../../../shared/widgets/mobile_primary_dock.dart';
 import '../providers/vod_providers.dart';
 import 'vod_streams_screen.dart';
 
@@ -25,6 +26,7 @@ class VodCategoriesScreen extends ConsumerWidget {
       subtitle: 'Escolha uma coleção para abrir o catálogo sob demanda.',
       showBack: true,
       showBrand: false,
+      mobileBottomBar: const MobilePrimaryDock(),
       onBack: () => context.go(HomeScreen.routePath),
       child: AsyncStateBuilder(
         value: categories,

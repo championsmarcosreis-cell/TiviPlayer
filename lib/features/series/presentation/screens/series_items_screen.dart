@@ -8,6 +8,7 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
+import '../../../../shared/widgets/mobile_primary_dock.dart';
 import '../../domain/entities/series_item.dart';
 import '../providers/series_providers.dart';
 import 'series_details_screen.dart';
@@ -34,6 +35,7 @@ class SeriesItemsScreen extends ConsumerWidget {
           : 'Seleção disponível',
       showBack: true,
       showBrand: false,
+      mobileBottomBar: const MobilePrimaryDock(),
       child: AsyncStateBuilder(
         value: series,
         isEmpty: (items) => items.isEmpty,

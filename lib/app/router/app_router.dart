@@ -9,6 +9,7 @@ import '../../features/live/presentation/screens/live_categories_screen.dart';
 import '../../features/live/presentation/screens/live_streams_screen.dart';
 import '../../features/player/domain/entities/playback_context.dart';
 import '../../features/player/presentation/screens/player_screen.dart';
+import '../../features/search/presentation/screens/search_screen.dart';
 import '../../features/player/presentation/support/player_screen_arguments.dart';
 import '../../features/series/presentation/screens/series_categories_screen.dart';
 import '../../features/series/presentation/screens/series_details_screen.dart';
@@ -41,6 +42,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AccountScreen.routePath,
         builder: (context, state) => const AccountScreen(),
+      ),
+      GoRoute(
+        path: SearchScreen.routePath,
+        builder: (context, state) => const SearchScreen(),
       ),
       GoRoute(
         path: LiveCategoriesScreen.routePath,

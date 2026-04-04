@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_credentials.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_session.dart';
 import 'package:tiviplayer/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:tiviplayer/features/home/data/models/home_discovery_dto.dart';
+import 'package:tiviplayer/features/home/presentation/providers/home_discovery_providers.dart';
 import 'package:tiviplayer/features/live/domain/entities/live_epg_entry.dart';
 import 'package:tiviplayer/features/live/domain/entities/live_stream.dart';
 import 'package:tiviplayer/features/live/presentation/providers/live_providers.dart';
@@ -36,8 +38,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Minha assinatura'), findsOneWidget);
-    expect(find.textContaining('Ativa'), findsWidgets);
+    expect(find.text('Minha assinatura'), findsNothing);
+    expect(find.textContaining('Ativa'), findsNothing);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Busca'), findsOneWidget);
+    expect(find.text('Conta'), findsOneWidget);
     expect(find.textContaining('provider.example'), findsNothing);
     expect(find.textContaining('8080'), findsNothing);
     expect(find.textContaining('http://'), findsNothing);
@@ -96,6 +101,351 @@ void main() {
     expect(find.text('Entre no canal para assistir agora'), findsOneWidget);
     expect(find.text('Canal Sul'), findsOneWidget);
   });
+
+  testWidgets(
+    'home mobile traduz copy técnica do discovery para linguagem de produto',
+    (tester) async {
+      await _pumpHomeScreen(
+        tester,
+        discoveryHome: HomeDiscoveryDto(
+          generatedAt: '2026-04-04T01:03:13Z',
+          heroSlider: HomeDiscoveryRailDto(
+            slug: 'hero-slider',
+            title: 'Novidades',
+            description: 'Slider principal baseado em últimos adicionados.',
+            layout: 'hero',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'slider-1',
+                title: 'Zona de Caça',
+                subtitle: 'VOD',
+                description: 'Ação para abrir a sessão.',
+                image: 'https://example.com/slider-1.jpg',
+                backdrop: 'https://example.com/slider-1-backdrop.jpg',
+                mediaType: 'VOD',
+                contentId: '91',
+                tmdbId: null,
+                rating: 7.4,
+                year: 2025,
+                genres: <String>['Ação'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>['TRENDING'],
+                genreIds: <int>[28],
+              ),
+              HomeDiscoveryItemDto(
+                id: 'slider-2',
+                title: 'Solo Leveling',
+                subtitle: 'Anime',
+                description: 'Fantasia para maratonar.',
+                image: 'https://example.com/slider-2.jpg',
+                backdrop: 'https://example.com/slider-2-backdrop.jpg',
+                mediaType: 'Anime',
+                contentId: '47',
+                tmdbId: null,
+                rating: 8.0,
+                year: 2024,
+                genres: <String>['Animação'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>['ANIME'],
+                genreIds: <int>[16],
+              ),
+            ],
+          ),
+          hero: HomeDiscoveryHeroDto(
+            item: const HomeDiscoveryItemDto(
+              id: 'trending-44',
+              title: 'Resgate Implacável',
+              subtitle: 'VOD',
+              description: 'Ação para começar a sessão.',
+              image: 'https://example.com/hero.jpg',
+              backdrop: 'https://example.com/hero_backdrop.jpg',
+              mediaType: 'VOD',
+              contentId: '44',
+              tmdbId: null,
+              rating: 7.8,
+              year: 2026,
+              genres: <String>['Ação'],
+              runtime: null,
+              provider: null,
+              channelNumber: null,
+              progress: null,
+              badges: <String>['TRENDING'],
+              genreIds: <int>[28],
+            ),
+            source: 'TRENDING_NOW',
+            rationale: 'Prioriza catálogo recente com apoio do TMDB.',
+          ),
+          highlights: null,
+          continueWatching: null,
+          hasContinueWatchingField: true,
+          moviesLibrary: HomeDiscoveryRailDto(
+            slug: 'movies-library',
+            title: 'Filmes',
+            description:
+                'Filmes adicionados recentemente ao catálogo com apoio do TMDB.',
+            layout: 'poster',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'movie-1',
+                title: 'Resgate Implacável',
+                subtitle: 'VOD',
+                description: 'Filme de ação.',
+                image: 'https://example.com/vod.jpg',
+                backdrop: null,
+                mediaType: 'VOD',
+                contentId: '44',
+                tmdbId: null,
+                rating: 7.8,
+                year: 2026,
+                genres: <String>['Ação'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>['TRENDING'],
+                genreIds: <int>[28],
+              ),
+            ],
+          ),
+          seriesLibrary: HomeDiscoveryRailDto(
+            slug: 'series-library',
+            title: 'Séries',
+            description:
+                'Séries recentes organizadas pelo servidor com fallback TMDB.',
+            layout: 'poster',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'series-1',
+                title: 'Nebula 9',
+                subtitle: 'TV Series',
+                description: 'Thriller futurista.',
+                image: 'https://example.com/series.jpg',
+                backdrop: null,
+                mediaType: 'Series',
+                contentId: '201',
+                tmdbId: null,
+                rating: null,
+                year: 2026,
+                genres: <String>['Drama'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>[],
+                genreIds: <int>[18],
+              ),
+            ],
+          ),
+          animeLibrary: HomeDiscoveryRailDto(
+            slug: 'anime-library',
+            title: 'Anime',
+            description:
+                'Animes recentes do catálogo com apoio de tendências TMDB.',
+            layout: 'poster',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'anime-1',
+                title: 'Solo Leveling',
+                subtitle: 'Anime',
+                description: 'Aventura fantástica.',
+                image: 'https://example.com/anime.jpg',
+                backdrop: null,
+                mediaType: 'Anime',
+                contentId: '47',
+                tmdbId: null,
+                rating: null,
+                year: 2024,
+                genres: <String>['Animação'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>[],
+                genreIds: <int>[16],
+              ),
+            ],
+          ),
+          liveLibrary: HomeDiscoveryRailDto(
+            slug: 'live-library',
+            title: 'TV ao vivo',
+            description: 'Canais ao vivo com contexto EPG em tempo real.',
+            layout: 'carousel',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'live-1',
+                title: 'Canal Centro',
+                subtitle: 'TV',
+                description: 'Canal principal.',
+                image: 'https://example.com/live.jpg',
+                backdrop: null,
+                mediaType: 'TV',
+                contentId: 'stream-1',
+                tmdbId: null,
+                rating: null,
+                year: null,
+                genres: <String>[],
+                runtime: null,
+                provider: null,
+                channelNumber: 12,
+                progress: null,
+                badges: <String>['LIVE'],
+                genreIds: <int>[],
+              ),
+            ],
+          ),
+          libraries: const <HomeDiscoveryRailDto>[],
+          liveNow: HomeDiscoveryRailDto(
+            slug: 'live-now',
+            title: 'No ar agora',
+            description: 'Canais ao vivo com contexto EPG em tempo real.',
+            layout: 'carousel',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'live-1',
+                title: 'Canal Centro',
+                subtitle: 'TV',
+                description: 'Canal principal.',
+                image: 'https://example.com/live.jpg',
+                backdrop: null,
+                mediaType: 'TV',
+                contentId: 'stream-1',
+                tmdbId: null,
+                rating: null,
+                year: null,
+                genres: <String>[],
+                runtime: null,
+                provider: null,
+                channelNumber: 12,
+                progress: null,
+                badges: <String>['LIVE'],
+                genreIds: <int>[],
+              ),
+            ],
+          ),
+          trendingNow: HomeDiscoveryRailDto(
+            slug: 'trending-now',
+            title: 'TRENDING_NOW',
+            description: 'Ranking real de visualizações dos últimos 7 dias.',
+            layout: 'carousel',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'vod-1',
+                title: 'Resgate Implacável',
+                subtitle: 'VOD',
+                description: 'Filme de ação.',
+                image: 'https://example.com/vod.jpg',
+                backdrop: null,
+                mediaType: 'VOD',
+                contentId: '44',
+                tmdbId: null,
+                rating: 7.8,
+                year: 2026,
+                genres: <String>['Ação'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>['TRENDING'],
+                genreIds: <int>[28],
+              ),
+            ],
+          ),
+          moviesForToday: HomeDiscoveryRailDto(
+            slug: 'movies-for-today',
+            title: 'Filmes para hoje',
+            description:
+                'Prioriza VOD recente do catálogo; completa com populares TMDB.',
+            layout: 'poster',
+            items: const <HomeDiscoveryItemDto>[],
+          ),
+          seriesToBinge: HomeDiscoveryRailDto(
+            slug: 'series-to-binge',
+            title: 'Séries para maratonar',
+            description:
+                'Prioriza séries recentes do catálogo; fallback em trending TV TMDB.',
+            layout: 'poster',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'series-1',
+                title: 'Nebula 9',
+                subtitle: 'TV Series',
+                description: 'Thriller futurista.',
+                image: 'https://example.com/series.jpg',
+                backdrop: null,
+                mediaType: 'Series',
+                contentId: '201',
+                tmdbId: null,
+                rating: null,
+                year: 2026,
+                genres: <String>['Drama'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>[],
+                genreIds: <int>[18],
+              ),
+            ],
+          ),
+          animeSpotlight: HomeDiscoveryRailDto(
+            slug: 'anime-spotlight',
+            title: 'Anime Spotlight',
+            description:
+                'Animes recentes do catálogo com apoio de tendências Animation do TMDB.',
+            layout: 'poster',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'anime-1',
+                title: 'Solo Leveling',
+                subtitle: 'Anime',
+                description: 'Aventura fantástica.',
+                image: 'https://example.com/anime.jpg',
+                backdrop: null,
+                mediaType: 'Anime',
+                contentId: '47',
+                tmdbId: null,
+                rating: null,
+                year: 2024,
+                genres: <String>['Animação'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>[],
+                genreIds: <int>[16],
+              ),
+            ],
+          ),
+          rails: const <HomeDiscoveryRailDto>[],
+        ),
+        streams: _sampleStreams(),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('TRENDING_NOW'), findsNothing);
+      expect(find.textContaining('TMDB'), findsNothing);
+      expect(find.textContaining('EPG em tempo real'), findsNothing);
+      expect(find.text('TV Series'), findsNothing);
+      expect(find.text('Acesso rápido'), findsNothing);
+      expect(find.text('Destaques'), findsNothing);
+      expect(find.text('FILME EM DESTAQUE'), findsNothing);
+      expect(find.text('SÉRIE EM DESTAQUE'), findsNothing);
+      expect(find.text('ANIME EM DESTAQUE'), findsNothing);
+      expect(find.text('NOVIDADE'), findsOneWidget);
+      expect(find.text('Zona de Caça'), findsOneWidget);
+      expect(find.text('TV ao vivo'), findsWidgets);
+      expect(find.text('Filmes'), findsWidgets);
+      expect(find.text('Anime'), findsWidgets);
+      expect(find.text('Série'), findsWidgets);
+    },
+  );
 }
 
 Future<void> _pumpHomeScreen(
@@ -104,6 +454,7 @@ Future<void> _pumpHomeScreen(
   List<LiveStream> streams = const <LiveStream>[],
   Map<String, List<LiveEpgEntry>> epgByStreamId =
       const <String, List<LiveEpgEntry>>{},
+  HomeDiscoveryDto? discoveryHome,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = interfaceMode == InterfaceMode.tv
@@ -131,6 +482,7 @@ Future<void> _pumpHomeScreen(
         seriesItemsProvider.overrideWith((ref, categoryId) async {
           return const <SeriesItem>[];
         }),
+        homeDiscoveryProvider.overrideWith((ref, limit) async => discoveryHome),
       ],
       child: InterfaceModeScope(
         mode: interfaceMode,

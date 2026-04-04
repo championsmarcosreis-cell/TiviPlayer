@@ -13,6 +13,7 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
+import '../../../../shared/widgets/mobile_primary_dock.dart';
 import '../providers/live_providers.dart';
 import '../support/live_playback_context.dart';
 import 'live_tv_guide_screen.dart';
@@ -46,6 +47,7 @@ class LiveStreamsScreen extends ConsumerWidget {
       showBack: true,
       showBrand: false,
       decoratedHeader: true,
+      mobileBottomBar: const MobilePrimaryDock(),
       child: AsyncStateBuilder(
         value: streams,
         isEmpty: (items) => items.isEmpty,
@@ -79,8 +81,7 @@ class LiveStreamsScreen extends ConsumerWidget {
                       layout: layout,
                       item: featured,
                       totalItems: items.length,
-                      onPlay: () =>
-                          _openLivePlayer(context, items, featured),
+                      onPlay: () => _openLivePlayer(context, items, featured),
                     );
                   }
 
