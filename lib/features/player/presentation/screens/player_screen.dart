@@ -25,6 +25,10 @@ import '../providers/player_providers.dart';
 import '../support/player_screen_arguments.dart';
 import '../widgets/player_control_button.dart';
 
+const MethodChannel _displayControlChannel = MethodChannel(
+  'tiviplayer/display_control_android',
+);
+
 class PlayerPreviewState {
   const PlayerPreviewState({
     required this.title,
@@ -107,6 +111,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   double _screenBrightnessLevel = 0.8;
   bool _hasBrightnessControl = false;
   bool _didOverrideScreenBrightness = false;
+  bool _keepScreenOnEnabled = false;
   _MobileInlineUtility _activeMobileInlineUtility = _MobileInlineUtility.none;
   double? _mobileVerticalGestureStartY;
   double _mobileVerticalGestureStartLevel = 0;
@@ -163,6 +168,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void dispose() {
     _isDisposing = true;
     unawaited(_restoreDefaultSystemUiMode());
+    unawaited(_setKeepScreenOn(false));
     HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _overlayHideTimer?.cancel();
     _interactionMessageTimer?.cancel();
@@ -416,6 +422,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           : null;
       _showPlaybackUi = true;
     });
+    unawaited(_setKeepScreenOn(false));
 
     _controller?.removeListener(_handleControllerUpdate);
     await _controller?.dispose();
@@ -578,6 +585,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _runtimeRecoveryAttempts = 0;
         _lastKnownPlaying = _isPlaybackActive(controller.value);
         _revealPlaybackUi(autoHide: _lastKnownPlaying);
+        unawaited(_syncKeepScreenOn());
         return;
       } catch (error) {
         final danglingController = attemptController;
@@ -610,6 +618,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         lastError ?? StateError('Falha ao carregar stream.'),
       ).message;
     });
+    unawaited(_syncKeepScreenOn());
   }
 
   void _handleControllerUpdate() {
@@ -651,6 +660,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     }
 
+    unawaited(_syncKeepScreenOn());
     _persistPlaybackProgress();
     setState(() {});
   }
@@ -890,7 +900,39 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     } else {
       await controller.play();
     }
+    unawaited(_syncKeepScreenOn());
     _showInteractionMessage(wasPlaying ? 'Pausado' : 'Reproduzindo');
+  }
+
+  Future<void> _syncKeepScreenOn() async {
+    if (!mounted || _isDisposing) {
+      await _setKeepScreenOn(false);
+      return;
+    }
+
+    final shouldKeepScreenOn = shouldKeepMobileLiveScreenAwake(
+      isTv: DeviceLayout.of(context).isTv,
+      playbackContext: _resolvedPlayback?.context ?? _activePlaybackContext,
+      playerValue: _controller?.value,
+    );
+    await _setKeepScreenOn(shouldKeepScreenOn);
+  }
+
+  Future<void> _setKeepScreenOn(bool enabled) async {
+    if (_keepScreenOnEnabled == enabled) {
+      return;
+    }
+
+    try {
+      await _displayControlChannel.invokeMethod<void>('setKeepScreenOn', {
+        'enabled': enabled,
+      });
+      _keepScreenOnEnabled = enabled;
+    } on PlatformException {
+      // Ignore platform failures to avoid breaking playback controls.
+    } on MissingPluginException {
+      // Ignore absent platform hook on non-Android targets.
+    }
   }
 
   Future<void> _toggleMute() async {
@@ -1963,6 +2005,27 @@ String _summarizeTelemetryUri(Uri uri) {
   final lastSegment = pathSegments.isEmpty ? 'unknown' : pathSegments.last;
   final scheme = uri.scheme.trim().isEmpty ? 'unknown' : uri.scheme;
   return '$scheme://$host/.../$lastSegment';
+}
+
+bool shouldKeepMobileLiveScreenAwake({
+  required bool isTv,
+  required PlaybackContext? playbackContext,
+  required VideoPlayerValue? playerValue,
+}) {
+  if (isTv || playbackContext?.isLive != true) {
+    return false;
+  }
+  if (playerValue == null || !playerValue.isInitialized) {
+    return false;
+  }
+  return _isPlaybackValueActive(playerValue);
+}
+
+bool _isPlaybackValueActive(VideoPlayerValue? value) {
+  if (value == null || !value.isInitialized || value.hasError) {
+    return false;
+  }
+  return value.isPlaying || value.isBuffering;
 }
 
 class _PlayerSurface extends StatelessWidget {
