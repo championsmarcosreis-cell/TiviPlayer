@@ -6,6 +6,7 @@ import '../../../../core/tv/tv_focusable.dart';
 import '../../../../features/favorites/domain/entities/favorite_item.dart';
 import '../../../../features/favorites/presentation/controllers/favorites_controller.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
+import '../../../../features/player/presentation/controllers/playback_history_controller.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
@@ -32,6 +33,10 @@ class SeriesDetailsScreen extends ConsumerWidget {
     final info = ref.watch(seriesInfoProvider(seriesId));
     final favorites = ref.watch(favoritesControllerProvider);
     final relatedSeries = ref.watch(seriesItemsProvider(null));
+    ref.watch(playbackHistoryControllerProvider);
+    final playbackHistoryController = ref.read(
+      playbackHistoryControllerProvider.notifier,
+    );
 
     return AppScaffold(
       title: 'Séries',
@@ -58,6 +63,22 @@ class SeriesDetailsScreen extends ConsumerWidget {
                 context,
                 constraints: outerConstraints,
               );
+              final initialEpisode = _resolveInitialEpisode(item.episodes);
+              final mobileResumeEpisode = _resolveResumeEpisode(
+                episodes: item.episodes,
+                playbackHistoryController: playbackHistoryController,
+              );
+              final primaryEpisode = layout.isTv
+                  ? initialEpisode
+                  : mobileResumeEpisode ?? initialEpisode;
+              final shouldResumePrimaryEpisode =
+                  !layout.isTv &&
+                  primaryEpisode != null &&
+                  playbackHistoryController.resolveResumePosition(
+                        PlaybackContentType.seriesEpisode,
+                        primaryEpisode.id,
+                      ) !=
+                      null;
 
               return SingleChildScrollView(
                 padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
@@ -70,12 +91,22 @@ class SeriesDetailsScreen extends ConsumerWidget {
                       isFavorite: isFavorite,
                       layout: layout,
                       onPlayFirstEpisode: () {
-                        final episode = _resolveInitialEpisode(item.episodes);
+                        final episode = primaryEpisode;
                         if (episode == null) {
                           return;
                         }
-                        _openEpisode(context, item, episode);
+                        _openEpisode(
+                          context,
+                          item,
+                          episode,
+                          playbackHistoryController,
+                        );
                       },
+                      playActionLabel: item.episodes.isEmpty
+                          ? 'Sem episódios'
+                          : shouldResumePrimaryEpisode
+                          ? 'Retomar episódio'
+                          : 'Assistir episódio 1',
                       onToggleFavorite: () => ref
                           .read(favoritesControllerProvider.notifier)
                           .toggle(
@@ -125,10 +156,40 @@ SeriesEpisode? _resolveInitialEpisode(List<SeriesEpisode> episodes) {
   return ordered.first;
 }
 
+SeriesEpisode? _resolveResumeEpisode({
+  required List<SeriesEpisode> episodes,
+  required PlaybackHistoryController playbackHistoryController,
+}) {
+  if (episodes.isEmpty) {
+    return null;
+  }
+
+  final historyEntry = playbackHistoryController.findMostRecentEntry(
+    contentType: PlaybackContentType.seriesEpisode,
+    itemIds: episodes.map((episode) => episode.id),
+  );
+  if (historyEntry == null ||
+      playbackHistoryController.resolveResumePosition(
+            PlaybackContentType.seriesEpisode,
+            historyEntry.itemId,
+          ) ==
+          null) {
+    return null;
+  }
+
+  for (final episode in episodes) {
+    if (episode.id == historyEntry.itemId) {
+      return episode;
+    }
+  }
+  return null;
+}
+
 void _openEpisode(
   BuildContext context,
   SeriesInfo item,
   SeriesEpisode episode,
+  PlaybackHistoryController playbackHistoryController,
 ) {
   context.push(
     PlayerScreen.routePath,
@@ -138,6 +199,11 @@ void _openEpisode(
       title: '${item.name} • ${episode.title}',
       containerExtension: episode.containerExtension,
       artworkUrl: item.coverUrl,
+      seriesId: item.id,
+      resumePosition: playbackHistoryController.resolveResumePosition(
+        PlaybackContentType.seriesEpisode,
+        episode.id,
+      ),
       capabilities: const PlaybackSessionCapabilities.onDemand(),
     ),
   );
@@ -150,6 +216,7 @@ class _SeriesCinematicHero extends StatelessWidget {
     required this.isFavorite,
     required this.layout,
     required this.onPlayFirstEpisode,
+    required this.playActionLabel,
     required this.onToggleFavorite,
   });
 
@@ -158,6 +225,7 @@ class _SeriesCinematicHero extends StatelessWidget {
   final bool isFavorite;
   final DeviceLayout layout;
   final VoidCallback onPlayFirstEpisode;
+  final String playActionLabel;
   final VoidCallback onToggleFavorite;
 
   @override
@@ -314,9 +382,7 @@ class _SeriesCinematicHero extends StatelessWidget {
                             size: layout.isTv ? 34 : 24,
                           ),
                           label: Text(
-                            hasEpisodes
-                                ? 'Assistir episódio 1'
-                                : 'Sem episódios',
+                            hasEpisodes ? playActionLabel : 'Sem episódios',
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
                                   fontSize: layout.isTv ? 24 : 18,
@@ -407,14 +473,17 @@ class _MetadataChip extends StatelessWidget {
   }
 }
 
-class _EpisodesBySeasonSection extends StatelessWidget {
+class _EpisodesBySeasonSection extends ConsumerWidget {
   const _EpisodesBySeasonSection({required this.item, required this.layout});
 
   final SeriesInfo item;
   final DeviceLayout layout;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playbackHistoryController = ref.read(
+      playbackHistoryControllerProvider.notifier,
+    );
     final episodesBySeason = <int, List<SeriesEpisode>>{};
     for (final episode in item.episodes) {
       episodesBySeason.putIfAbsent(episode.seasonNumber, () => []);
@@ -501,7 +570,12 @@ class _EpisodesBySeasonSection extends StatelessWidget {
                         : subtitleParts.join(' • '),
                     icon: Icons.play_circle_outline_rounded,
                     badge: 'EP',
-                    onPressed: () => _openEpisode(context, item, episode),
+                    onPressed: () => _openEpisode(
+                      context,
+                      item,
+                      episode,
+                      playbackHistoryController,
+                    ),
                   ),
                 ];
               }(),

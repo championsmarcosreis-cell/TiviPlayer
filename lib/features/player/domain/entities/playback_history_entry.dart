@@ -12,6 +12,7 @@ class PlaybackHistoryEntry {
     required this.updatedAtEpochMs,
     this.containerExtension,
     this.artworkUrl,
+    this.seriesId,
   });
 
   final PlaybackContentType contentType;
@@ -22,6 +23,7 @@ class PlaybackHistoryEntry {
   final int updatedAtEpochMs;
   final String? containerExtension;
   final String? artworkUrl;
+  final String? seriesId;
 
   String get key => '${contentType.name}:$itemId';
 
@@ -35,6 +37,7 @@ class PlaybackHistoryEntry {
       'updatedAtEpochMs': updatedAtEpochMs,
       'containerExtension': containerExtension,
       'artworkUrl': artworkUrl,
+      'seriesId': seriesId,
     };
   }
 
@@ -50,6 +53,7 @@ class PlaybackHistoryEntry {
       updatedAtEpochMs: json['updatedAtEpochMs'] as int? ?? 0,
       containerExtension: json['containerExtension'] as String?,
       artworkUrl: json['artworkUrl'] as String?,
+      seriesId: json['seriesId'] as String?,
     );
   }
 

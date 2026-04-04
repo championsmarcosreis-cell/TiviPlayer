@@ -41,6 +41,64 @@ class PlaybackHistoryController extends Notifier<List<PlaybackHistoryEntry>> {
     state = repository.getAll();
   }
 
+  PlaybackHistoryEntry? findEntry(
+    PlaybackContentType contentType,
+    String itemId,
+  ) {
+    final normalizedItemId = itemId.trim();
+    if (normalizedItemId.isEmpty) {
+      return null;
+    }
+
+    for (final entry in state) {
+      if (entry.contentType == contentType &&
+          entry.itemId.trim() == normalizedItemId) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  PlaybackHistoryEntry? findMostRecentEntry({
+    required PlaybackContentType contentType,
+    required Iterable<String> itemIds,
+  }) {
+    final normalizedItemIds = itemIds
+        .map((itemId) => itemId.trim())
+        .where((itemId) => itemId.isNotEmpty)
+        .toSet();
+    if (normalizedItemIds.isEmpty) {
+      return null;
+    }
+
+    for (final entry in state) {
+      if (entry.contentType == contentType &&
+          normalizedItemIds.contains(entry.itemId.trim())) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  Duration? resolveResumePosition(
+    PlaybackContentType contentType,
+    String itemId,
+  ) {
+    final entry = findEntry(contentType, itemId);
+    if (entry == null || entry.positionMs <= 0) {
+      return null;
+    }
+
+    final safePositionMs = entry.durationMs > 0
+        ? entry.positionMs.clamp(0, entry.durationMs).toInt()
+        : entry.positionMs;
+    if (safePositionMs <= 0) {
+      return null;
+    }
+
+    return Duration(milliseconds: safePositionMs);
+  }
+
   Future<void> remove(PlaybackContentType contentType, String itemId) async {
     final repository = _repository;
     if (repository == null) {

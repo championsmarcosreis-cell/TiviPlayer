@@ -25,7 +25,7 @@ class HomeDiscoveryDto {
   final HomeDiscoveryRailDto? heroSlider;
   final HomeDiscoveryHeroDto? hero;
   final HomeDiscoveryRailDto? highlights;
-  final HomeDiscoveryItemDto? continueWatching;
+  final HomeDiscoveryRailDto? continueWatching;
   final bool hasContinueWatchingField;
   final HomeDiscoveryRailDto? moviesLibrary;
   final HomeDiscoveryRailDto? seriesLibrary;
@@ -63,35 +63,72 @@ class HomeDiscoveryDto {
     );
   }
 
-  static HomeDiscoveryItemDto? _parseContinueWatching(dynamic raw) {
+  static HomeDiscoveryRailDto? _parseContinueWatching(dynamic raw) {
     if (raw == null) {
       return null;
     }
 
-    final asMap = XtreamParsers.asMap(raw);
+    final directRail = HomeDiscoveryRailDto.fromApi(raw);
+    final rawMap = XtreamParsers.asMap(raw);
+    if (directRail != null &&
+        (directRail.items.isNotEmpty ||
+            rawMap?.containsKey('items') == true ||
+            rawMap?.containsKey('slug') == true ||
+            rawMap?.containsKey('layout') == true)) {
+      return directRail;
+    }
+
+    final asMap = rawMap;
     if (asMap != null) {
+      final nestedRail = HomeDiscoveryRailDto.fromApi(asMap['rail']);
+      if (nestedRail != null && nestedRail.items.isNotEmpty) {
+        return nestedRail;
+      }
+
+      final items = <HomeDiscoveryItemDto>[
+        ...XtreamParsers.asList(
+          asMap['items'],
+        ).map(HomeDiscoveryItemDto.fromApi).whereType<HomeDiscoveryItemDto>(),
+      ];
+
       final directItem = HomeDiscoveryItemDto.fromApi(raw);
       if (directItem != null) {
-        return directItem;
+        items.insert(0, directItem);
       }
 
       final nestedItem = HomeDiscoveryItemDto.fromApi(asMap['item']);
       if (nestedItem != null) {
-        return nestedItem;
+        items.insert(0, nestedItem);
       }
 
-      final items = XtreamParsers.asList(asMap['items']);
       if (items.isNotEmpty) {
-        return HomeDiscoveryItemDto.fromApi(items.first);
+        return HomeDiscoveryRailDto(
+          slug: XtreamParsers.asString(asMap['slug']) ?? 'continue-watching',
+          title:
+              XtreamParsers.asString(asMap['title']) ?? 'Continuar assistindo',
+          description: XtreamParsers.asString(asMap['description']),
+          layout:
+              XtreamParsers.asString(asMap['layout']) ?? 'continue-watching',
+          items: items,
+        );
       }
       return null;
     }
 
-    final asList = XtreamParsers.asList(raw);
-    if (asList.isEmpty) {
+    final items = XtreamParsers.asList(raw)
+        .map(HomeDiscoveryItemDto.fromApi)
+        .whereType<HomeDiscoveryItemDto>()
+        .toList();
+    if (items.isEmpty) {
       return null;
     }
-    return HomeDiscoveryItemDto.fromApi(asList.first);
+    return HomeDiscoveryRailDto(
+      slug: 'continue-watching',
+      title: 'Continuar assistindo',
+      description: null,
+      layout: 'continue-watching',
+      items: items,
+    );
   }
 
   static List<HomeDiscoveryRailDto> _parseRails(dynamic raw) {

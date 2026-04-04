@@ -43,6 +43,7 @@ const _kHomeTvPanelGradient = [Color(0xFF1C1330), Color(0xFF151022)];
 const _kHomeTvSurface = Color(0xFF211637);
 const _kHomeTvSurfaceAlt = Color(0xFF191226);
 const _kHomeTvSurfaceFocus = Color(0xFF342052);
+const _kMobileContinueWatchingMaxItems = 6;
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -187,6 +188,11 @@ class HomeScreen extends ConsumerWidget {
       animeCards: animeCards,
     );
     final continueItem = _resolveContinueItem(playbackHistory, context);
+    final localContinueItems = _resolveContinueItems(
+      playbackHistory,
+      context,
+      limit: _kMobileContinueWatchingMaxItems,
+    );
     final discoveryHeroSliderRail = _resolveDiscoveryLibraryRail(
       home: discoveryHome,
       primary: discoveryHome?.heroSlider,
@@ -307,14 +313,14 @@ class HomeScreen extends ConsumerWidget {
                 liveStreams: resolvedLive ?? const <LiveStream>[],
               ) ??
               hero);
-    final effectiveContinueItem =
-        discoveryHome != null && discoveryHome.hasContinueWatchingField
-        ? _resolveContinueItemFromDiscovery(
-            item: discoveryHome.continueWatching,
-            context: context,
-            liveStreams: resolvedLive ?? const <LiveStream>[],
-          )
-        : continueItem;
+    final effectiveContinueSection = _resolveMobileContinueWatchingSection(
+      discoveryRail: discoveryHome?.continueWatching,
+      hasDiscoveryField: discoveryHome?.hasContinueWatchingField == true,
+      localItems: localContinueItems,
+      playbackHistory: playbackHistory,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+    );
     final effectiveLiveCards = useDiscoveryLive
         ? discoveryLiveCards
         : fallbackDiscoveryLiveCards.isNotEmpty
@@ -396,7 +402,7 @@ class HomeScreen extends ConsumerWidget {
                   ? discoveryHeroSliderChoices
                   : const <_HomeHeroChoice>[],
               primaryActions: effectivePrimaryActions,
-              continueItem: effectiveContinueItem,
+              continueSection: effectiveContinueSection,
               liveHeading: _resolveMobileRailTitle(
                 slug: discoveryLiveRail?.slug ?? fallbackLiveRail?.slug,
                 rawTitle: discoveryLiveRail?.title ?? fallbackLiveRail?.title,
@@ -590,11 +596,49 @@ _ContinueWatchingData? _resolveContinueItem(
   List<PlaybackHistoryEntry> history,
   BuildContext context,
 ) {
-  if (history.isEmpty) {
+  final items = _resolveContinueItems(history, context, limit: 1);
+  if (items.isEmpty) {
     return null;
   }
+  return items.first;
+}
 
-  final entry = history.first;
+List<_ContinueWatchingData> _resolveContinueItems(
+  List<PlaybackHistoryEntry> history,
+  BuildContext context, {
+  int limit = _kMobileContinueWatchingMaxItems,
+}) {
+  if (history.isEmpty || limit <= 0) {
+    return const [];
+  }
+
+  final items = <_ContinueWatchingData>[];
+  final seenKeys = <String>{};
+  for (final entry in history) {
+    final item = _buildContinueItemFromHistoryEntry(entry, context);
+    if (item == null) {
+      continue;
+    }
+    if (seenKeys.contains(item.dedupeKey)) {
+      continue;
+    }
+    seenKeys.add(item.dedupeKey);
+    items.add(item);
+    if (items.length >= limit) {
+      break;
+    }
+  }
+  return items;
+}
+
+_ContinueWatchingData? _buildContinueItemFromHistoryEntry(
+  PlaybackHistoryEntry entry,
+  BuildContext context, {
+  String? dedupeKeyOverride,
+  String? titleOverride,
+  String? subtitleOverride,
+  String? imageUrlOverride,
+}) {
   final safeDurationMs = entry.durationMs <= 0 ? 1 : entry.durationMs;
   final safePositionMs = entry.positionMs.clamp(0, safeDurationMs).toInt();
   final remainingMs = (safeDurationMs - safePositionMs).clamp(
@@ -612,11 +656,14 @@ _ContinueWatchingData? _resolveContinueItem(
   };
 
   return _ContinueWatchingData(
-    title: entry.title,
-    subtitle: '$typeLabel • Restando ${_formatRemaining(remaining)}',
+    dedupeKey: dedupeKeyOverride ?? _resolveContinueHistoryDedupeKey(entry),
+    title: titleOverride ?? entry.title,
+    subtitle:
+        subtitleOverride ??
+        '$typeLabel • Restando ${_formatRemaining(remaining)}',
     progress: progress,
     remainingLabel: _formatRemaining(remaining),
-    imageUrl: entry.artworkUrl,
+    imageUrl: imageUrlOverride ?? entry.artworkUrl,
     icon: switch (entry.contentType) {
       PlaybackContentType.vod => Icons.movie_creation_outlined,
       PlaybackContentType.seriesEpisode => Icons.tv_rounded,
@@ -630,6 +677,7 @@ _ContinueWatchingData? _resolveContinueItem(
         title: entry.title,
         containerExtension: entry.containerExtension,
         artworkUrl: entry.artworkUrl,
+        seriesId: entry.seriesId,
         resumePosition: resumeAt,
         capabilities: switch (entry.contentType) {
           PlaybackContentType.live =>
@@ -640,6 +688,136 @@ _ContinueWatchingData? _resolveContinueItem(
       ),
     ),
   );
+}
+
+_ContinueWatchingSectionData? _resolveMobileContinueWatchingSection({
+  required HomeDiscoveryRailDto? discoveryRail,
+  required bool hasDiscoveryField,
+  required List<_ContinueWatchingData> localItems,
+  required List<PlaybackHistoryEntry> playbackHistory,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+}) {
+  final discoveryItems = hasDiscoveryField
+      ? _resolveContinueItemsFromDiscovery(
+          rail: discoveryRail,
+          playbackHistory: playbackHistory,
+          context: context,
+          liveStreams: liveStreams,
+          limit: _kMobileContinueWatchingMaxItems,
+        )
+      : const <_ContinueWatchingData>[];
+  final effectiveItems = hasDiscoveryField
+      ? _mergeContinueItems(
+          primary: discoveryItems,
+          fallback: localItems,
+          limit: _kMobileContinueWatchingMaxItems,
+        )
+      : localItems;
+  if (effectiveItems.isEmpty) {
+    return null;
+  }
+
+  return _ContinueWatchingSectionData(
+    title: _cleanDiscoveryText(discoveryRail?.title) ?? 'Continuar assistindo',
+    subtitle:
+        _cleanDiscoveryText(discoveryRail?.description) ??
+        'Retome filmes e episódios recentes.',
+    items: effectiveItems,
+  );
+}
+
+List<_ContinueWatchingData> _mergeContinueItems({
+  required List<_ContinueWatchingData> primary,
+  required List<_ContinueWatchingData> fallback,
+  required int limit,
+}) {
+  final merged = <_ContinueWatchingData>[];
+  final seenKeys = <String>{};
+
+  for (final item in [...primary, ...fallback]) {
+    final dedupeKey = item.dedupeKey.trim();
+    if (dedupeKey.isEmpty || seenKeys.contains(dedupeKey)) {
+      continue;
+    }
+    seenKeys.add(dedupeKey);
+    merged.add(item);
+    if (merged.length >= limit) {
+      break;
+    }
+  }
+
+  return merged;
+}
+
+String _resolveContinueHistoryDedupeKey(PlaybackHistoryEntry entry) {
+  if (entry.contentType != PlaybackContentType.seriesEpisode) {
+    return entry.key;
+  }
+
+  final seriesId = entry.seriesId?.trim();
+  if (seriesId != null && seriesId.isNotEmpty) {
+    return 'series:$seriesId';
+  }
+
+  final seriesTitle = _extractSeriesTitleFromPlaybackHistory(entry.title);
+  if (seriesTitle.isNotEmpty) {
+    return 'series-title:${_normalizeSeriesLegacyTitleBase(seriesTitle)}';
+  }
+
+  return entry.key;
+}
+
+String _extractSeriesTitleFromPlaybackHistory(String value) {
+  final separators = [' • ', ' - ', ': '];
+  for (final separator in separators) {
+    final index = value.indexOf(separator);
+    if (index > 0) {
+      return value.substring(0, index).trim();
+    }
+  }
+  return value.trim();
+}
+
+String _extractSeriesTitleFromDiscovery(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+
+  var normalized = trimmed.replaceAll(RegExp(r'\s+'), ' ').trim();
+  normalized = normalized.replaceAll(
+    RegExp(
+      r'\s+(s(?:eason)?\s*\d+\s*[-: ]*\s*e(?:p(?:isodio|isódio)?|pisode)?\s*\d+)$',
+      caseSensitive: false,
+    ),
+    '',
+  );
+  normalized = normalized.replaceAll(
+    RegExp(
+      r'\s+(t(?:emporada)?\s*\d+\s*[-: ]*\s*(?:ep|e|episodio|episódio)\s*\d+)$',
+      caseSensitive: false,
+    ),
+    '',
+  );
+  normalized = normalized.replaceAll(
+    RegExp(r'\s+[-–]\s*(?:s|t)\s*\d+\s*[-–]\s*e\s*\d+$', caseSensitive: false),
+    '',
+  );
+  normalized = normalized.replaceAll(
+    RegExp(r'\s+(?:s|t)\s*\d+\s*[- ]*\s*e\s*\d+$', caseSensitive: false),
+    '',
+  );
+  normalized = normalized.replaceAll(
+    RegExp(r'\s+(?:ep|e)\s*\d+$', caseSensitive: false),
+    '',
+  );
+
+  return normalized.trim();
+}
+
+String _normalizeSeriesLegacyTitleBase(String value) {
+  return _normalizeDiscoveryLiveKey(value);
 }
 
 String _formatRemaining(Duration remaining) {
@@ -2587,8 +2765,39 @@ String _normalizeDiscoveryLiveKey(String? value) {
       .trim();
 }
 
+List<_ContinueWatchingData> _resolveContinueItemsFromDiscovery({
+  required HomeDiscoveryRailDto? rail,
+  required List<PlaybackHistoryEntry> playbackHistory,
+  required BuildContext context,
+  required List<LiveStream> liveStreams,
+  int limit = _kMobileContinueWatchingMaxItems,
+}) {
+  if (rail == null || rail.items.isEmpty || limit <= 0) {
+    return const [];
+  }
+
+  final items = <_ContinueWatchingData>[];
+  for (final item in rail.items) {
+    final continueItem = _resolveContinueItemFromDiscovery(
+      item: item,
+      playbackHistory: playbackHistory,
+      context: context,
+      liveStreams: liveStreams,
+    );
+    if (continueItem == null) {
+      continue;
+    }
+    items.add(continueItem);
+    if (items.length >= limit) {
+      break;
+    }
+  }
+  return items;
+}
+
 _ContinueWatchingData? _resolveContinueItemFromDiscovery({
   required HomeDiscoveryItemDto? item,
+  required List<PlaybackHistoryEntry> playbackHistory,
   required BuildContext context,
   required List<LiveStream> liveStreams,
 }) {
@@ -2615,8 +2824,40 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
   final liveMatch = isLive
       ? _resolveDiscoveryLiveMatch(item: item, liveStreams: liveStreams)
       : null;
+  final matchedHistoryEntry = _matchHistoryEntryForDiscoveryContinueItem(
+    item: item,
+    playbackHistory: playbackHistory,
+    isLive: isLive,
+    isSeries: isSeries,
+  );
+  if (matchedHistoryEntry != null) {
+    return _buildContinueItemFromHistoryEntry(
+      matchedHistoryEntry,
+      context,
+      dedupeKeyOverride: _resolveContinueHistoryDedupeKey(matchedHistoryEntry),
+      titleOverride: item.title?.trim(),
+      subtitleOverride: _resolveDiscoveryItemSubtitle(
+        item: item,
+        isLive: isLive,
+        isSeries: isSeries,
+        isAnime:
+            !isLive && _looksLikeAnime(item.title ?? '', item.subtitle ?? ''),
+        fallback: isLive
+            ? 'Ao vivo'
+            : isSeries
+            ? 'Série'
+            : 'Filme',
+      ),
+      imageUrlOverride: item.preferredArtwork,
+    );
+  }
 
   return _ContinueWatchingData(
+    dedupeKey: _resolveDiscoveryContinueDedupeKey(
+      item: item,
+      isLive: isLive,
+      isSeries: isSeries,
+    ),
     title: item.title!.trim(),
     subtitle: _resolveDiscoveryItemSubtitle(
       item: item,
@@ -2669,6 +2910,85 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
       _openPrimaryDestination(context, VodCategoriesScreen.routePath);
     },
   );
+}
+
+PlaybackHistoryEntry? _matchHistoryEntryForDiscoveryContinueItem({
+  required HomeDiscoveryItemDto item,
+  required List<PlaybackHistoryEntry> playbackHistory,
+  required bool isLive,
+  required bool isSeries,
+}) {
+  final candidateIds = <String>{
+    if (item.contentId?.trim().isNotEmpty == true) item.contentId!.trim(),
+    if (item.streamId?.trim().isNotEmpty == true) item.streamId!.trim(),
+    if (item.id?.trim().isNotEmpty == true) item.id!.trim(),
+  };
+  if (candidateIds.isEmpty) {
+    return null;
+  }
+
+  final expectedType = isLive
+      ? PlaybackContentType.live
+      : isSeries
+      ? PlaybackContentType.seriesEpisode
+      : PlaybackContentType.vod;
+
+  if (isSeries) {
+    final normalizedDiscoveryTitle = _normalizeSeriesLegacyTitleBase(
+      _extractSeriesTitleFromDiscovery(item.title ?? ''),
+    );
+    for (final entry in playbackHistory) {
+      if (entry.contentType != PlaybackContentType.seriesEpisode) {
+        continue;
+      }
+
+      final entrySeriesId = entry.seriesId?.trim();
+      if (entrySeriesId != null && candidateIds.contains(entrySeriesId)) {
+        return entry;
+      }
+
+      if (normalizedDiscoveryTitle.isNotEmpty &&
+          _normalizeSeriesLegacyTitleBase(
+                _extractSeriesTitleFromPlaybackHistory(entry.title),
+              ) ==
+              normalizedDiscoveryTitle) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  for (final entry in playbackHistory) {
+    if (entry.contentType == expectedType &&
+        candidateIds.contains(entry.itemId.trim())) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+String _resolveDiscoveryContinueDedupeKey({
+  required HomeDiscoveryItemDto item,
+  required bool isLive,
+  required bool isSeries,
+}) {
+  final typeKey = isLive
+      ? 'live'
+      : isSeries
+      ? 'series'
+      : 'vod';
+  final preferredId = item.contentId?.trim().isNotEmpty == true
+      ? item.contentId!.trim()
+      : item.streamId?.trim().isNotEmpty == true
+      ? item.streamId!.trim()
+      : item.id?.trim().isNotEmpty == true
+      ? item.id!.trim()
+      : isSeries
+      ? _normalizeSeriesLegacyTitleBase(
+          _extractSeriesTitleFromDiscovery(item.title ?? ''),
+        )
+      : (item.title?.trim().toLowerCase() ?? 'continue-watching');
+  return '$typeKey:$preferredId';
 }
 
 List<_DiscoveryAdditionalRail> _buildAdditionalDiscoveryRails({
@@ -2788,7 +3108,7 @@ class _MobileHomeExperience extends StatelessWidget {
     required this.fallbackHero,
     required this.heroSlider,
     required this.primaryActions,
-    required this.continueItem,
+    required this.continueSection,
     required this.liveHeading,
     required this.liveSubtitle,
     required this.liveCards,
@@ -2818,7 +3138,7 @@ class _MobileHomeExperience extends StatelessWidget {
   final _HomeHeroChoice fallbackHero;
   final List<_HomeHeroChoice> heroSlider;
   final List<_HomeQuickAction> primaryActions;
-  final _ContinueWatchingData? continueItem;
+  final _ContinueWatchingSectionData? continueSection;
   final String liveHeading;
   final String liveSubtitle;
   final List<_HomeRailCardData> liveCards;
@@ -2859,9 +3179,12 @@ class _MobileHomeExperience extends StatelessWidget {
         ],
         if (primaryActions.isNotEmpty)
           _MobileTopActionStrip(layout: layout, actions: primaryActions),
-        if (continueItem != null) ...[
+        if (continueSection != null) ...[
           SizedBox(height: layout.sectionSpacing + 10),
-          _ContinueWatchingCard(layout: layout, item: continueItem),
+          _ContinueWatchingRailSection(
+            layout: layout,
+            section: continueSection!,
+          ),
         ],
         if (showHighlights) ...[
           SizedBox(height: layout.sectionSpacing + 10),
@@ -3738,6 +4061,7 @@ class _CinematicHeroCard extends StatelessWidget {
 
 class _ContinueWatchingData {
   const _ContinueWatchingData({
+    required this.dedupeKey,
     required this.title,
     required this.subtitle,
     required this.progress,
@@ -3747,6 +4071,7 @@ class _ContinueWatchingData {
     this.imageUrl,
   });
 
+  final String dedupeKey;
   final String title;
   final String subtitle;
   final double progress;
@@ -3754,6 +4079,18 @@ class _ContinueWatchingData {
   final String? imageUrl;
   final IconData icon;
   final VoidCallback onPressed;
+}
+
+class _ContinueWatchingSectionData {
+  const _ContinueWatchingSectionData({
+    required this.title,
+    required this.subtitle,
+    required this.items,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<_ContinueWatchingData> items;
 }
 
 class _ContinueWatchingCard extends StatelessWidget {
@@ -3932,6 +4269,194 @@ class _ContinueWatchingCard extends StatelessWidget {
             },
           ),
       ],
+    );
+  }
+}
+
+class _ContinueWatchingRailSection extends StatelessWidget {
+  const _ContinueWatchingRailSection({
+    required this.layout,
+    required this.section,
+  });
+
+  final DeviceLayout layout;
+  final _ContinueWatchingSectionData section;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: colorScheme.primary.withValues(alpha: 0.16),
+              ),
+              child: Icon(
+                Icons.play_circle_fill_rounded,
+                color: colorScheme.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    section.title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontSize: 23,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    section.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.76),
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: layout.sectionSpacing),
+        SizedBox(
+          height: 244,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: section.items.length,
+            separatorBuilder: (context, index) =>
+                SizedBox(width: layout.cardSpacing),
+            itemBuilder: (context, index) {
+              return _ContinueWatchingRailCard(
+                layout: layout,
+                item: section.items[index],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContinueWatchingRailCard extends StatelessWidget {
+  const _ContinueWatchingRailCard({required this.layout, required this.item});
+
+  final DeviceLayout layout;
+  final _ContinueWatchingData item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      width: 214,
+      child: TvFocusable(
+        onPressed: item.onPressed,
+        builder: (context, focused) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: focused
+                    ? [
+                        colorScheme.primary.withValues(alpha: 0.22),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.94,
+                        ),
+                      ]
+                    : [
+                        colorScheme.surface.withValues(alpha: 0.88),
+                        colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.72,
+                        ),
+                      ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: focused
+                    ? colorScheme.primary
+                    : colorScheme.outline.withValues(alpha: 0.38),
+                width: focused ? 1.8 : 1,
+              ),
+              boxShadow: focused
+                  ? [
+                      BoxShadow(
+                        color: colorScheme.primary.withValues(alpha: 0.16),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                BrandedArtwork(
+                  imageUrl: item.imageUrl,
+                  aspectRatio: 16 / 9,
+                  placeholderLabel: 'Sem capa',
+                  icon: item.icon,
+                  borderRadius: 14,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.78),
+                    height: 1.25,
+                  ),
+                ),
+                const Spacer(),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: item.progress,
+                    minHeight: 7,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Restando: ${item.remainingLabel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.76),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

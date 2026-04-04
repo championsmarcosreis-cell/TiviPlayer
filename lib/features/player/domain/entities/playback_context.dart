@@ -81,6 +81,7 @@ class PlaybackContext {
     required this.title,
     this.containerExtension,
     this.artworkUrl,
+    this.seriesId,
     this.resumePosition,
     this.notes,
     this.manifest = const PlaybackManifest(),
@@ -92,6 +93,7 @@ class PlaybackContext {
   final String title;
   final String? containerExtension;
   final String? artworkUrl;
+  final String? seriesId;
   final Duration? resumePosition;
   final String? notes;
   final PlaybackManifest manifest;
@@ -116,6 +118,7 @@ class PlaybackContext {
     String? title,
     String? containerExtension,
     String? artworkUrl,
+    String? seriesId,
     Duration? resumePosition,
     String? notes,
     PlaybackManifest? manifest,
@@ -127,6 +130,7 @@ class PlaybackContext {
       title: title ?? this.title,
       containerExtension: containerExtension ?? this.containerExtension,
       artworkUrl: artworkUrl ?? this.artworkUrl,
+      seriesId: seriesId ?? this.seriesId,
       resumePosition: resumePosition ?? this.resumePosition,
       notes: notes ?? this.notes,
       manifest: manifest ?? this.manifest,

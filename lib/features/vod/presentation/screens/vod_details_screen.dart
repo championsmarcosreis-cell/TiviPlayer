@@ -7,6 +7,7 @@ import '../../../../core/tv/tv_focusable.dart';
 import '../../../../features/favorites/domain/entities/favorite_item.dart';
 import '../../../../features/favorites/presentation/controllers/favorites_controller.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
+import '../../../../features/player/presentation/controllers/playback_history_controller.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../domain/entities/vod_info.dart';
 import '../../domain/entities/vod_stream.dart';
@@ -32,6 +33,9 @@ class VodDetailsScreen extends ConsumerWidget {
     final info = ref.watch(vodInfoProvider(vodId));
     final favorites = ref.watch(favoritesControllerProvider);
     final relatedStreams = ref.watch(vodStreamsProvider(null));
+    final playbackHistoryController = ref.read(
+      playbackHistoryControllerProvider.notifier,
+    );
 
     return AppScaffold(
       title: 'Filmes',
@@ -78,6 +82,11 @@ class VodDetailsScreen extends ConsumerWidget {
                           title: item.name,
                           containerExtension: item.containerExtension,
                           artworkUrl: item.coverUrl,
+                          resumePosition: playbackHistoryController
+                              .resolveResumePosition(
+                                PlaybackContentType.vod,
+                                item.id,
+                              ),
                           capabilities:
                               const PlaybackSessionCapabilities.onDemand(),
                         ),

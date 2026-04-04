@@ -883,6 +883,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       updatedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
       containerExtension: contextData.containerExtension,
       artworkUrl: contextData.artworkUrl,
+      seriesId: contextData.seriesId,
     );
     unawaited(_playbackHistoryController.upsert(entry));
   }
