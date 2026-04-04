@@ -163,6 +163,129 @@ void main() {
   });
 
   testWidgets(
+    'home mobile mostra EPG compacto nos cards live quando houver grade',
+    (tester) async {
+      final now = DateTime.now();
+      final current = LiveEpgEntry(
+        title: 'Jornal da Manha',
+        startAt: now.subtract(const Duration(minutes: 12)),
+        endAt: now.add(const Duration(minutes: 18)),
+      );
+      final next = LiveEpgEntry(
+        title: 'Giro do Esporte',
+        startAt: now.add(const Duration(minutes: 18)),
+        endAt: now.add(const Duration(minutes: 58)),
+      );
+
+      await _pumpHomeScreen(
+        tester,
+        streams: _sampleStreams(),
+        epgByStreamId: {
+          'stream-1': [current, next],
+        },
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Jornal da Manha'), findsOneWidget);
+      expect(
+        find.text(_formatRange(current.startAt, current.endAt)),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Depois ${_formatClock(next.startAt)} • Giro do Esporte'),
+        findsOneWidget,
+      );
+      expect(find.byType(LinearProgressIndicator), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'home mobile usa id live do discovery para renderizar EPG compacto',
+    (tester) async {
+      final now = DateTime.now();
+      final current = LiveEpgEntry(
+        title: 'Pesca Mortal',
+        startAt: now.subtract(const Duration(minutes: 8)),
+        endAt: now.add(const Duration(minutes: 22)),
+      );
+      final next = LiveEpgEntry(
+        title: 'Patrulheiros da Natureza',
+        startAt: now.add(const Duration(minutes: 22)),
+        endAt: now.add(const Duration(minutes: 62)),
+      );
+
+      await _pumpHomeScreen(
+        tester,
+        discoveryHome: HomeDiscoveryDto(
+          generatedAt: '2026-04-04T02:10:00Z',
+          heroSlider: null,
+          hero: null,
+          highlights: null,
+          continueWatching: null,
+          hasContinueWatchingField: true,
+          moviesLibrary: null,
+          seriesLibrary: null,
+          animeLibrary: null,
+          liveLibrary: const HomeDiscoveryRailDto(
+            slug: 'live-library',
+            title: 'TV ao vivo',
+            description: 'Canais ao vivo para assistir agora.',
+            layout: 'carousel',
+            items: <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'live-999',
+                title: 'ANIMAL PLANET',
+                subtitle: 'TV',
+                description: 'Canal ao vivo',
+                image: 'https://example.com/animal-planet.png',
+                backdrop: null,
+                mediaType: 'TV',
+                contentId: '999',
+                tmdbId: null,
+                rating: null,
+                year: null,
+                genres: <String>[],
+                runtime: null,
+                provider: null,
+                channelNumber: 50,
+                progress: null,
+                badges: <String>['LIVE'],
+                genreIds: <int>[],
+              ),
+            ],
+          ),
+          libraries: const <HomeDiscoveryRailDto>[],
+          liveNow: null,
+          trendingNow: null,
+          moviesForToday: null,
+          seriesToBinge: null,
+          animeSpotlight: null,
+          rails: const <HomeDiscoveryRailDto>[],
+        ),
+        streams: const <LiveStream>[],
+        epgByStreamId: {
+          '999': [current, next],
+        },
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pesca Mortal'), findsOneWidget);
+      expect(
+        find.text(_formatRange(current.startAt, current.endAt)),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Depois ${_formatClock(next.startAt)} • Patrulheiros da Natureza',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'home mobile traduz copy técnica do discovery para linguagem de produto',
     (tester) async {
       await _pumpHomeScreen(
@@ -504,6 +627,92 @@ void main() {
       expect(find.text('Filmes'), findsWidgets);
       expect(find.text('Anime'), findsWidgets);
       expect(find.text('Série'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'home mobile esconde hero editorial e trilhos vazios em servidor live-only',
+    (tester) async {
+      await _pumpHomeScreen(
+        tester,
+        discoveryHome: HomeDiscoveryDto(
+          generatedAt: '2026-04-04T02:00:00Z',
+          heroSlider: null,
+          hero: null,
+          highlights: null,
+          continueWatching: null,
+          hasContinueWatchingField: true,
+          moviesLibrary: const HomeDiscoveryRailDto(
+            slug: 'movies-library',
+            title: 'Filmes',
+            description: 'Filmes do catálogo.',
+            layout: 'poster',
+            items: <HomeDiscoveryItemDto>[],
+          ),
+          seriesLibrary: const HomeDiscoveryRailDto(
+            slug: 'series-library',
+            title: 'Séries',
+            description: 'Séries do catálogo.',
+            layout: 'poster',
+            items: <HomeDiscoveryItemDto>[],
+          ),
+          animeLibrary: const HomeDiscoveryRailDto(
+            slug: 'anime-library',
+            title: 'Anime',
+            description: 'Anime do catálogo.',
+            layout: 'poster',
+            items: <HomeDiscoveryItemDto>[],
+          ),
+          liveLibrary: const HomeDiscoveryRailDto(
+            slug: 'live-library',
+            title: 'TV ao vivo',
+            description: 'Canais ao vivo para assistir agora.',
+            layout: 'carousel',
+            items: <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'live-1',
+                title: 'Canal Centro',
+                subtitle: 'TV',
+                description: 'Canal principal.',
+                image: 'https://example.com/live.jpg',
+                backdrop: null,
+                mediaType: 'TV',
+                contentId: 'stream-1',
+                tmdbId: null,
+                rating: null,
+                year: null,
+                genres: <String>[],
+                runtime: null,
+                provider: null,
+                channelNumber: 12,
+                progress: null,
+                badges: <String>['LIVE'],
+                genreIds: <int>[],
+              ),
+            ],
+          ),
+          libraries: const <HomeDiscoveryRailDto>[],
+          liveNow: null,
+          trendingNow: null,
+          moviesForToday: null,
+          seriesToBinge: null,
+          animeSpotlight: null,
+          rails: const <HomeDiscoveryRailDto>[],
+        ),
+        streams: _sampleStreams(),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Canal Centro'), findsOneWidget);
+      expect(find.text('Filmes'), findsNothing);
+      expect(find.text('Séries'), findsNothing);
+      expect(find.text('Anime'), findsNothing);
+      expect(
+        find.text('Nenhum item disponivel nesta secao agora.'),
+        findsNothing,
+      );
+      expect(find.text('TV ao vivo'), findsWidgets);
     },
   );
 }

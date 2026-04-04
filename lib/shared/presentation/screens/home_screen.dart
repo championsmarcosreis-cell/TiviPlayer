@@ -335,6 +335,22 @@ class HomeScreen extends ConsumerWidget {
         : fallbackDiscoveryAnimeCards.isNotEmpty
         ? fallbackDiscoveryAnimeCards
         : animeCards;
+    final showMobileLiveRail = effectiveLiveCards.isNotEmpty;
+    final showMobileMoviesRail = effectiveMoviesCards.isNotEmpty;
+    final showMobileSeriesRail = effectiveSeriesCards.isNotEmpty;
+    final showMobileAnimeRail = effectiveAnimeCards.isNotEmpty;
+    final showMobileHero =
+        shouldHoldHeroForDiscovery ||
+        useDiscoveryHeroSlider ||
+        effectiveMoviesCards.isNotEmpty ||
+        effectiveSeriesCards.isNotEmpty ||
+        effectiveAnimeCards.isNotEmpty;
+    final effectivePrimaryActions = <_HomeQuickAction>[
+      if (showMobileMoviesRail) mobilePrimaryActions[0],
+      if (showMobileSeriesRail) mobilePrimaryActions[1],
+      if (showMobileAnimeRail) mobilePrimaryActions[2],
+      if (showMobileLiveRail) mobilePrimaryActions[3],
+    ];
     final discoveryAdditionalRails = _buildAdditionalDiscoveryRails(
       home: discoveryHome,
       context: context,
@@ -374,11 +390,12 @@ class HomeScreen extends ConsumerWidget {
             final layout = DeviceLayout.of(context, constraints: constraints);
             final homeBody = _MobileHomeExperience(
               layout: layout,
+              showHero: showMobileHero,
               fallbackHero: effectiveHero,
               heroSlider: useDiscoveryHeroSlider
                   ? discoveryHeroSliderChoices
                   : const <_HomeHeroChoice>[],
-              primaryActions: mobilePrimaryActions,
+              primaryActions: effectivePrimaryActions,
               continueItem: effectiveContinueItem,
               liveHeading: _resolveMobileRailTitle(
                 slug: discoveryLiveRail?.slug ?? fallbackLiveRail?.slug,
@@ -1750,6 +1767,13 @@ AsyncValue<void> _combineRailStates(List<AsyncValue<dynamic>> states) {
   return const AsyncValue.data(null);
 }
 
+bool _shouldShowMobileRail({
+  required List<_HomeRailCardData> cards,
+  required AsyncValue<dynamic> state,
+}) {
+  return cards.isNotEmpty || state.hasError;
+}
+
 _HomeHeroChoice _resolveMobileHeroChoice({
   required BuildContext context,
   required List<_HomeRailCardData> liveCards,
@@ -2172,6 +2196,10 @@ _HomeRailCardData? _buildDiscoveryRailCard({
 
   if (isLive) {
     final liveStream = liveMatch?.stream;
+    final epgLookupId = liveStream?.id ?? liveMatch?.playbackItemId?.trim();
+    final canAttemptEpg =
+        liveStream?.epgChannelId?.trim().isNotEmpty == true ||
+        epgLookupId?.isNotEmpty == true;
     final noEpgLabel = liveStream?.hasArchive == true
         ? 'Ao vivo com replay'
         : 'Ao vivo agora';
@@ -2208,8 +2236,8 @@ _HomeRailCardData? _buildDiscoveryRailCard({
       aspectRatio: 16 / 9,
       imagePadding: const EdgeInsets.all(18),
       fit: BoxFit.contain,
-      liveStreamId: liveStream?.id,
-      supportsLiveEpg: liveStream?.epgChannelId?.trim().isNotEmpty == true,
+      liveStreamId: epgLookupId,
+      supportsLiveEpg: canAttemptEpg,
       noEpgFallbackLabel: noEpgLabel,
       hasReplay: liveStream?.hasArchive == true,
     );
@@ -2756,6 +2784,7 @@ class _DiscoveryAdditionalRail {
 class _MobileHomeExperience extends StatelessWidget {
   const _MobileHomeExperience({
     required this.layout,
+    required this.showHero,
     required this.fallbackHero,
     required this.heroSlider,
     required this.primaryActions,
@@ -2785,6 +2814,7 @@ class _MobileHomeExperience extends StatelessWidget {
   });
 
   final DeviceLayout layout;
+  final bool showHero;
   final _HomeHeroChoice fallbackHero;
   final List<_HomeHeroChoice> heroSlider;
   final List<_HomeQuickAction> primaryActions;
@@ -2819,13 +2849,16 @@ class _MobileHomeExperience extends StatelessWidget {
       children: [
         const _MobileTopBar(),
         SizedBox(height: layout.sectionSpacing + 2),
-        _MobileHeroSlider(
-          layout: layout,
-          slides: heroSlider,
-          fallbackHero: fallbackHero,
-        ),
-        SizedBox(height: layout.sectionSpacing + 4),
-        _MobileTopActionStrip(layout: layout, actions: primaryActions),
+        if (showHero) ...[
+          _MobileHeroSlider(
+            layout: layout,
+            slides: heroSlider,
+            fallbackHero: fallbackHero,
+          ),
+          SizedBox(height: layout.sectionSpacing + 4),
+        ],
+        if (primaryActions.isNotEmpty)
+          _MobileTopActionStrip(layout: layout, actions: primaryActions),
         if (continueItem != null) ...[
           SizedBox(height: layout.sectionSpacing + 10),
           _ContinueWatchingCard(layout: layout, item: continueItem),
@@ -2843,42 +2876,50 @@ class _MobileHomeExperience extends StatelessWidget {
             state: highlightsState,
           ),
         ],
-        SizedBox(height: layout.sectionSpacing + 10),
-        _HomeRailSection(
-          layout: layout,
-          title: liveHeading,
-          subtitle: liveSubtitle,
-          icon: Icons.live_tv_rounded,
-          onViewAll: () =>
-              _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
-          cards: liveCards,
-          state: liveState,
-        ),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _HomeRailSection(
-          layout: layout,
-          title: vodHeading,
-          subtitle: vodSubtitle,
-          icon: Icons.local_movies_rounded,
-          onViewAll: () =>
-              _openPrimaryDestination(context, VodCategoriesScreen.routePath),
-          cards: vodCards,
-          state: vodState,
-        ),
-        SizedBox(height: layout.sectionSpacing + 10),
-        _HomeRailSection(
-          layout: layout,
-          title: seriesHeading,
-          subtitle: seriesSubtitle,
-          icon: Icons.tv_rounded,
-          onViewAll: () => _openPrimaryDestination(
-            context,
-            SeriesCategoriesScreen.routePath,
+        if (_shouldShowMobileRail(cards: liveCards, state: liveState)) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _HomeRailSection(
+            layout: layout,
+            title: liveHeading,
+            subtitle: liveSubtitle,
+            icon: Icons.live_tv_rounded,
+            onViewAll: () => _openPrimaryDestination(
+              context,
+              LiveCategoriesScreen.routePath,
+            ),
+            cards: liveCards,
+            state: liveState,
           ),
-          cards: seriesCards,
-          state: seriesState,
-        ),
-        if (animeCards.isNotEmpty) ...[
+        ],
+        if (_shouldShowMobileRail(cards: vodCards, state: vodState)) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _HomeRailSection(
+            layout: layout,
+            title: vodHeading,
+            subtitle: vodSubtitle,
+            icon: Icons.local_movies_rounded,
+            onViewAll: () =>
+                _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+            cards: vodCards,
+            state: vodState,
+          ),
+        ],
+        if (_shouldShowMobileRail(cards: seriesCards, state: seriesState)) ...[
+          SizedBox(height: layout.sectionSpacing + 10),
+          _HomeRailSection(
+            layout: layout,
+            title: seriesHeading,
+            subtitle: seriesSubtitle,
+            icon: Icons.tv_rounded,
+            onViewAll: () => _openPrimaryDestination(
+              context,
+              SeriesCategoriesScreen.routePath,
+            ),
+            cards: seriesCards,
+            state: seriesState,
+          ),
+        ],
+        if (_shouldShowMobileRail(cards: animeCards, state: animeState)) ...[
           SizedBox(height: layout.sectionSpacing + 10),
           _HomeRailSection(
             layout: layout,
@@ -4099,8 +4140,16 @@ List<_HomeRailCardData> _buildLiveCards(
   }
 
   final visibleItems = items.take(16).toList(growable: false);
+  final prioritizedItems = [
+    ...visibleItems.where(
+      (item) => item.epgChannelId?.trim().isNotEmpty == true,
+    ),
+    ...visibleItems.where(
+      (item) => item.epgChannelId?.trim().isNotEmpty != true,
+    ),
+  ];
 
-  return visibleItems.asMap().entries.map((entry) {
+  return prioritizedItems.asMap().entries.map((entry) {
     final index = entry.key;
     final item = entry.value;
     final hasEpgSignal = item.epgChannelId?.trim().isNotEmpty == true;
@@ -4120,7 +4169,7 @@ List<_HomeRailCardData> _buildLiveCards(
       hasReplay: item.hasArchive,
       onPressed: () => context.push(
         PlayerScreen.routePath,
-        extra: buildLivePlaybackContext(visibleItems, index),
+        extra: buildLivePlaybackContext(prioritizedItems, index),
       ),
     );
   }).toList();
@@ -4483,6 +4532,14 @@ class _HomeRailCard extends StatelessWidget {
                       height: 1.3,
                     ),
                   )
+                else if (!layout.isTv && data.liveStreamId != null)
+                  _MobileLiveHomeCardMeta(
+                    streamId: data.liveStreamId!,
+                    supportsEpg: data.supportsLiveEpg,
+                    fallbackSubtitle: data.noEpgFallbackLabel,
+                    defaultSubtitle: data.subtitle,
+                    hasReplay: data.hasReplay,
+                  )
                 else
                   Text(
                     data.subtitle,
@@ -4499,6 +4556,120 @@ class _HomeRailCard extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _MobileLiveHomeCardMeta extends ConsumerWidget {
+  const _MobileLiveHomeCardMeta({
+    required this.streamId,
+    required this.supportsEpg,
+    required this.fallbackSubtitle,
+    required this.defaultSubtitle,
+    required this.hasReplay,
+  });
+
+  final String streamId;
+  final bool supportsEpg;
+  final String fallbackSubtitle;
+  final String defaultSubtitle;
+  final bool hasReplay;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fallbackStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurface.withValues(alpha: 0.74),
+      fontSize: 11.5,
+      height: 1.3,
+    );
+
+    if (!supportsEpg) {
+      return Text(
+        fallbackSubtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: fallbackStyle,
+      );
+    }
+
+    final epgAsync = ref.watch(liveShortEpgProvider(streamId));
+    final presentation = epgAsync.when(
+      data: (entries) => _resolveMobileHomeLiveEpgPresentation(
+        epgState: _resolveHomeLiveEpgState(entries),
+        fallbackSubtitle: fallbackSubtitle,
+        defaultSubtitle: defaultSubtitle,
+        hasReplay: hasReplay,
+      ),
+      loading: () => _MobileHomeLiveEpgPresentation(
+        headline: defaultSubtitle,
+        supportingLine: hasReplay ? 'Canal com replay disponivel' : null,
+      ),
+      error: (_, _) =>
+          _MobileHomeLiveEpgPresentation(headline: fallbackSubtitle),
+    );
+
+    if (!presentation.hasStructuredEpg) {
+      return Text(
+        presentation.headline,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: fallbackStyle,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          presentation.headline,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.92),
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            height: 1.2,
+          ),
+        ),
+        if (presentation.scheduleLine != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            presentation.scheduleLine!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.primary.withValues(alpha: 0.92),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+        if (presentation.progress != null) ...[
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: presentation.progress,
+              minHeight: 4,
+              backgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
+              valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+            ),
+          ),
+        ],
+        if (presentation.supportingLine != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            presentation.supportingLine!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.68),
+              height: 1.25,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -4561,6 +4732,23 @@ class _HomeLiveEpgState {
   final LiveEpgEntry? next;
 }
 
+class _MobileHomeLiveEpgPresentation {
+  const _MobileHomeLiveEpgPresentation({
+    required this.headline,
+    this.scheduleLine,
+    this.supportingLine,
+    this.progress,
+  });
+
+  final String headline;
+  final String? scheduleLine;
+  final String? supportingLine;
+  final double? progress;
+
+  bool get hasStructuredEpg =>
+      scheduleLine != null || supportingLine != null || progress != null;
+}
+
 _HomeLiveEpgState _resolveHomeLiveEpgState(List<LiveEpgEntry> entries) {
   if (entries.isEmpty) {
     return const _HomeLiveEpgState();
@@ -4591,6 +4779,41 @@ _HomeLiveEpgState _resolveHomeLiveEpgState(List<LiveEpgEntry> entries) {
   }
 
   return _HomeLiveEpgState(current: current, next: next);
+}
+
+_MobileHomeLiveEpgPresentation _resolveMobileHomeLiveEpgPresentation({
+  required _HomeLiveEpgState epgState,
+  required String fallbackSubtitle,
+  required String defaultSubtitle,
+  required bool hasReplay,
+}) {
+  final current = epgState.current;
+  final next = epgState.next;
+
+  if (current != null) {
+    return _MobileHomeLiveEpgPresentation(
+      headline: current.title,
+      scheduleLine: _formatHomeTimeRange(current.startAt, current.endAt),
+      supportingLine: next != null
+          ? 'Depois ${_formatHomeClock(next.startAt)} • ${next.title}'
+          : hasReplay
+          ? 'Canal com replay disponivel'
+          : null,
+      progress: _homeEpgProgress(current, now: DateTime.now()),
+    );
+  }
+
+  if (next != null) {
+    return _MobileHomeLiveEpgPresentation(
+      headline: 'A seguir: ${next.title}',
+      scheduleLine: _formatHomeTimeRange(next.startAt, next.endAt),
+      supportingLine: hasReplay ? 'Canal com replay disponivel' : null,
+    );
+  }
+
+  return _MobileHomeLiveEpgPresentation(
+    headline: fallbackSubtitle.isNotEmpty ? fallbackSubtitle : defaultSubtitle,
+  );
 }
 
 class _TvLiveHighlightPresentation {
