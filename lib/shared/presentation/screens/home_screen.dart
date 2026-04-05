@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -696,6 +699,7 @@ _ContinueWatchingData? _buildContinueItemFromHistoryEntry(
   String? titleOverride,
   String? subtitleOverride,
   String? imageUrlOverride,
+  String? posterImageUrlOverride,
 }) {
   final safeDurationMs = entry.durationMs <= 0 ? 1 : entry.durationMs;
   final safePositionMs = entry.positionMs.clamp(0, safeDurationMs).toInt();
@@ -716,17 +720,23 @@ _ContinueWatchingData? _buildContinueItemFromHistoryEntry(
   return _ContinueWatchingData(
     dedupeKey: dedupeKeyOverride ?? _resolveContinueHistoryDedupeKey(entry),
     title: titleOverride ?? entry.title,
-    subtitle:
-        subtitleOverride ??
-        '$typeLabel • Restando ${_formatRemaining(remaining)}',
+    subtitle: subtitleOverride ?? typeLabel,
     progress: progress,
     remainingLabel: _formatRemaining(remaining),
-    imageUrl: imageUrlOverride ?? entry.artworkUrl,
+    imageUrl:
+        imageUrlOverride ??
+        entry.backdropUrl ??
+        posterImageUrlOverride ??
+        entry.artworkUrl,
+    posterImageUrl: posterImageUrlOverride ?? entry.artworkUrl,
+    seriesId: entry.seriesId,
     icon: switch (entry.contentType) {
       PlaybackContentType.vod => Icons.movie_creation_outlined,
       PlaybackContentType.seriesEpisode => Icons.tv_rounded,
       PlaybackContentType.live => Icons.live_tv_rounded,
     },
+    removableContentType: entry.contentType,
+    removableItemId: entry.itemId,
     onPressed: () => context.push(
       PlayerScreen.routePath,
       extra: PlaybackContext(
@@ -735,6 +745,7 @@ _ContinueWatchingData? _buildContinueItemFromHistoryEntry(
         title: entry.title,
         containerExtension: entry.containerExtension,
         artworkUrl: entry.artworkUrl,
+        backdropUrl: entry.backdropUrl,
         seriesId: entry.seriesId,
         resumePosition: resumeAt,
         capabilities: switch (entry.contentType) {
@@ -893,6 +904,20 @@ String _formatRemaining(Duration remaining) {
     return '${hours}h';
   }
   return '${hours}h ${minutes}min';
+}
+
+String _formatContinueRemainingText(String remainingLabel) {
+  final normalized = remainingLabel.trim();
+  if (normalized.isEmpty) {
+    return '';
+  }
+
+  final lower = normalized.toLowerCase();
+  if (lower.contains('restant') || lower.contains('retomar')) {
+    return normalized;
+  }
+
+  return 'Restam $normalized';
 }
 
 class _TvHomeSurface extends StatelessWidget {
@@ -2958,7 +2983,10 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
             ? 'Série'
             : 'Filme',
       ),
-      imageUrlOverride: item.preferredArtwork,
+      imageUrlOverride: _resolveDiscoveryContinueArtwork(item),
+      posterImageUrlOverride:
+          BrandedArtwork.normalizeArtworkUrl(matchedHistoryEntry.artworkUrl) ??
+          _resolveDiscoveryContinuePosterArtwork(item),
     );
   }
 
@@ -2984,7 +3012,9 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
     remainingLabel: progress > 0
         ? '$remainingPercent% restante'
         : 'Retomar agora',
-    imageUrl: item.preferredArtwork,
+    imageUrl: _resolveDiscoveryContinueArtwork(item),
+    posterImageUrl: _resolveDiscoveryContinuePosterArtwork(item),
+    seriesId: isSeries ? seriesNavigationId : null,
     icon: isLive
         ? Icons.live_tv_rounded
         : isSeries
@@ -3019,6 +3049,16 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
       _openPrimaryDestination(context, VodCategoriesScreen.routePath);
     },
   );
+}
+
+String? _resolveDiscoveryContinueArtwork(HomeDiscoveryItemDto item) {
+  return BrandedArtwork.normalizeArtworkUrl(item.backdrop) ??
+      _resolveDiscoveryContinuePosterArtwork(item);
+}
+
+String? _resolveDiscoveryContinuePosterArtwork(HomeDiscoveryItemDto item) {
+  return BrandedArtwork.normalizeArtworkUrl(item.image) ??
+      BrandedArtwork.normalizeArtworkUrl(item.preferredArtwork);
 }
 
 PlaybackHistoryEntry? _matchHistoryEntryForDiscoveryContinueItem({
@@ -3344,7 +3384,7 @@ class _MobileHomeExperience extends StatelessWidget {
         if (primaryActions.isNotEmpty)
           _MobileTopActionStrip(layout: layout, actions: primaryActions),
         if (continueSection != null) ...[
-          SizedBox(height: layout.sectionSpacing + 10),
+          SizedBox(height: layout.sectionSpacing + 4),
           _ContinueWatchingRailSection(
             layout: layout,
             section: continueSection!,
@@ -3364,7 +3404,11 @@ class _MobileHomeExperience extends StatelessWidget {
           ),
         ],
         if (_shouldShowMobileRail(cards: liveCards, state: liveState)) ...[
-          SizedBox(height: layout.sectionSpacing + 10),
+          SizedBox(
+            height: continueSection != null
+                ? layout.sectionSpacing + 12
+                : layout.sectionSpacing + 10,
+          ),
           _HomeRailSection(
             layout: layout,
             title: liveHeading,
@@ -3725,19 +3769,79 @@ class _MobileHeroSlider extends StatefulWidget {
 }
 
 class _MobileHeroSliderState extends State<_MobileHeroSlider> {
+  static const _autoAdvanceInterval = Duration(seconds: 40);
+  static const _manualCooldown = Duration(seconds: 40);
+
   late final PageController _controller;
+  Timer? _autoAdvanceTimer;
   int _currentIndex = 0;
+  DateTime? _lastManualInteractionAt;
+  bool _autoAnimating = false;
 
   @override
   void initState() {
     super.initState();
     _controller = PageController();
+    _restartAutoAdvance();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MobileHeroSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.slides.length != widget.slides.length) {
+      if (_currentIndex >= widget.slides.length) {
+        _currentIndex = 0;
+        if (_controller.hasClients) {
+          _controller.jumpToPage(0);
+        }
+      }
+      _restartAutoAdvance();
+    }
   }
 
   @override
   void dispose() {
+    _autoAdvanceTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _restartAutoAdvance() {
+    _autoAdvanceTimer?.cancel();
+    if (widget.slides.length <= 1) {
+      return;
+    }
+    _autoAdvanceTimer = Timer.periodic(_autoAdvanceInterval, (_) {
+      _advanceToNextSlide();
+    });
+  }
+
+  void _registerManualInteraction() {
+    _lastManualInteractionAt = DateTime.now();
+  }
+
+  Future<void> _advanceToNextSlide() async {
+    if (!mounted || !_controller.hasClients || widget.slides.length <= 1) {
+      return;
+    }
+
+    final lastInteractionAt = _lastManualInteractionAt;
+    if (lastInteractionAt != null &&
+        DateTime.now().difference(lastInteractionAt) < _manualCooldown) {
+      return;
+    }
+
+    final nextIndex = (_currentIndex + 1) % widget.slides.length;
+    _autoAnimating = true;
+    try {
+      await _controller.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+      );
+    } finally {
+      _autoAnimating = false;
+    }
   }
 
   @override
@@ -3759,27 +3863,35 @@ class _MobileHeroSliderState extends State<_MobileHeroSlider> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: availableWidth / (16 / 8.8),
-          child: PageView.builder(
-            controller: _controller,
-            physics: const BouncingScrollPhysics(),
-            onPageChanged: (index) {
-              if (_currentIndex != index) {
-                setState(() {
-                  _currentIndex = index;
-                });
+          height: availableWidth / (16 / 7.6),
+          child: NotificationListener<ScrollStartNotification>(
+            onNotification: (notification) {
+              if (notification.dragDetails != null) {
+                _registerManualInteraction();
               }
+              return false;
             },
-            itemCount: slides.length,
-            itemBuilder: (context, index) {
-              return _MobileHeroSlideCard(
-                layout: widget.layout,
-                hero: slides[index],
-                hint: slides.length > 1
-                    ? 'Deslize para trocar • ${index + 1}/${slides.length}'
-                    : 'Toque para abrir',
-              );
-            },
+            child: PageView.builder(
+              controller: _controller,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: (index) {
+                if (_currentIndex != index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                }
+                if (!_autoAnimating) {
+                  _registerManualInteraction();
+                }
+              },
+              itemCount: slides.length,
+              itemBuilder: (context, index) {
+                return _MobileHeroSlideCard(
+                  layout: widget.layout,
+                  hero: slides[index],
+                );
+              },
+            ),
           ),
         ),
         if (slides.length > 1) ...[
@@ -3812,21 +3924,16 @@ class _MobileHeroSliderState extends State<_MobileHeroSlider> {
 }
 
 class _MobileHeroSlideCard extends StatelessWidget {
-  const _MobileHeroSlideCard({
-    required this.layout,
-    required this.hero,
-    required this.hint,
-  });
+  const _MobileHeroSlideCard({required this.layout, required this.hero});
 
   final DeviceLayout layout;
   final _HomeHeroChoice hero;
-  final String hint;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final imageUrl = BrandedArtwork.normalizeArtworkUrl(hero.imageUrl);
-    final metadata = hero.metadata.take(3).join('  •  ');
+    final metadata = hero.metadata.take(2).join('  •  ');
 
     return TvFocusable(
       onPressed: hero.onPrimary,
@@ -3879,7 +3986,7 @@ class _MobileHeroSlideCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -3910,7 +4017,7 @@ class _MobileHeroSlideCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
-                            fontSize: 28,
+                            fontSize: 26,
                             height: 1,
                             fontWeight: FontWeight.w800,
                             shadows: const [
@@ -3921,16 +4028,6 @@ class _MobileHeroSlideCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      hero.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.86),
-                        height: 1.22,
-                      ),
                     ),
                     if (metadata.isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -3947,28 +4044,27 @@ class _MobileHeroSlideCard extends StatelessWidget {
                             ),
                       ),
                     ],
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.play_circle_fill_rounded,
-                          size: 18,
+                          Icons.play_arrow_rounded,
+                          size: 16,
                           color: colorScheme.primary,
                         ),
                         const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            hint,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.82,
-                                  ),
-                                  fontWeight: FontWeight.w700,
+                        Text(
+                          hero.primaryLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.82,
                                 ),
-                          ),
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ],
                     ),
@@ -4236,6 +4332,10 @@ class _ContinueWatchingData {
     required this.icon,
     required this.onPressed,
     this.imageUrl,
+    this.posterImageUrl,
+    this.seriesId,
+    this.removableContentType,
+    this.removableItemId,
   });
 
   final String dedupeKey;
@@ -4244,8 +4344,12 @@ class _ContinueWatchingData {
   final double progress;
   final String remainingLabel;
   final String? imageUrl;
+  final String? posterImageUrl;
+  final String? seriesId;
   final IconData icon;
   final VoidCallback onPressed;
+  final PlaybackContentType? removableContentType;
+  final String? removableItemId;
 }
 
 class _ContinueWatchingSectionData {
@@ -4452,6 +4556,24 @@ class _ContinueWatchingRailSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final sectionGap = switch (layout.deviceClass) {
+      DeviceClass.mobilePortrait => 8.0,
+      DeviceClass.mobileLandscape => 10.0,
+      DeviceClass.tablet => 12.0,
+      _ => layout.sectionSpacing,
+    };
+    final railHeight = switch (layout.deviceClass) {
+      DeviceClass.mobilePortrait => 224.0,
+      DeviceClass.mobileLandscape => 232.0,
+      DeviceClass.tablet => 246.0,
+      _ => 224.0,
+    };
+    final railSpacing = switch (layout.deviceClass) {
+      DeviceClass.mobilePortrait => 12.0,
+      DeviceClass.mobileLandscape => 14.0,
+      DeviceClass.tablet => 14.0,
+      _ => layout.cardSpacing,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4480,7 +4602,7 @@ class _ContinueWatchingRailSection extends StatelessWidget {
                   Text(
                     section.title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 23,
+                      fontSize: 21,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -4498,18 +4620,26 @@ class _ContinueWatchingRailSection extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: layout.sectionSpacing),
+        SizedBox(height: sectionGap),
         SizedBox(
-          height: 244,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: section.items.length,
-            separatorBuilder: (context, index) =>
-                SizedBox(width: layout.cardSpacing),
-            itemBuilder: (context, index) {
-              return _ContinueWatchingRailCard(
-                layout: layout,
-                item: section.items[index],
+          height: railHeight,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewportWidth = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : MediaQuery.sizeOf(context).width;
+              return ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: section.items.length,
+                separatorBuilder: (context, index) =>
+                    SizedBox(width: railSpacing),
+                itemBuilder: (context, index) {
+                  return _ContinueWatchingRailCard(
+                    layout: layout,
+                    item: section.items[index],
+                    viewportWidth: viewportWidth,
+                  );
+                },
               );
             },
           ),
@@ -4519,110 +4649,499 @@ class _ContinueWatchingRailSection extends StatelessWidget {
   }
 }
 
-class _ContinueWatchingRailCard extends StatelessWidget {
-  const _ContinueWatchingRailCard({required this.layout, required this.item});
+class _ContinueWatchingRailCard extends ConsumerWidget {
+  const _ContinueWatchingRailCard({
+    required this.layout,
+    required this.item,
+    required this.viewportWidth,
+  });
 
   final DeviceLayout layout;
   final _ContinueWatchingData item;
+  final double viewportWidth;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final playbackHistoryController = ref.read(
+      playbackHistoryControllerProvider.notifier,
+    );
+    final cardWidth = switch (layout.deviceClass) {
+      DeviceClass.mobilePortrait => (viewportWidth - 54).clamp(248.0, 320.0),
+      DeviceClass.mobileLandscape => (viewportWidth * 0.42).clamp(260.0, 340.0),
+      DeviceClass.tablet => (viewportWidth * 0.38).clamp(300.0, 380.0),
+      _ => (viewportWidth - 54).clamp(248.0, 320.0),
+    };
+    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+      fontSize: layout.deviceClass == DeviceClass.tablet ? 15.5 : 14.5,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+    );
+    final remainingStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: colorScheme.onSurface.withValues(alpha: 0.76),
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.1,
+    );
+    final remainingText = _formatContinueRemainingText(item.remainingLabel);
+    final normalizedCurrentImage = BrandedArtwork.normalizeArtworkUrl(
+      item.imageUrl,
+    );
+    final normalizedPosterImage = BrandedArtwork.normalizeArtworkUrl(
+      item.posterImageUrl,
+    );
+    final needsBackdropLookup =
+        normalizedCurrentImage == null ||
+        normalizedCurrentImage == normalizedPosterImage;
+    var resolvedThumbnailImageUrl = item.imageUrl;
+    if (needsBackdropLookup &&
+        item.removableContentType == PlaybackContentType.vod) {
+      final vodId = item.removableItemId?.trim();
+      if (vodId != null && vodId.isNotEmpty) {
+        final vodInfoAsync = ref.watch(vodInfoProvider(vodId));
+        resolvedThumbnailImageUrl = vodInfoAsync.maybeWhen(
+          data: (info) => info.backdropUrl ?? item.imageUrl,
+          orElse: () => item.imageUrl,
+        );
+      }
+    } else if (needsBackdropLookup &&
+        item.removableContentType == PlaybackContentType.seriesEpisode) {
+      final seriesId = item.seriesId?.trim();
+      if (seriesId != null && seriesId.isNotEmpty) {
+        final seriesInfoAsync = ref.watch(seriesInfoProvider(seriesId));
+        resolvedThumbnailImageUrl = seriesInfoAsync.maybeWhen(
+          data: (info) => info.backdropUrl ?? item.imageUrl,
+          orElse: () => item.imageUrl,
+        );
+      }
+    }
+    final menuButton = SizedBox(
+      width: 30,
+      height: 30,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.54),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        ),
+        child: PopupMenuButton<_ContinueWatchingMenuAction>(
+          padding: EdgeInsets.zero,
+          tooltip: 'Mais opções',
+          position: PopupMenuPosition.under,
+          color: colorScheme.surfaceContainerHighest,
+          iconSize: 17,
+          splashRadius: 18,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          icon: Icon(
+            Icons.more_vert_rounded,
+            color: Colors.white.withValues(alpha: 0.92),
+          ),
+          onSelected: (action) async {
+            switch (action) {
+              case _ContinueWatchingMenuAction.open:
+                item.onPressed();
+                return;
+              case _ContinueWatchingMenuAction.remove:
+                final contentType = item.removableContentType;
+                final itemId = item.removableItemId?.trim();
+                if (contentType == null || itemId == null || itemId.isEmpty) {
+                  return;
+                }
+                await playbackHistoryController.remove(contentType, itemId);
+                if (!context.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '"${item.title}" removido de Continuar assistindo.',
+                    ),
+                  ),
+                );
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: _ContinueWatchingMenuAction.open,
+              child: Text('Abrir'),
+            ),
+            if (item.removableContentType != null &&
+                item.removableItemId?.trim().isNotEmpty == true)
+              const PopupMenuItem(
+                value: _ContinueWatchingMenuAction.remove,
+                child: Text('Remover da lista'),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    return SizedBox(
+      width: cardWidth,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: item.onPressed,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  _ContinueWatchingThumbnail(
+                    imageUrl: resolvedThumbnailImageUrl,
+                    posterImageUrl: item.posterImageUrl,
+                    icon: item.icon,
+                    borderRadius: 16,
+                    aspectRatio: 16 / 9,
+                  ),
+                  Positioned(top: 8, right: 8, child: menuButton),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
+              ),
+              if (remainingText.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  remainingText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: remainingStyle,
+                ),
+              ],
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: item.progress.clamp(0.0, 1.0),
+                  minHeight: 4,
+                  backgroundColor: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+                  color: colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _ContinueWatchingMenuAction { open, remove }
+
+class _ContinueWatchingThumbnail extends StatefulWidget {
+  const _ContinueWatchingThumbnail({
+    required this.imageUrl,
+    this.posterImageUrl,
+    required this.icon,
+    required this.borderRadius,
+    this.aspectRatio = 16 / 9,
+  });
+
+  final String? imageUrl;
+  final String? posterImageUrl;
+  final IconData icon;
+  final double borderRadius;
+  final double aspectRatio;
+
+  @override
+  State<_ContinueWatchingThumbnail> createState() =>
+      _ContinueWatchingThumbnailState();
+}
+
+class _ContinueWatchingThumbnailState
+    extends State<_ContinueWatchingThumbnail> {
+  static const _imageHeaders = {'Accept-Encoding': 'identity'};
+
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+  String? _observedUrl;
+  bool _isPortrait = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImageOrientation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContinueWatchingThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl ||
+        oldWidget.posterImageUrl != widget.posterImageUrl) {
+      _resolveImageOrientation();
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeImageListener();
+    super.dispose();
+  }
+
+  void _removeImageListener() {
+    final stream = _imageStream;
+    final listener = _imageStreamListener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    _imageStream = null;
+    _imageStreamListener = null;
+  }
+
+  void _resolveImageOrientation() {
+    _removeImageListener();
+
+    // Prefer the main thumbnail image when resolving orientation so a fetched
+    // backdrop can switch the card out of the poster fallback composition.
+    final normalizedUrl =
+        BrandedArtwork.normalizeArtworkUrl(widget.imageUrl) ??
+        BrandedArtwork.normalizeArtworkUrl(widget.posterImageUrl);
+    _observedUrl = normalizedUrl;
+    if (normalizedUrl == null) {
+      if (_isPortrait) {
+        setState(() {
+          _isPortrait = false;
+        });
+      }
+      return;
+    }
+
+    // Default to landscape crop until the real ratio is known.
+    if (_isPortrait) {
+      setState(() {
+        _isPortrait = false;
+      });
+    }
+
+    final provider = NetworkImage(normalizedUrl, headers: _imageHeaders);
+    final stream = provider.resolve(const ImageConfiguration());
+    final listener = ImageStreamListener(
+      (imageInfo, synchronousCall) {
+        if (!mounted || _observedUrl != normalizedUrl) {
+          return;
+        }
+        final isPortrait = imageInfo.image.height > imageInfo.image.width;
+        if (_isPortrait != isPortrait) {
+          setState(() {
+            _isPortrait = isPortrait;
+          });
+        }
+      },
+      onError: (exception, stackTrace) {
+        if (!mounted || _observedUrl != normalizedUrl) {
+          return;
+        }
+        if (_isPortrait) {
+          setState(() {
+            _isPortrait = false;
+          });
+        }
+      },
+    );
+    _imageStream = stream;
+    _imageStreamListener = listener;
+    stream.addListener(listener);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final normalizedLandscapeUrl = BrandedArtwork.normalizeArtworkUrl(
+      widget.imageUrl,
+    );
+    final normalizedPosterUrl =
+        BrandedArtwork.normalizeArtworkUrl(widget.posterImageUrl) ??
+        normalizedLandscapeUrl;
+    final radius = BorderRadius.circular(widget.borderRadius);
+    final usePosterComposition =
+        normalizedPosterUrl != null &&
+        (normalizedLandscapeUrl == null || _isPortrait);
+    final resolvedDisplayUrl = normalizedLandscapeUrl ?? normalizedPosterUrl;
+
+    Widget buildFullBleed(String imageUrl) {
+      final applyTint = !_isPortrait;
+      final imageTint = applyTint ? Colors.black.withValues(alpha: 0.14) : null;
+      final imageBlendMode = applyTint ? BlendMode.darken : null;
+      final alignment = _isPortrait ? Alignment.topCenter : Alignment.center;
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            alignment: alignment,
+            headers: _imageHeaders,
+            filterQuality: FilterQuality.medium,
+            color: imageTint,
+            colorBlendMode: imageBlendMode,
+            errorBuilder: (context, error, stackTrace) =>
+                _ContinueWatchingThumbnailFallback(icon: widget.icon),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0x52040A14),
+                  Color(0x16040A14),
+                  Color(0x00040A14),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget buildPosterComposition(String imageUrl) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Transform.scale(
+              scale: 1.22,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                headers: _imageHeaders,
+                filterQuality: FilterQuality.medium,
+                color: Colors.black.withValues(alpha: 0.22),
+                colorBlendMode: BlendMode.darken,
+                errorBuilder: (context, error, stackTrace) =>
+                    _ContinueWatchingThumbnailFallback(icon: widget.icon),
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xA8040A14),
+                  Color(0x5A040A14),
+                  Color(0x22040A14),
+                ],
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Color(0x50040A14),
+                  Color(0x14040A14),
+                  Color(0x00040A14),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: Align(
+              alignment: Alignment.center,
+              child: FractionallySizedBox(
+                widthFactor: 0.32,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.34),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: AspectRatio(
+                      aspectRatio: 2 / 3,
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        headers: _imageHeaders,
+                        filterQuality: FilterQuality.medium,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _ContinueWatchingThumbnailFallback(
+                              icon: widget.icon,
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: radius,
+      child: AspectRatio(
+        aspectRatio: widget.aspectRatio,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.54),
+          ),
+          child: normalizedLandscapeUrl == null && normalizedPosterUrl == null
+              ? _ContinueWatchingThumbnailFallback(icon: widget.icon)
+              : usePosterComposition
+              ? buildPosterComposition(normalizedPosterUrl)
+              : buildFullBleed(resolvedDisplayUrl!),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContinueWatchingThumbnailFallback extends StatelessWidget {
+  const _ContinueWatchingThumbnailFallback({required this.icon});
+
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      width: 214,
-      child: TvFocusable(
-        onPressed: item.onPressed,
-        builder: (context, focused) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                colors: focused
-                    ? [
-                        colorScheme.primary.withValues(alpha: 0.22),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.94,
-                        ),
-                      ]
-                    : [
-                        colorScheme.surface.withValues(alpha: 0.88),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.72,
-                        ),
-                      ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: focused
-                    ? colorScheme.primary
-                    : colorScheme.outline.withValues(alpha: 0.38),
-                width: focused ? 1.8 : 1,
-              ),
-              boxShadow: focused
-                  ? [
-                      BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.16),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : const [],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                BrandedArtwork(
-                  imageUrl: item.imageUrl,
-                  aspectRatio: 16 / 9,
-                  placeholderLabel: 'Sem capa',
-                  icon: item.icon,
-                  borderRadius: 14,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.78),
-                    height: 1.25,
-                  ),
-                ),
-                const Spacer(),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: item.progress,
-                    minHeight: 7,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Restando: ${item.remainingLabel}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.76),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primary.withValues(alpha: 0.16),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+            colorScheme.surface.withValues(alpha: 0.96),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          icon,
+          size: 28,
+          color: colorScheme.primary.withValues(alpha: 0.78),
+        ),
       ),
     );
   }

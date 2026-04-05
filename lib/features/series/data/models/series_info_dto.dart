@@ -15,6 +15,7 @@ abstract class SeriesInfoDto with _$SeriesInfoDto {
     String? genre,
     String? cast,
     String? cover,
+    String? backdropUrl,
     required int seasonCount,
     required int episodeCount,
     @Default(<SeriesEpisodeDto>[]) List<SeriesEpisodeDto> episodes,
@@ -55,6 +56,10 @@ abstract class SeriesInfoDto with _$SeriesInfoDto {
       genre: XtreamParsers.asString(info['genre']),
       cast: XtreamParsers.asString(info['cast']),
       cover: XtreamParsers.asString(info['cover']),
+      backdropUrl:
+          XtreamParsers.asString(info['backdrop_url']) ??
+          XtreamParsers.asString(info['backdrop_path']) ??
+          XtreamParsers.asString(info['backdrop']),
       seasonCount: seasons.length,
       episodeCount: episodeCount,
       episodes: episodeItems,

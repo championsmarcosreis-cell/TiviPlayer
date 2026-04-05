@@ -39,6 +39,7 @@ class SeriesRepositoryImpl implements SeriesRepository {
       genre: item.genre,
       cast: item.cast,
       coverUrl: item.cover,
+      backdropUrl: item.backdropUrl,
       seasonCount: item.seasonCount,
       episodeCount: item.episodeCount,
       episodes: item.episodes

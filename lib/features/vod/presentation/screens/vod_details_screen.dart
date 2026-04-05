@@ -83,6 +83,7 @@ class VodDetailsScreen extends ConsumerWidget {
                           title: item.name,
                           containerExtension: item.containerExtension,
                           artworkUrl: item.coverUrl,
+                          backdropUrl: item.backdropUrl,
                           resumePosition: playbackHistoryController
                               .resolveResumePosition(
                                 PlaybackContentType.vod,
@@ -141,7 +142,8 @@ class _VodCinematicHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final backdrop = BrandedArtwork.normalizeArtworkUrl(item.coverUrl);
+    final backdrop = BrandedArtwork.normalizeArtworkUrl(item.backdropUrl) ??
+        BrandedArtwork.normalizeArtworkUrl(item.coverUrl);
 
     return Container(
       clipBehavior: Clip.antiAlias,

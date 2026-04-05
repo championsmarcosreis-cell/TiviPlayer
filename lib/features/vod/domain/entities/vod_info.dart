@@ -9,6 +9,7 @@ class VodInfo {
     this.duration,
     this.releaseDate,
     this.coverUrl,
+    this.backdropUrl,
     this.rating,
     this.containerExtension,
   });
@@ -22,6 +23,7 @@ class VodInfo {
   final String? duration;
   final String? releaseDate;
   final String? coverUrl;
+  final String? backdropUrl;
   final String? rating;
   final String? containerExtension;
 }

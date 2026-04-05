@@ -17,6 +17,7 @@ abstract class VodInfoDto with _$VodInfoDto {
     String? duration,
     String? releaseDate,
     String? coverBig,
+    String? backdropUrl,
     String? rating,
     String? containerExtension,
   }) = _VodInfoDto;
@@ -48,6 +49,10 @@ abstract class VodInfoDto with _$VodInfoDto {
       coverBig:
           XtreamParsers.asString(info['cover_big']) ??
           XtreamParsers.asString(info['cover']),
+      backdropUrl:
+          XtreamParsers.asString(info['backdrop_url']) ??
+          XtreamParsers.asString(info['backdrop_path']) ??
+          XtreamParsers.asString(info['backdrop']),
       rating: XtreamParsers.asString(info['rating']),
       containerExtension:
           XtreamParsers.asString(movieData['container_extension']) ??

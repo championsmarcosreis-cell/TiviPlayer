@@ -8,6 +8,7 @@ class SeriesInfo {
     this.genre,
     this.cast,
     this.coverUrl,
+    this.backdropUrl,
     required this.seasonCount,
     required this.episodeCount,
     required this.episodes,
@@ -19,6 +20,7 @@ class SeriesInfo {
   final String? genre;
   final String? cast;
   final String? coverUrl;
+  final String? backdropUrl;
   final int seasonCount;
   final int episodeCount;
   final List<SeriesEpisode> episodes;

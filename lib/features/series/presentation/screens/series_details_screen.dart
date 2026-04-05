@@ -200,6 +200,7 @@ void _openEpisode(
       title: '${item.name} • ${episode.title}',
       containerExtension: episode.containerExtension,
       artworkUrl: item.coverUrl,
+      backdropUrl: item.backdropUrl,
       seriesId: item.id,
       resumePosition: playbackHistoryController.resolveResumePosition(
         PlaybackContentType.seriesEpisode,
@@ -232,7 +233,8 @@ class _SeriesCinematicHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final backdrop = BrandedArtwork.normalizeArtworkUrl(item.coverUrl);
+    final backdrop = BrandedArtwork.normalizeArtworkUrl(item.backdropUrl) ??
+        BrandedArtwork.normalizeArtworkUrl(item.coverUrl);
     final hasEpisodes = item.episodes.isNotEmpty;
 
     return Container(

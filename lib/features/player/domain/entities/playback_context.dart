@@ -81,6 +81,7 @@ class PlaybackContext {
     required this.title,
     this.containerExtension,
     this.artworkUrl,
+    this.backdropUrl,
     this.seriesId,
     this.resumePosition,
     this.notes,
@@ -93,6 +94,7 @@ class PlaybackContext {
   final String title;
   final String? containerExtension;
   final String? artworkUrl;
+  final String? backdropUrl;
   final String? seriesId;
   final Duration? resumePosition;
   final String? notes;
@@ -118,6 +120,7 @@ class PlaybackContext {
     String? title,
     String? containerExtension,
     String? artworkUrl,
+    String? backdropUrl,
     String? seriesId,
     Duration? resumePosition,
     String? notes,
@@ -130,6 +133,7 @@ class PlaybackContext {
       title: title ?? this.title,
       containerExtension: containerExtension ?? this.containerExtension,
       artworkUrl: artworkUrl ?? this.artworkUrl,
+      backdropUrl: backdropUrl ?? this.backdropUrl,
       seriesId: seriesId ?? this.seriesId,
       resumePosition: resumePosition ?? this.resumePosition,
       notes: notes ?? this.notes,

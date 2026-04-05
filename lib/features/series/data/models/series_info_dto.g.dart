@@ -14,6 +14,7 @@ _SeriesInfoDto _$SeriesInfoDtoFromJson(Map<String, dynamic> json) =>
       genre: json['genre'] as String?,
       cast: json['cast'] as String?,
       cover: json['cover'] as String?,
+      backdropUrl: json['backdropUrl'] as String?,
       seasonCount: (json['seasonCount'] as num).toInt(),
       episodeCount: (json['episodeCount'] as num).toInt(),
       episodes:
@@ -31,6 +32,7 @@ Map<String, dynamic> _$SeriesInfoDtoToJson(_SeriesInfoDto instance) =>
       'genre': instance.genre,
       'cast': instance.cast,
       'cover': instance.cover,
+      'backdropUrl': instance.backdropUrl,
       'seasonCount': instance.seasonCount,
       'episodeCount': instance.episodeCount,
       'episodes': instance.episodes,
