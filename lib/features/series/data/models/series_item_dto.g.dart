@@ -13,6 +13,7 @@ _SeriesItemDto _$SeriesItemDtoFromJson(Map<String, dynamic> json) =>
       categoryId: json['categoryId'] as String?,
       cover: json['cover'] as String?,
       plot: json['plot'] as String?,
+      libraryKind: json['libraryKind'] as String?,
     );
 
 Map<String, dynamic> _$SeriesItemDtoToJson(_SeriesItemDto instance) =>
@@ -22,4 +23,5 @@ Map<String, dynamic> _$SeriesItemDtoToJson(_SeriesItemDto instance) =>
       'categoryId': instance.categoryId,
       'cover': instance.cover,
       'plot': instance.plot,
+      'libraryKind': instance.libraryKind,
     };

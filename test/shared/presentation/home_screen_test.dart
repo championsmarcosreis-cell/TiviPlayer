@@ -16,6 +16,7 @@ import 'package:tiviplayer/features/vod/domain/entities/vod_stream.dart';
 import 'package:tiviplayer/features/vod/presentation/providers/vod_providers.dart';
 import 'package:tiviplayer/shared/presentation/layout/interface_mode_scope.dart';
 import 'package:tiviplayer/shared/presentation/screens/home_screen.dart';
+import 'package:tiviplayer/shared/testing/app_test_keys.dart';
 
 const _session = XtreamSession(
   credentials: XtreamCredentials(
@@ -91,6 +92,57 @@ void main() {
     },
   );
 
+  test('prioriza series_id para abrir detalhe de serie do discovery', () {
+    const discoveryItem = HomeDiscoveryItemDto(
+      id: 'content-46',
+      seriesId: '2',
+      title: 'A Knight of the Seven Kingdoms',
+      subtitle: 'TV Series',
+      description: 'Serie',
+      image: 'https://example.com/series.jpg',
+      backdrop: null,
+      mediaType: 'Series',
+      contentId: '46',
+      tmdbId: null,
+      rating: null,
+      year: 2026,
+      genres: <String>[],
+      runtime: null,
+      provider: null,
+      channelNumber: null,
+      progress: null,
+      badges: <String>[],
+      genreIds: <int>[],
+    );
+
+    expect(resolveDiscoverySeriesNavigationId(discoveryItem), '2');
+  });
+
+  test('mantem fallback para content_id quando series_id nao vier', () {
+    const discoveryItem = HomeDiscoveryItemDto(
+      id: 'content-201',
+      title: 'Nebula 9',
+      subtitle: 'TV Series',
+      description: 'Serie',
+      image: 'https://example.com/series.jpg',
+      backdrop: null,
+      mediaType: 'Series',
+      contentId: '201',
+      tmdbId: null,
+      rating: null,
+      year: 2026,
+      genres: <String>[],
+      runtime: null,
+      provider: null,
+      channelNumber: null,
+      progress: null,
+      badges: <String>[],
+      genreIds: <int>[],
+    );
+
+    expect(resolveDiscoverySeriesNavigationId(discoveryItem), '201');
+  });
+
   testWidgets('home mostra status da assinatura sem expor URL técnica', (
     tester,
   ) async {
@@ -107,6 +159,148 @@ void main() {
     expect(find.textContaining('8080'), findsNothing);
     expect(find.textContaining('http://'), findsNothing);
   });
+
+  testWidgets('home mobile oculta Kids quando nao ha conteudo kids acessivel', (
+    tester,
+  ) async {
+    await _pumpHomeScreen(
+      tester,
+      discoveryHome: HomeDiscoveryDto(
+        generatedAt: '2026-04-04T02:00:00Z',
+        heroSlider: null,
+        hero: null,
+        highlights: null,
+        continueWatching: null,
+        hasContinueWatchingField: true,
+        moviesLibrary: const HomeDiscoveryRailDto(
+          slug: 'movies-library',
+          title: 'Filmes',
+          description: 'Filmes do catálogo.',
+          layout: 'poster',
+          libraryKind: 'movies',
+          items: <HomeDiscoveryItemDto>[],
+        ),
+        seriesLibrary: const HomeDiscoveryRailDto(
+          slug: 'series-library',
+          title: 'Séries',
+          description: 'Séries do catálogo.',
+          layout: 'poster',
+          libraryKind: 'series',
+          items: <HomeDiscoveryItemDto>[],
+        ),
+        animeLibrary: const HomeDiscoveryRailDto(
+          slug: 'anime-library',
+          title: 'Anime',
+          description: 'Anime do catálogo.',
+          layout: 'poster',
+          libraryKind: 'anime',
+          items: <HomeDiscoveryItemDto>[],
+        ),
+        liveLibrary: null,
+        libraries: const <HomeDiscoveryRailDto>[],
+        liveNow: null,
+        trendingNow: null,
+        moviesForToday: null,
+        seriesToBinge: null,
+        animeSpotlight: null,
+        rails: const <HomeDiscoveryRailDto>[],
+      ),
+      vodItems: const <VodStream>[
+        VodStream(id: '1', name: 'Missão Final', libraryKind: 'movies'),
+      ],
+      seriesItems: const <SeriesItem>[
+        SeriesItem(id: '2', name: 'Nebula 9', libraryKind: 'series'),
+      ],
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(AppTestKeys.homeKidsCard), findsNothing);
+  });
+
+  testWidgets(
+    'home mobile nao promove Kids apenas por slug ou texto sem library_kind',
+    (tester) async {
+      await _pumpHomeScreen(
+        tester,
+        discoveryHome: HomeDiscoveryDto(
+          generatedAt: '2026-04-04T02:05:00Z',
+          heroSlider: null,
+          hero: null,
+          highlights: null,
+          continueWatching: null,
+          hasContinueWatchingField: true,
+          moviesLibrary: null,
+          seriesLibrary: null,
+          animeLibrary: null,
+          liveLibrary: null,
+          libraries: const <HomeDiscoveryRailDto>[
+            HomeDiscoveryRailDto(
+              slug: 'kids',
+              title: 'Kids',
+              description: 'Rail legado sem sinal canônico.',
+              layout: 'poster',
+              items: <HomeDiscoveryItemDto>[
+                HomeDiscoveryItemDto(
+                  id: 'kids-legacy-1',
+                  title: 'Turma da Floresta',
+                  subtitle: 'Infantil',
+                  description:
+                      'Conteúdo com cara de kids, mas sem library_kind.',
+                  image: null,
+                  backdrop: null,
+                  mediaType: 'VOD',
+                  contentId: '701',
+                  tmdbId: null,
+                  rating: null,
+                  year: null,
+                  genres: <String>[],
+                  runtime: null,
+                  provider: null,
+                  channelNumber: null,
+                  progress: null,
+                  badges: <String>[],
+                  genreIds: <int>[],
+                ),
+              ],
+            ),
+          ],
+          liveNow: null,
+          trendingNow: null,
+          moviesForToday: null,
+          seriesToBinge: null,
+          animeSpotlight: null,
+          rails: const <HomeDiscoveryRailDto>[],
+        ),
+        vodItems: const <VodStream>[
+          VodStream(id: '91', name: 'Clube da Aventura Infantil'),
+        ],
+        seriesItems: const <SeriesItem>[
+          SeriesItem(id: '92', name: 'Patrulha Mirim', plot: 'Série infantil.'),
+        ],
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(AppTestKeys.homeKidsCard), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'home mobile mostra Kids quando ha conteudo kids real no payload',
+    (tester) async {
+      await _pumpHomeScreen(
+        tester,
+        vodItems: const <VodStream>[
+          VodStream(id: '77', name: 'Turma da Floresta', libraryKind: 'kids'),
+        ],
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(AppTestKeys.homeKidsCard), findsOneWidget);
+    },
+  );
 
   testWidgets('home tv mostra programa atual e faixa horaria nos destaques', (
     tester,
@@ -721,6 +915,8 @@ Future<void> _pumpHomeScreen(
   WidgetTester tester, {
   InterfaceMode interfaceMode = InterfaceMode.mobile,
   List<LiveStream> streams = const <LiveStream>[],
+  List<VodStream> vodItems = const <VodStream>[],
+  List<SeriesItem> seriesItems = const <SeriesItem>[],
   Map<String, List<LiveEpgEntry>> epgByStreamId =
       const <String, List<LiveEpgEntry>>{},
   HomeDiscoveryDto? discoveryHome,
@@ -746,10 +942,10 @@ Future<void> _pumpHomeScreen(
           (ref) async => const <VodCategory>[],
         ),
         vodStreamsProvider.overrideWith((ref, categoryId) async {
-          return const <VodStream>[];
+          return vodItems;
         }),
         seriesItemsProvider.overrideWith((ref, categoryId) async {
-          return const <SeriesItem>[];
+          return seriesItems;
         }),
         homeDiscoveryProvider.overrideWith((ref, limit) async => discoveryHome),
       ],

@@ -10,6 +10,7 @@ import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../../features/auth/presentation/screens/account_screen.dart';
 import '../../../features/home/data/models/home_discovery_dto.dart';
 import '../../../features/home/presentation/providers/home_discovery_providers.dart';
+import '../../../features/kids/presentation/screens/kids_library_screen.dart';
 import '../../../features/live/domain/entities/live_epg_entry.dart';
 import '../../../features/live/domain/entities/live_stream.dart';
 import '../../../features/live/presentation/providers/live_providers.dart';
@@ -24,12 +25,15 @@ import '../../../features/series/domain/entities/series_item.dart';
 import '../../../features/series/presentation/providers/series_providers.dart';
 import '../../../features/series/presentation/screens/series_categories_screen.dart';
 import '../../../features/series/presentation/screens/series_details_screen.dart';
+import '../../../features/series/presentation/screens/series_items_screen.dart';
 import '../../../features/vod/domain/entities/vod_stream.dart';
 import '../../../features/vod/presentation/providers/vod_providers.dart';
 import '../../../features/vod/presentation/screens/vod_categories_screen.dart';
 import '../../../features/vod/presentation/screens/vod_details_screen.dart';
+import '../../../features/vod/presentation/screens/vod_streams_screen.dart';
 import '../../testing/app_test_keys.dart';
 import '../layout/device_layout.dart';
+import '../support/on_demand_library.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/branded_artwork.dart';
 import '../../widgets/brand_logo.dart';
@@ -83,8 +87,13 @@ class HomeScreen extends ConsumerWidget {
         icon: Icons.movie_creation_outlined,
         interactiveKey: AppTestKeys.homeMoviesCard,
         testId: AppTestKeys.homeMoviesCardId,
-        onTap: () =>
-            _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+        onTap: () => _openOnDemandLibraryDestination(
+          context,
+          VodStreamsScreen.buildLocation(
+            'all',
+            library: OnDemandLibraryKind.movies,
+          ),
+        ),
       ),
       _HomeQuickAction(
         title: 'Séries',
@@ -92,16 +101,38 @@ class HomeScreen extends ConsumerWidget {
         icon: Icons.tv_rounded,
         interactiveKey: AppTestKeys.homeSeriesCard,
         testId: AppTestKeys.homeSeriesCardId,
-        onTap: () =>
-            _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
+        onTap: () => _openOnDemandLibraryDestination(
+          context,
+          SeriesItemsScreen.buildLocation(
+            'all',
+            library: OnDemandLibraryKind.series,
+          ),
+        ),
       ),
       _HomeQuickAction(
         title: 'Anime',
         description: 'Biblioteca',
         icon: Icons.auto_awesome_rounded,
         badge: 'ANIME',
-        onTap: () =>
-            _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
+        onTap: () => _openOnDemandLibraryDestination(
+          context,
+          SeriesItemsScreen.buildLocation(
+            'all',
+            library: OnDemandLibraryKind.anime,
+          ),
+        ),
+      ),
+      _HomeQuickAction(
+        title: 'Kids',
+        description: 'Biblioteca',
+        icon: Icons.rocket_launch_rounded,
+        interactiveKey: AppTestKeys.homeKidsCard,
+        testId: AppTestKeys.homeKidsCardId,
+        badge: 'KIDS',
+        onTap: () => _openOnDemandLibraryDestination(
+          context,
+          KidsLibraryScreen.routePath,
+        ),
       ),
       _HomeQuickAction(
         title: 'TV ao vivo',
@@ -173,12 +204,20 @@ class HomeScreen extends ConsumerWidget {
     final resolvedSeries = _asyncDataOrNull(seriesPreview);
     final resolvedLive = _asyncDataOrNull(livePreview);
     final discoveryHome = _asyncDataOrNull(homeDiscoveryState);
-    final vodCards = _buildVodCards(resolvedVod, context);
-    final seriesCards = _buildSeriesCards(resolvedSeries, context);
+    final rawVodCards = _buildVodCards(resolvedVod, context);
+    final rawSeriesCards = _buildSeriesCards(resolvedSeries, context);
+    final vodCards = _filterHomeCardsByLibrary(
+      rawVodCards,
+      OnDemandLibraryKind.movies,
+    );
+    final seriesCards = _filterHomeCardsByLibrary(
+      rawSeriesCards,
+      OnDemandLibraryKind.series,
+    );
     final liveCards = _buildLiveCards(resolvedLive, context);
     final animeCards = _buildAnimeCards(
-      vodCards: vodCards,
-      seriesCards: seriesCards,
+      vodCards: rawVodCards,
+      seriesCards: rawSeriesCards,
     );
     final hero = _resolveMobileHeroChoice(
       context: context,
@@ -212,16 +251,25 @@ class HomeScreen extends ConsumerWidget {
       home: discoveryHome,
       primary: discoveryHome?.moviesLibrary,
       slug: 'movies-library',
+      libraryKind: OnDemandLibraryKind.movies,
     );
     final discoverySeriesRail = _resolveDiscoveryLibraryRail(
       home: discoveryHome,
       primary: discoveryHome?.seriesLibrary,
       slug: 'series-library',
+      libraryKind: OnDemandLibraryKind.series,
     );
     final discoveryAnimeRail = _resolveDiscoveryLibraryRail(
       home: discoveryHome,
       primary: discoveryHome?.animeLibrary,
       slug: 'anime-library',
+      libraryKind: OnDemandLibraryKind.anime,
+    );
+    final discoveryKidsRail = _resolveDiscoveryLibraryRail(
+      home: discoveryHome,
+      primary: null,
+      slug: 'kids',
+      libraryKind: OnDemandLibraryKind.kids,
     );
     final fallbackLiveRail = _resolveDiscoveryRail(
       home: discoveryHome,
@@ -345,6 +393,11 @@ class HomeScreen extends ConsumerWidget {
     final showMobileMoviesRail = effectiveMoviesCards.isNotEmpty;
     final showMobileSeriesRail = effectiveSeriesCards.isNotEmpty;
     final showMobileAnimeRail = effectiveAnimeCards.isNotEmpty;
+    final showMobileKidsRail = _shouldShowKidsLibraryEntry(
+      discoveryKidsRail: discoveryKidsRail,
+      vodItems: resolvedVod,
+      seriesItems: resolvedSeries,
+    );
     final showMobileHero =
         shouldHoldHeroForDiscovery ||
         useDiscoveryHeroSlider ||
@@ -355,7 +408,8 @@ class HomeScreen extends ConsumerWidget {
       if (showMobileMoviesRail) mobilePrimaryActions[0],
       if (showMobileSeriesRail) mobilePrimaryActions[1],
       if (showMobileAnimeRail) mobilePrimaryActions[2],
-      if (showMobileLiveRail) mobilePrimaryActions[3],
+      if (showMobileKidsRail) mobilePrimaryActions[3],
+      if (showMobileLiveRail) mobilePrimaryActions[4],
     ];
     final discoveryAdditionalRails = _buildAdditionalDiscoveryRails(
       home: discoveryHome,
@@ -590,6 +644,10 @@ void _openPrimaryDestination(BuildContext context, String routePath) {
     return;
   }
   context.go(routePath);
+}
+
+void _openOnDemandLibraryDestination(BuildContext context, String routePath) {
+  context.push(routePath);
 }
 
 _ContinueWatchingData? _resolveContinueItem(
@@ -1881,7 +1939,12 @@ List<_HomeRailCardData> _buildAnimeCards({
   final candidates = <_HomeRailCardData>[...seriesCards, ...vodCards];
 
   return candidates
-      .where((card) => _looksLikeAnime(card.title, card.subtitle))
+      .where(
+        (card) =>
+            card.libraryKind == OnDemandLibraryKind.anime ||
+            (card.libraryKind == null &&
+                _looksLikeAnime(card.title, card.subtitle)),
+      )
       .take(12)
       .map(
         (card) => _HomeRailCardData(
@@ -1898,6 +1961,7 @@ List<_HomeRailCardData> _buildAnimeCards({
           supportsLiveEpg: card.supportsLiveEpg,
           noEpgFallbackLabel: card.noEpgFallbackLabel,
           hasReplay: card.hasReplay,
+          libraryKind: OnDemandLibraryKind.anime,
         ),
       )
       .toList();
@@ -2246,14 +2310,12 @@ List<String> _resolveDiscoveryHeroMetadata({
   required HomeDiscoveryItemDto item,
   required bool isLive,
   required bool isSeries,
+  required bool isAnime,
 }) {
   final values = <String>[
     if (isLive)
       'Ao vivo'
-    else if (_looksLikeAnime(
-      item.title ?? '',
-      item.subtitle ?? item.description ?? '',
-    ))
+    else if (isAnime)
       'Anime'
     else if (isSeries)
       'Série'
@@ -2297,9 +2359,27 @@ HomeDiscoveryRailDto? _resolveDiscoveryLibraryRail({
   required HomeDiscoveryDto? home,
   required HomeDiscoveryRailDto? primary,
   required String slug,
+  OnDemandLibraryKind? libraryKind,
 }) {
   if (primary != null) {
     return primary;
+  }
+
+  if (libraryKind != null) {
+    for (final rail in home?.libraries ?? const <HomeDiscoveryRailDto>[]) {
+      if (_matchesDiscoveryRailLibraryKind(rail, libraryKind)) {
+        return rail;
+      }
+    }
+    for (final rail in home?.rails ?? const <HomeDiscoveryRailDto>[]) {
+      if (_matchesDiscoveryRailLibraryKind(rail, libraryKind)) {
+        return rail;
+      }
+    }
+
+    if (libraryKind == OnDemandLibraryKind.kids) {
+      return null;
+    }
   }
 
   final normalizedSlug = slug.trim().toLowerCase();
@@ -2325,6 +2405,7 @@ List<_HomeRailCardData> _buildDiscoveryRailCards({
       .map(
         (item) => _buildDiscoveryRailCard(
           item: item,
+          railLibraryKind: rail.libraryKind,
           railLayout: rail.layout,
           context: context,
           liveStreams: liveStreams,
@@ -2336,6 +2417,7 @@ List<_HomeRailCardData> _buildDiscoveryRailCards({
 
 _HomeRailCardData? _buildDiscoveryRailCard({
   required HomeDiscoveryItemDto item,
+  required String? railLibraryKind,
   required String? railLayout,
   required BuildContext context,
   required List<LiveStream> liveStreams,
@@ -2348,18 +2430,26 @@ _HomeRailCardData? _buildDiscoveryRailCard({
   final mediaType = item.mediaType?.trim().toLowerCase() ?? '';
   final badgesUpper = item.badges.map((entry) => entry.trim().toUpperCase());
   final hasLiveBadge = badgesUpper.contains('LIVE');
+  final libraryKind = _resolveDiscoveryItemLibraryKind(
+    item,
+    railLibraryKind: railLibraryKind,
+  );
   final isLive =
       hasLiveBadge ||
       mediaType == 'tv' ||
       mediaType == 'live' ||
       mediaType.contains('channel');
   final isAnime =
-      badgesUpper.contains('ANIME') ||
-      mediaType.contains('anime') ||
-      _looksLikeAnime(title, item.subtitle ?? item.description ?? '');
+      !isLive &&
+      (libraryKind == OnDemandLibraryKind.anime ||
+          badgesUpper.contains('ANIME') ||
+          mediaType.contains('anime') ||
+          _looksLikeAnime(title, item.subtitle ?? item.description ?? ''));
   final isSeries =
       !isLive &&
-      (mediaType.contains('series') ||
+      (libraryKind == OnDemandLibraryKind.series ||
+          libraryKind == OnDemandLibraryKind.anime ||
+          mediaType.contains('series') ||
           mediaType == 'tvseries' ||
           mediaType == 'tv_show' ||
           mediaType == 'tv show' ||
@@ -2368,6 +2458,7 @@ _HomeRailCardData? _buildDiscoveryRailCard({
       (railLayout?.toLowerCase() ?? '').contains('carousel') || isLive;
   final primaryArtwork = item.preferredArtwork;
   final contentId = item.contentId?.trim();
+  final seriesNavigationId = resolveDiscoverySeriesNavigationId(item);
   final liveMatch = isLive
       ? _resolveDiscoveryLiveMatch(item: item, liveStreams: liveStreams)
       : null;
@@ -2418,6 +2509,7 @@ _HomeRailCardData? _buildDiscoveryRailCard({
       supportsLiveEpg: canAttemptEpg,
       noEpgFallbackLabel: noEpgLabel,
       hasReplay: liveStream?.hasArchive == true,
+      libraryKind: null,
     );
   }
 
@@ -2434,8 +2526,8 @@ _HomeRailCardData? _buildDiscoveryRailCard({
       imageUrl: primaryArtwork,
       icon: Icons.tv_rounded,
       onPressed: () {
-        if (contentId != null && contentId.isNotEmpty) {
-          context.push(SeriesDetailsScreen.buildLocation(contentId));
+        if (seriesNavigationId != null && seriesNavigationId.isNotEmpty) {
+          context.push(SeriesDetailsScreen.buildLocation(seriesNavigationId));
           return;
         }
         _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
@@ -2448,6 +2540,9 @@ _HomeRailCardData? _buildDiscoveryRailCard({
         fallback: 'SÉRIE',
       ),
       aspectRatio: prefersLandscape ? 16 / 9 : 2 / 3,
+      libraryKind: isAnime
+          ? OnDemandLibraryKind.anime
+          : OnDemandLibraryKind.series,
     );
   }
 
@@ -2482,6 +2577,7 @@ _HomeRailCardData? _buildDiscoveryRailCard({
     },
     badge: normalizedBadge,
     aspectRatio: prefersLandscape ? 16 / 9 : 2 / 3,
+    libraryKind: libraryKind ?? OnDemandLibraryKind.movies,
   );
 }
 
@@ -2501,6 +2597,7 @@ List<_HomeHeroChoice> _buildDiscoveryHeroSliderChoices({
           context: context,
           liveStreams: liveStreams,
           semanticKicker: _resolveHeroSliderSemanticKicker(rail),
+          railLibraryKind: rail.libraryKind,
         ),
       )
       .whereType<_HomeHeroChoice>()
@@ -2525,12 +2622,17 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
   required BuildContext context,
   required List<LiveStream> liveStreams,
   String? semanticKicker,
+  String? railLibraryKind,
 }) {
   if (item == null || item.title?.trim().isEmpty != false) {
     return null;
   }
 
   final mediaType = item.mediaType?.trim().toLowerCase() ?? '';
+  final libraryKind = _resolveDiscoveryItemLibraryKind(
+    item,
+    railLibraryKind: railLibraryKind,
+  );
   final isLive =
       mediaType == 'tv' ||
       mediaType == 'live' ||
@@ -2538,19 +2640,23 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
       item.badges.any((badge) => badge.toUpperCase() == 'LIVE');
   final isAnime =
       !isLive &&
-      (mediaType.contains('anime') ||
+      (libraryKind == OnDemandLibraryKind.anime ||
+          mediaType.contains('anime') ||
           _looksLikeAnime(
             item.title ?? '',
             item.subtitle ?? item.description ?? '',
           ));
   final isSeries =
       !isLive &&
-      (mediaType.contains('series') ||
+      (libraryKind == OnDemandLibraryKind.series ||
+          libraryKind == OnDemandLibraryKind.anime ||
+          mediaType.contains('series') ||
           mediaType == 'tvseries' ||
           mediaType == 'tv_show' ||
           mediaType == 'tv show' ||
           isAnime);
   final contentId = item.contentId?.trim();
+  final seriesNavigationId = resolveDiscoverySeriesNavigationId(item);
   final liveMatch = isLive
       ? _resolveDiscoveryLiveMatch(item: item, liveStreams: liveStreams)
       : null;
@@ -2570,8 +2676,8 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
       return;
     }
     if (isSeries) {
-      if (contentId != null && contentId.isNotEmpty) {
-        context.push(SeriesDetailsScreen.buildLocation(contentId));
+      if (seriesNavigationId != null && seriesNavigationId.isNotEmpty) {
+        context.push(SeriesDetailsScreen.buildLocation(seriesNavigationId));
         return;
       }
       _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
@@ -2633,6 +2739,7 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
       item: item,
       isLive: isLive,
       isSeries: isSeries,
+      isAnime: isAnime,
     ),
   );
 }
@@ -2806,6 +2913,7 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
   }
 
   final mediaType = item.mediaType?.trim().toLowerCase() ?? '';
+  final libraryKind = _resolveDiscoveryItemLibraryKind(item);
   final isLive =
       mediaType == 'tv' ||
       mediaType == 'live' ||
@@ -2813,12 +2921,15 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
       item.badges.any((badge) => badge.toUpperCase() == 'LIVE');
   final isSeries =
       !isLive &&
-      (mediaType.contains('series') ||
+      (libraryKind == OnDemandLibraryKind.series ||
+          libraryKind == OnDemandLibraryKind.anime ||
+          mediaType.contains('series') ||
           mediaType == 'tvseries' ||
           mediaType == 'tv_show' ||
           mediaType == 'tv show' ||
           mediaType.contains('anime'));
   final contentId = item.contentId?.trim();
+  final seriesNavigationId = resolveDiscoverySeriesNavigationId(item);
   final progress = (item.progress ?? 0).clamp(0.0, 1.0);
   final remainingPercent = ((1 - progress) * 100).clamp(0, 100).round();
   final liveMatch = isLive
@@ -2840,8 +2951,7 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
         item: item,
         isLive: isLive,
         isSeries: isSeries,
-        isAnime:
-            !isLive && _looksLikeAnime(item.title ?? '', item.subtitle ?? ''),
+        isAnime: libraryKind == OnDemandLibraryKind.anime,
         fallback: isLive
             ? 'Ao vivo'
             : isSeries
@@ -2863,8 +2973,7 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
       item: item,
       isLive: isLive,
       isSeries: isSeries,
-      isAnime:
-          !isLive && _looksLikeAnime(item.title ?? '', item.subtitle ?? ''),
+      isAnime: libraryKind == OnDemandLibraryKind.anime,
       fallback: isLive
           ? 'Ao vivo'
           : isSeries
@@ -2896,8 +3005,8 @@ _ContinueWatchingData? _resolveContinueItemFromDiscovery({
         return;
       }
       if (isSeries) {
-        if (contentId != null && contentId.isNotEmpty) {
-          context.push(SeriesDetailsScreen.buildLocation(contentId));
+        if (seriesNavigationId != null && seriesNavigationId.isNotEmpty) {
+          context.push(SeriesDetailsScreen.buildLocation(seriesNavigationId));
           return;
         }
         _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
@@ -2919,6 +3028,7 @@ PlaybackHistoryEntry? _matchHistoryEntryForDiscoveryContinueItem({
   required bool isSeries,
 }) {
   final candidateIds = <String>{
+    if (item.seriesId?.trim().isNotEmpty == true) item.seriesId!.trim(),
     if (item.contentId?.trim().isNotEmpty == true) item.contentId!.trim(),
     if (item.streamId?.trim().isNotEmpty == true) item.streamId!.trim(),
     if (item.id?.trim().isNotEmpty == true) item.id!.trim(),
@@ -2977,7 +3087,9 @@ String _resolveDiscoveryContinueDedupeKey({
       : isSeries
       ? 'series'
       : 'vod';
-  final preferredId = item.contentId?.trim().isNotEmpty == true
+  final preferredId = isSeries && item.seriesId?.trim().isNotEmpty == true
+      ? item.seriesId!.trim()
+      : item.contentId?.trim().isNotEmpty == true
       ? item.contentId!.trim()
       : item.streamId?.trim().isNotEmpty == true
       ? item.streamId!.trim()
@@ -2989,6 +3101,20 @@ String _resolveDiscoveryContinueDedupeKey({
         )
       : (item.title?.trim().toLowerCase() ?? 'continue-watching');
   return '$typeKey:$preferredId';
+}
+
+String? resolveDiscoverySeriesNavigationId(HomeDiscoveryItemDto item) {
+  final seriesId = item.seriesId?.trim();
+  if (seriesId != null && seriesId.isNotEmpty) {
+    return seriesId;
+  }
+
+  final contentId = item.contentId?.trim();
+  if (contentId != null && contentId.isNotEmpty) {
+    return contentId;
+  }
+
+  return null;
 }
 
 List<_DiscoveryAdditionalRail> _buildAdditionalDiscoveryRails({
@@ -3047,6 +3173,44 @@ List<_DiscoveryAdditionalRail> _buildAdditionalDiscoveryRails({
         cards: cards,
         state: discoveryState,
         onViewAll: () {
+          final railLibraryKind = _resolveDiscoveryRailLibraryKind(rail);
+          if (railLibraryKind == OnDemandLibraryKind.kids) {
+            _openOnDemandLibraryDestination(
+              context,
+              KidsLibraryScreen.routePath,
+            );
+            return;
+          }
+          if (railLibraryKind == OnDemandLibraryKind.anime) {
+            _openOnDemandLibraryDestination(
+              context,
+              SeriesItemsScreen.buildLocation(
+                'all',
+                library: OnDemandLibraryKind.anime,
+              ),
+            );
+            return;
+          }
+          if (railLibraryKind == OnDemandLibraryKind.series) {
+            _openOnDemandLibraryDestination(
+              context,
+              SeriesItemsScreen.buildLocation(
+                'all',
+                library: OnDemandLibraryKind.series,
+              ),
+            );
+            return;
+          }
+          if (railLibraryKind == OnDemandLibraryKind.movies) {
+            _openOnDemandLibraryDestination(
+              context,
+              VodStreamsScreen.buildLocation(
+                'all',
+                library: OnDemandLibraryKind.movies,
+              ),
+            );
+            return;
+          }
           if (slug.contains('live')) {
             _openPrimaryDestination(context, LiveCategoriesScreen.routePath);
             return;
@@ -3501,10 +3665,13 @@ class _MobileTopActionChip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isLive = action.badge == 'LIVE';
     final isAnime = action.badge == 'ANIME';
+    final isKids = action.badge == 'KIDS';
     final accent = isLive
         ? const Color(0xFFEF5457)
         : isAnime
         ? const Color(0xFFFFB347)
+        : isKids
+        ? const Color(0xFF52C7B8)
         : colorScheme.primary;
 
     return TvFocusable(
@@ -4593,6 +4760,7 @@ class _HomeRailCardData {
     this.supportsLiveEpg = false,
     this.noEpgFallbackLabel = 'Ao vivo agora',
     this.hasReplay = false,
+    this.libraryKind,
   });
 
   final String title;
@@ -4608,6 +4776,7 @@ class _HomeRailCardData {
   final bool supportsLiveEpg;
   final String noEpgFallbackLabel;
   final bool hasReplay;
+  final OnDemandLibraryKind? libraryKind;
 }
 
 List<_HomeRailCardData> _buildVodCards(
@@ -4619,6 +4788,9 @@ List<_HomeRailCardData> _buildVodCards(
   }
 
   return items.take(14).map((item) {
+    final libraryKind =
+        OnDemandLibraryKind.tryParse(item.libraryKind) ??
+        OnDemandLibraryKind.movies;
     final subtitle = item.rating?.trim().isNotEmpty == true
         ? 'Nota ${item.rating}'
         : 'Sob demanda';
@@ -4627,8 +4799,9 @@ List<_HomeRailCardData> _buildVodCards(
       subtitle: subtitle,
       imageUrl: item.coverUrl,
       icon: Icons.movie_creation_outlined,
-      badge: 'FILME',
+      badge: libraryKind == OnDemandLibraryKind.kids ? 'KIDS' : 'FILME',
       onPressed: () => context.push(VodDetailsScreen.buildLocation(item.id)),
+      libraryKind: libraryKind,
     );
   }).toList();
 }
@@ -4642,7 +4815,12 @@ List<_HomeRailCardData> _buildSeriesCards(
   }
 
   return items.take(14).map((item) {
-    final isAnime = _looksLikeAnime(item.name, item.plot ?? '');
+    final libraryKind =
+        OnDemandLibraryKind.tryParse(item.libraryKind) ??
+        (_looksLikeAnime(item.name, item.plot ?? '')
+            ? OnDemandLibraryKind.anime
+            : OnDemandLibraryKind.series);
+    final isAnime = libraryKind == OnDemandLibraryKind.anime;
     return _HomeRailCardData(
       title: item.name,
       subtitle: item.plot?.trim().isNotEmpty == true
@@ -4652,6 +4830,7 @@ List<_HomeRailCardData> _buildSeriesCards(
       icon: Icons.tv_rounded,
       badge: isAnime ? 'ANIME' : 'SÉRIE',
       onPressed: () => context.push(SeriesDetailsScreen.buildLocation(item.id)),
+      libraryKind: libraryKind,
     );
   }).toList();
 }
@@ -4692,12 +4871,120 @@ List<_HomeRailCardData> _buildLiveCards(
       supportsLiveEpg: hasEpgSignal,
       noEpgFallbackLabel: noEpgLabel,
       hasReplay: item.hasArchive,
+      libraryKind: null,
       onPressed: () => context.push(
         PlayerScreen.routePath,
         extra: buildLivePlaybackContext(prioritizedItems, index),
       ),
     );
   }).toList();
+}
+
+List<_HomeRailCardData> _filterHomeCardsByLibrary(
+  List<_HomeRailCardData> cards,
+  OnDemandLibraryKind library,
+) {
+  return cards
+      .where((card) => card.libraryKind == library)
+      .toList(growable: false);
+}
+
+OnDemandLibraryKind? _resolveDiscoveryItemLibraryKind(
+  HomeDiscoveryItemDto item, {
+  String? railLibraryKind,
+}) {
+  final explicitKind =
+      OnDemandLibraryKind.tryParse(item.libraryKind) ??
+      OnDemandLibraryKind.tryParse(railLibraryKind);
+  if (explicitKind != null) {
+    return explicitKind;
+  }
+
+  final mediaType = item.mediaType?.trim().toLowerCase() ?? '';
+  if (mediaType.contains('anime')) {
+    return OnDemandLibraryKind.anime;
+  }
+  if (mediaType.contains('series') ||
+      mediaType == 'tvseries' ||
+      mediaType == 'tv_show' ||
+      mediaType == 'tv show') {
+    return OnDemandLibraryKind.series;
+  }
+  if (mediaType == 'vod' || mediaType == 'movie') {
+    return OnDemandLibraryKind.movies;
+  }
+  return null;
+}
+
+OnDemandLibraryKind? _resolveDiscoveryRailLibraryKind(
+  HomeDiscoveryRailDto rail,
+) {
+  final explicitKind = OnDemandLibraryKind.tryParse(rail.libraryKind);
+  if (explicitKind != null) {
+    return explicitKind;
+  }
+
+  for (final item in rail.items) {
+    final itemKind = _resolveDiscoveryItemLibraryKind(
+      item,
+      railLibraryKind: rail.libraryKind,
+    );
+    if (itemKind != null) {
+      return itemKind;
+    }
+  }
+
+  final normalizedSlug = rail.slug?.trim().toLowerCase() ?? '';
+  if (normalizedSlug.contains('anime')) {
+    return OnDemandLibraryKind.anime;
+  }
+  if (normalizedSlug.contains('series')) {
+    return OnDemandLibraryKind.series;
+  }
+  if (normalizedSlug.contains('movie') || normalizedSlug.contains('vod')) {
+    return OnDemandLibraryKind.movies;
+  }
+  return null;
+}
+
+bool _matchesDiscoveryRailLibraryKind(
+  HomeDiscoveryRailDto rail,
+  OnDemandLibraryKind libraryKind,
+) {
+  return _resolveDiscoveryRailLibraryKind(rail) == libraryKind;
+}
+
+bool _shouldShowKidsLibraryEntry({
+  required HomeDiscoveryRailDto? discoveryKidsRail,
+  required List<VodStream>? vodItems,
+  required List<SeriesItem>? seriesItems,
+}) {
+  if (discoveryKidsRail != null &&
+      _matchesDiscoveryRailLibraryKind(
+        discoveryKidsRail,
+        OnDemandLibraryKind.kids,
+      ) &&
+      discoveryKidsRail.items.isNotEmpty) {
+    return true;
+  }
+
+  final hasVodKids =
+      vodItems?.any(
+        (item) =>
+            OnDemandLibraryKind.tryParse(item.libraryKind) ==
+            OnDemandLibraryKind.kids,
+      ) ??
+      false;
+  if (hasVodKids) {
+    return true;
+  }
+
+  return seriesItems?.any(
+        (item) =>
+            OnDemandLibraryKind.tryParse(item.libraryKind) ==
+            OnDemandLibraryKind.kids,
+      ) ??
+      false;
 }
 
 class _HomeRailSection extends StatelessWidget {
@@ -4726,6 +5013,21 @@ class _HomeRailSection extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isLoading = state.isLoading && cards.isEmpty;
     final hasError = state.hasError && cards.isEmpty;
+    final usePosterDominantMobileStyle =
+        !layout.isTv && layout.deviceClass != DeviceClass.tablet;
+    final sectionIconSize = layout.isTv
+        ? 40.0
+        : usePosterDominantMobileStyle
+        ? 32.0
+        : 36.0;
+    final sectionGap = layout.isTv
+        ? (layout.sectionSpacing - 2).clamp(0, 999).toDouble()
+        : usePosterDominantMobileStyle
+        ? (layout.sectionSpacing - 3).clamp(8, 999).toDouble()
+        : layout.sectionSpacing;
+    final railItemSpacing = usePosterDominantMobileStyle
+        ? (layout.cardSpacing - 3).clamp(8, 999).toDouble()
+        : layout.cardSpacing;
     if (layout.isTv && collapseWhenEmptyOnTv && cards.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -4742,16 +5044,24 @@ class _HomeRailSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: layout.isTv ? 40 : 36,
-              height: layout.isTv ? 40 : 36,
+              width: sectionIconSize,
+              height: sectionIconSize,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: colorScheme.primary.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(
+                  usePosterDominantMobileStyle ? 10 : 12,
+                ),
+                color: colorScheme.primary.withValues(
+                  alpha: usePosterDominantMobileStyle ? 0.12 : 0.16,
+                ),
               ),
               child: Icon(
                 icon,
                 color: colorScheme.primary,
-                size: layout.isTv ? 23 : 20,
+                size: layout.isTv
+                    ? 23
+                    : usePosterDominantMobileStyle
+                    ? 18
+                    : 20,
               ),
             ),
             SizedBox(width: layout.isTv ? 12 : 10),
@@ -4762,7 +5072,11 @@ class _HomeRailSection extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: layout.isTv ? 27 : 23,
+                      fontSize: layout.isTv
+                          ? 27
+                          : usePosterDominantMobileStyle
+                          ? 21
+                          : 23,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -4770,7 +5084,7 @@ class _HomeRailSection extends StatelessWidget {
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.76),
-                      fontSize: layout.isTv ? 13.5 : 12.5,
+                      fontSize: layout.isTv ? 13.5 : 12,
                     ),
                   ),
                 ],
@@ -4786,11 +5100,7 @@ class _HomeRailSection extends StatelessWidget {
               ),
           ],
         ),
-        SizedBox(
-          height: layout.isTv
-              ? (layout.sectionSpacing - 2).clamp(0, 999).toDouble()
-              : layout.sectionSpacing,
-        ),
+        SizedBox(height: sectionGap),
         if (isLoading)
           _RailPlaceholder(
             layout: layout,
@@ -4808,7 +5118,7 @@ class _HomeRailSection extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: cards.length,
               separatorBuilder: (context, index) =>
-                  SizedBox(width: layout.cardSpacing),
+                  SizedBox(width: railItemSpacing),
               itemBuilder: (context, index) {
                 return _HomeRailCard(
                   layout: layout,
@@ -4882,6 +5192,9 @@ double _resolveRailHeight(
   DeviceLayout layout, {
   required bool prefersLandscape,
 }) {
+  if (!layout.isTv && layout.deviceClass != DeviceClass.tablet) {
+    return prefersLandscape ? 218 : 294;
+  }
   if (prefersLandscape) {
     return layout.isTv ? 238 : 226;
   }
@@ -4903,6 +5216,8 @@ class _HomeRailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLandscapeCard = data.aspectRatio >= 1.3;
+    final usePosterDominantMobileStyle =
+        !layout.isTv && layout.deviceClass != DeviceClass.tablet;
     final cardWidth = switch ((layout.isTv, isLandscapeCard)) {
       (true, true) => 320.0,
       (true, false) => 204.0,
@@ -4921,6 +5236,134 @@ class _HomeRailCard extends StatelessWidget {
         autofocus: autofocus,
         onPressed: data.onPressed,
         builder: (context, focused) {
+          if (usePosterDominantMobileStyle) {
+            final posterRadius = isLandscapeCard ? 16.0 : 18.0;
+            final mobileMetaStyle = Theme.of(context).textTheme.bodySmall
+                ?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.74),
+                  fontSize: 11,
+                  height: 1.25,
+                );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(posterRadius),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      BrandedArtwork(
+                        imageUrl: data.imageUrl,
+                        aspectRatio: artworkAspectRatio,
+                        placeholderLabel: 'Imagem indisponivel',
+                        icon: data.icon,
+                        imagePadding: data.imagePadding,
+                        fit: data.fit,
+                        borderRadius: posterRadius,
+                        chrome: BrandedArtworkChrome.subtle,
+                      ),
+                      if (isLandscapeCard)
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(posterRadius),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0x00000000), Color(0xD9000000)],
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (data.badge != null)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  data.badge == 'LIVE' ||
+                                      data.badge == 'AO VIVO'
+                                  ? const Color(0xCCFF4A57)
+                                  : Colors.black.withValues(alpha: 0.62),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              data.badge == 'LIVE' ? 'AO VIVO' : data.badge!,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    letterSpacing: 0.6,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10,
+                                  ),
+                            ),
+                          ),
+                        ),
+                      if (isLandscapeCard)
+                        Positioned(
+                          left: 10,
+                          right: 10,
+                          bottom: 8,
+                          child: Text(
+                            data.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (!isLandscapeCard)
+                  Text(
+                    data.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                    ),
+                  ),
+                if (!isLandscapeCard) const SizedBox(height: 3),
+                if (data.liveStreamId != null)
+                  _MobileLiveHomeCardMeta(
+                    streamId: data.liveStreamId!,
+                    supportsEpg: data.supportsLiveEpg,
+                    fallbackSubtitle: data.noEpgFallbackLabel,
+                    defaultSubtitle: data.subtitle,
+                    hasReplay: data.hasReplay,
+                  )
+                else
+                  Text(
+                    data.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: mobileMetaStyle,
+                  ),
+              ],
+            );
+          }
+
           return AnimatedContainer(
             duration: const Duration(milliseconds: 140),
             padding: EdgeInsets.all(layout.isTv ? 9 : 7),

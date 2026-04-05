@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'brand_logo.dart';
 
+enum BrandedArtworkChrome { framed, subtle }
+
 class BrandedArtwork extends StatelessWidget {
   const BrandedArtwork({
     super.key,
@@ -12,6 +14,7 @@ class BrandedArtwork extends StatelessWidget {
     this.borderRadius = 22,
     this.icon = Icons.movie_rounded,
     this.placeholderLabel,
+    this.chrome = BrandedArtworkChrome.framed,
   });
 
   final String? imageUrl;
@@ -21,32 +24,41 @@ class BrandedArtwork extends StatelessWidget {
   final double borderRadius;
   final IconData icon;
   final String? placeholderLabel;
+  final BrandedArtworkChrome chrome;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final normalizedUrl = normalizeArtworkUrl(imageUrl);
+    final radius = BorderRadius.circular(borderRadius);
+    final decoration = switch (chrome) {
+      BrandedArtworkChrome.framed => BoxDecoration(
+        borderRadius: radius,
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.45),
+          width: 1.2,
+        ),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.95),
+            colorScheme.surface.withValues(alpha: 0.98),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      BrandedArtworkChrome.subtle => BoxDecoration(
+        borderRadius: radius,
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+      ),
+    };
 
     return AspectRatio(
       aspectRatio: aspectRatio,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(borderRadius),
-          border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.45),
-            width: 1.2,
-          ),
-          gradient: LinearGradient(
-            colors: [
-              colorScheme.surfaceContainerHighest.withValues(alpha: 0.95),
-              colorScheme.surface.withValues(alpha: 0.98),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        decoration: decoration,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(borderRadius),
+          borderRadius: radius,
           child: normalizedUrl == null
               ? _ArtworkFallback(icon: icon, label: placeholderLabel)
               : Image.network(

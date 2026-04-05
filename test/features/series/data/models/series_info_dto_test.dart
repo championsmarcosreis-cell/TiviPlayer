@@ -1,7 +1,43 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tiviplayer/features/home/data/models/home_discovery_dto.dart';
 import 'package:tiviplayer/features/series/data/models/series_info_dto.dart';
 
 void main() {
+  test('parse series_id from discovery payload when available', () {
+    final dto = HomeDiscoveryItemDto.fromApi({
+      'id': 'content-46',
+      'title': 'A Knight of the Seven Kingdoms',
+      'media_type': 'Series',
+      'content_id': 46,
+      'series_id': 2,
+    });
+
+    expect(dto, isNotNull);
+    expect(dto!.contentId, '46');
+    expect(dto.seriesId, '2');
+  });
+
+  test('parse library_kind from discovery payload when available', () {
+    final item = HomeDiscoveryItemDto.fromApi({
+      'id': 'anime-202',
+      'title': 'Solo Leveling',
+      'media_type': 'Anime',
+      'library_kind': 'anime',
+      'content_id': 202,
+    });
+    final rail = HomeDiscoveryRailDto.fromApi({
+      'slug': 'kids',
+      'title': 'Kids',
+      'library_kind': 'kids',
+      'items': const [],
+    });
+
+    expect(item, isNotNull);
+    expect(item!.libraryKind, 'anime');
+    expect(rail, isNotNull);
+    expect(rail!.libraryKind, 'kids');
+  });
+
   test('parse seasons and playable episodes from Xtream payload', () {
     final dto = SeriesInfoDto.fromApi({
       'info': {'series_id': '77', 'name': 'Demo Series', 'plot': 'Plot'},

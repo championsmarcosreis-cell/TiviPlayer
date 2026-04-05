@@ -109,6 +109,9 @@ class HomeDiscoveryDto {
           description: XtreamParsers.asString(asMap['description']),
           layout:
               XtreamParsers.asString(asMap['layout']) ?? 'continue-watching',
+          libraryKind:
+              XtreamParsers.asString(asMap['library_kind']) ??
+              XtreamParsers.asString(asMap['libraryKind']),
           items: items,
         );
       }
@@ -127,6 +130,7 @@ class HomeDiscoveryDto {
       title: 'Continuar assistindo',
       description: null,
       layout: 'continue-watching',
+      libraryKind: null,
       items: items,
     );
   }
@@ -170,6 +174,7 @@ class HomeDiscoveryRailDto {
     required this.title,
     required this.description,
     required this.layout,
+    this.libraryKind,
     required this.items,
   });
 
@@ -177,6 +182,7 @@ class HomeDiscoveryRailDto {
   final String? title;
   final String? description;
   final String? layout;
+  final String? libraryKind;
   final List<HomeDiscoveryItemDto> items;
 
   static HomeDiscoveryRailDto? fromApi(dynamic raw) {
@@ -195,6 +201,9 @@ class HomeDiscoveryRailDto {
       title: XtreamParsers.asString(map['title']),
       description: XtreamParsers.asString(map['description']),
       layout: XtreamParsers.asString(map['layout']),
+      libraryKind:
+          XtreamParsers.asString(map['library_kind']) ??
+          XtreamParsers.asString(map['libraryKind']),
       items: items,
     );
   }
@@ -204,12 +213,14 @@ class HomeDiscoveryItemDto {
   const HomeDiscoveryItemDto({
     required this.id,
     this.streamId,
+    this.seriesId,
     required this.title,
     required this.subtitle,
     required this.description,
     required this.image,
     required this.backdrop,
     required this.mediaType,
+    this.libraryKind,
     required this.contentId,
     required this.tmdbId,
     required this.rating,
@@ -225,12 +236,14 @@ class HomeDiscoveryItemDto {
 
   final String? id;
   final String? streamId;
+  final String? seriesId;
   final String? title;
   final String? subtitle;
   final String? description;
   final String? image;
   final String? backdrop;
   final String? mediaType;
+  final String? libraryKind;
   final String? contentId;
   final int? tmdbId;
   final double? rating;
@@ -256,12 +269,18 @@ class HomeDiscoveryItemDto {
       streamId:
           XtreamParsers.asString(map['stream_id']) ??
           XtreamParsers.asString(map['streamId']),
+      seriesId:
+          XtreamParsers.asString(map['series_id']) ??
+          XtreamParsers.asString(map['seriesId']),
       title: XtreamParsers.asString(map['title']),
       subtitle: XtreamParsers.asString(map['subtitle']),
       description: XtreamParsers.asString(map['description']),
       image: XtreamParsers.asString(map['image']),
       backdrop: XtreamParsers.asString(map['backdrop']),
       mediaType: XtreamParsers.asString(map['media_type']),
+      libraryKind:
+          XtreamParsers.asString(map['library_kind']) ??
+          XtreamParsers.asString(map['libraryKind']),
       contentId: XtreamParsers.asString(map['content_id']),
       tmdbId: XtreamParsers.asInt(map['tmdb_id']),
       rating: _asDouble(map['rating']),

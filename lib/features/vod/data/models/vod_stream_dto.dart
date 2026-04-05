@@ -14,6 +14,7 @@ abstract class VodStreamDto with _$VodStreamDto {
     String? streamIcon,
     String? containerExtension,
     String? rating,
+    String? libraryKind,
   }) = _VodStreamDto;
 
   factory VodStreamDto.fromJson(Map<String, dynamic> json) =>
@@ -27,6 +28,9 @@ abstract class VodStreamDto with _$VodStreamDto {
       streamIcon: XtreamParsers.asString(json['stream_icon']),
       containerExtension: XtreamParsers.asString(json['container_extension']),
       rating: XtreamParsers.asString(json['rating']),
+      libraryKind:
+          XtreamParsers.asString(json['library_kind']) ??
+          XtreamParsers.asString(json['libraryKind']),
     );
   }
 }

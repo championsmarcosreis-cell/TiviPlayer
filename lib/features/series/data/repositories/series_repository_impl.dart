@@ -22,6 +22,7 @@ class SeriesRepositoryImpl implements SeriesRepository {
             id: item.categoryId,
             name: item.categoryName,
             parentId: item.parentId,
+            libraryKind: item.libraryKind,
           ),
         )
         .toList();
@@ -76,6 +77,7 @@ class SeriesRepositoryImpl implements SeriesRepository {
             categoryId: item.categoryId,
             coverUrl: item.cover,
             plot: item.plot,
+            libraryKind: item.libraryKind,
           ),
         )
         .toList();

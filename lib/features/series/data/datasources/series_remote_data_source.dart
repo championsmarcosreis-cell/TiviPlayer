@@ -1,5 +1,6 @@
 // ignore_for_file: use_null_aware_elements
 
+import '../../../../core/errors/app_exception.dart';
 import '../../../../core/network/xtream_client.dart';
 import '../../../../core/network/xtream_parsers.dart';
 import '../../../auth/domain/entities/xtream_session.dart';
@@ -66,6 +67,12 @@ class SeriesRemoteDataSource {
       action: 'get_series_info',
       query: {'series_id': seriesId},
     );
+
+    if (!_isValidSeriesInfoResponse(fallbackResponse)) {
+      throw const XtreamRequestException(
+        'Detalhes da série indisponíveis para este título.',
+      );
+    }
 
     return SeriesInfoDto.fromApi(fallbackResponse);
   }

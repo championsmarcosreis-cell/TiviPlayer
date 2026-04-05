@@ -11,6 +11,7 @@ _VodCategoryDto _$VodCategoryDtoFromJson(Map<String, dynamic> json) =>
       categoryId: json['categoryId'] as String,
       categoryName: json['categoryName'] as String,
       parentId: json['parentId'] as String?,
+      libraryKind: json['libraryKind'] as String?,
     );
 
 Map<String, dynamic> _$VodCategoryDtoToJson(_VodCategoryDto instance) =>
@@ -18,4 +19,5 @@ Map<String, dynamic> _$VodCategoryDtoToJson(_VodCategoryDto instance) =>
       'categoryId': instance.categoryId,
       'categoryName': instance.categoryName,
       'parentId': instance.parentId,
+      'libraryKind': instance.libraryKind,
     };

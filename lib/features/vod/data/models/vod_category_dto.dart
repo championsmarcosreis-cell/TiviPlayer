@@ -11,6 +11,7 @@ abstract class VodCategoryDto with _$VodCategoryDto {
     required String categoryId,
     required String categoryName,
     String? parentId,
+    String? libraryKind,
   }) = _VodCategoryDto;
 
   factory VodCategoryDto.fromJson(Map<String, dynamic> json) =>
@@ -22,6 +23,9 @@ abstract class VodCategoryDto with _$VodCategoryDto {
       categoryName:
           XtreamParsers.asString(json['category_name']) ?? 'Categoria sem nome',
       parentId: XtreamParsers.asString(json['parent_id']),
+      libraryKind:
+          XtreamParsers.asString(json['library_kind']) ??
+          XtreamParsers.asString(json['libraryKind']),
     );
   }
 }

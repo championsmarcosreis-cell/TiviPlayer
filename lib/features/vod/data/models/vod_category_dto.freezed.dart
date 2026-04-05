@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$VodCategoryDto {
 
- String get categoryId; String get categoryName; String? get parentId;
+ String get categoryId; String get categoryName; String? get parentId; String? get libraryKind;
 /// Create a copy of VodCategoryDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $VodCategoryDtoCopyWith<VodCategoryDto> get copyWith => _$VodCategoryDtoCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VodCategoryDto&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.categoryName, categoryName) || other.categoryName == categoryName)&&(identical(other.parentId, parentId) || other.parentId == parentId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VodCategoryDto&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.categoryName, categoryName) || other.categoryName == categoryName)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,categoryId,categoryName,parentId);
+int get hashCode => Object.hash(runtimeType,categoryId,categoryName,parentId,libraryKind);
 
 @override
 String toString() {
-  return 'VodCategoryDto(categoryId: $categoryId, categoryName: $categoryName, parentId: $parentId)';
+  return 'VodCategoryDto(categoryId: $categoryId, categoryName: $categoryName, parentId: $parentId, libraryKind: $libraryKind)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $VodCategoryDtoCopyWith<$Res>  {
   factory $VodCategoryDtoCopyWith(VodCategoryDto value, $Res Function(VodCategoryDto) _then) = _$VodCategoryDtoCopyWithImpl;
 @useResult
 $Res call({
- String categoryId, String categoryName, String? parentId
+ String categoryId, String categoryName, String? parentId, String? libraryKind
 });
 
 
@@ -65,11 +65,12 @@ class _$VodCategoryDtoCopyWithImpl<$Res>
 
 /// Create a copy of VodCategoryDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? categoryId = null,Object? categoryName = null,Object? parentId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? categoryId = null,Object? categoryName = null,Object? parentId = freezed,Object? libraryKind = freezed,}) {
   return _then(_self.copyWith(
 categoryId: null == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String,categoryName: null == categoryName ? _self.categoryName : categoryName // ignore: cast_nullable_to_non_nullable
 as String,parentId: freezed == parentId ? _self.parentId : parentId // ignore: cast_nullable_to_non_nullable
+as String?,libraryKind: freezed == libraryKind ? _self.libraryKind : libraryKind // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -155,10 +156,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String categoryId,  String categoryName,  String? parentId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String categoryId,  String categoryName,  String? parentId,  String? libraryKind)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VodCategoryDto() when $default != null:
-return $default(_that.categoryId,_that.categoryName,_that.parentId);case _:
+return $default(_that.categoryId,_that.categoryName,_that.parentId,_that.libraryKind);case _:
   return orElse();
 
 }
@@ -176,10 +177,10 @@ return $default(_that.categoryId,_that.categoryName,_that.parentId);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String categoryId,  String categoryName,  String? parentId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String categoryId,  String categoryName,  String? parentId,  String? libraryKind)  $default,) {final _that = this;
 switch (_that) {
 case _VodCategoryDto():
-return $default(_that.categoryId,_that.categoryName,_that.parentId);case _:
+return $default(_that.categoryId,_that.categoryName,_that.parentId,_that.libraryKind);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -196,10 +197,10 @@ return $default(_that.categoryId,_that.categoryName,_that.parentId);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String categoryId,  String categoryName,  String? parentId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String categoryId,  String categoryName,  String? parentId,  String? libraryKind)?  $default,) {final _that = this;
 switch (_that) {
 case _VodCategoryDto() when $default != null:
-return $default(_that.categoryId,_that.categoryName,_that.parentId);case _:
+return $default(_that.categoryId,_that.categoryName,_that.parentId,_that.libraryKind);case _:
   return null;
 
 }
@@ -211,12 +212,13 @@ return $default(_that.categoryId,_that.categoryName,_that.parentId);case _:
 @JsonSerializable()
 
 class _VodCategoryDto implements VodCategoryDto {
-  const _VodCategoryDto({required this.categoryId, required this.categoryName, this.parentId});
+  const _VodCategoryDto({required this.categoryId, required this.categoryName, this.parentId, this.libraryKind});
   factory _VodCategoryDto.fromJson(Map<String, dynamic> json) => _$VodCategoryDtoFromJson(json);
 
 @override final  String categoryId;
 @override final  String categoryName;
 @override final  String? parentId;
+@override final  String? libraryKind;
 
 /// Create a copy of VodCategoryDto
 /// with the given fields replaced by the non-null parameter values.
@@ -231,16 +233,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VodCategoryDto&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.categoryName, categoryName) || other.categoryName == categoryName)&&(identical(other.parentId, parentId) || other.parentId == parentId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VodCategoryDto&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.categoryName, categoryName) || other.categoryName == categoryName)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,categoryId,categoryName,parentId);
+int get hashCode => Object.hash(runtimeType,categoryId,categoryName,parentId,libraryKind);
 
 @override
 String toString() {
-  return 'VodCategoryDto(categoryId: $categoryId, categoryName: $categoryName, parentId: $parentId)';
+  return 'VodCategoryDto(categoryId: $categoryId, categoryName: $categoryName, parentId: $parentId, libraryKind: $libraryKind)';
 }
 
 
@@ -251,7 +253,7 @@ abstract mixin class _$VodCategoryDtoCopyWith<$Res> implements $VodCategoryDtoCo
   factory _$VodCategoryDtoCopyWith(_VodCategoryDto value, $Res Function(_VodCategoryDto) _then) = __$VodCategoryDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String categoryId, String categoryName, String? parentId
+ String categoryId, String categoryName, String? parentId, String? libraryKind
 });
 
 
@@ -268,11 +270,12 @@ class __$VodCategoryDtoCopyWithImpl<$Res>
 
 /// Create a copy of VodCategoryDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? categoryId = null,Object? categoryName = null,Object? parentId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? categoryId = null,Object? categoryName = null,Object? parentId = freezed,Object? libraryKind = freezed,}) {
   return _then(_VodCategoryDto(
 categoryId: null == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String,categoryName: null == categoryName ? _self.categoryName : categoryName // ignore: cast_nullable_to_non_nullable
 as String,parentId: freezed == parentId ? _self.parentId : parentId // ignore: cast_nullable_to_non_nullable
+as String?,libraryKind: freezed == libraryKind ? _self.libraryKind : libraryKind // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

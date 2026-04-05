@@ -4,45 +4,78 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/tv/tv_focusable.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
+import '../../../../shared/presentation/support/on_demand_library.dart';
 import '../../../../shared/testing/app_test_keys.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
-import '../../../../shared/widgets/content_list_tile.dart';
 import '../../../../shared/widgets/mobile_primary_dock.dart';
+import '../../domain/entities/vod_category.dart';
 import '../../domain/entities/vod_stream.dart';
 import '../providers/vod_providers.dart';
 import 'vod_details_screen.dart';
 
 class VodStreamsScreen extends ConsumerWidget {
-  const VodStreamsScreen({super.key, required this.categoryId});
+  const VodStreamsScreen({
+    super.key,
+    required this.categoryId,
+    this.library = OnDemandLibraryKind.movies,
+  });
 
   static const routePath = '/vod/category/:categoryId';
 
-  static String buildLocation(String categoryId) => '/vod/category/$categoryId';
+  static String buildLocation(
+    String categoryId, {
+    OnDemandLibraryKind library = OnDemandLibraryKind.movies,
+  }) {
+    return buildLibraryLocation(
+      '/vod/category/$categoryId',
+      kind: library,
+      defaultKind: OnDemandLibraryKind.movies,
+    );
+  }
 
   final String categoryId;
+  final OnDemandLibraryKind library;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final screenLayout = DeviceLayout.of(context);
+    final spec = OnDemandLibrarySpec.resolve(library);
     final effectiveCategoryId = categoryId == 'all' ? null : categoryId;
-    final streams = ref.watch(vodStreamsProvider(effectiveCategoryId));
+    final streamsAsync = ref.watch(vodStreamsProvider(effectiveCategoryId));
+    final categoriesAsync = ref.watch(vodCategoriesProvider);
 
     return AppScaffold(
-      title: 'Filmes',
-      subtitle: effectiveCategoryId == null
-          ? 'Catálogo completo'
-          : 'Seleção disponível',
+      title: spec.title,
+      subtitle: screenLayout.isTv ? spec.subtitle : null,
       showBack: true,
       showBrand: false,
+      decoratedHeader: screenLayout.isTv,
       mobileBottomBar: const MobilePrimaryDock(),
       child: AsyncStateBuilder(
-        value: streams,
+        value: streamsAsync,
         isEmpty: (items) => items.isEmpty,
         emptyTitle: 'Sem títulos disponíveis',
         emptyMessage: 'Nenhum filme foi encontrado para o filtro selecionado.',
         dataBuilder: (items) {
-          final featured = _resolveFeatured(items);
+          final categories =
+              categoriesAsync.asData?.value ?? const <VodCategory>[];
+          final filteredCategories = _filterVodCategories(categories, library);
+          final filteredCategoryIds = filteredCategories
+              .map((category) => category.id)
+              .toSet();
+          final visibleItems = _filterVodItems(
+            items: items,
+            library: library,
+            categoryIds: filteredCategoryIds,
+          );
+
+          if (visibleItems.isEmpty) {
+            return _VodLibraryEmptyState(spec: spec);
+          }
+
+          final featured = _resolveFeatured(visibleItems);
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -68,25 +101,35 @@ class VodStreamsScreen extends ConsumerWidget {
                       _VodHeroShelf(
                         layout: layout,
                         item: featured,
-                        totalItems: items.length,
+                        totalItems: visibleItems.length,
+                        spec: spec,
                       ),
                       SizedBox(height: layout.cardSpacing),
-                      _CatalogHeader(layout: layout, totalItems: items.length),
+                      _CatalogHeader(
+                        layout: layout,
+                        totalItems: visibleItems.length,
+                        spec: spec,
+                      ),
                       SizedBox(height: layout.cardSpacing),
                       Wrap(
                         spacing: spacing,
                         runSpacing: spacing,
                         children: [
-                          for (var index = 0; index < items.length; index++)
+                          for (
+                            var index = 0;
+                            index < visibleItems.length;
+                            index++
+                          )
                             SizedBox(
                               width: itemWidth,
-                              child: _VodTvPosterCard(
+                              child: _VodPosterCard(
                                 layout: layout,
-                                item: items[index],
+                                item: visibleItems[index],
+                                badge: spec.badge,
                                 autofocus: index == 0,
                                 onPressed: () => context.push(
                                   VodDetailsScreen.buildLocation(
-                                    items[index].id,
+                                    visibleItems[index].id,
                                   ),
                                 ),
                               ),
@@ -98,57 +141,52 @@ class VodStreamsScreen extends ConsumerWidget {
                 );
               }
 
-              return ListView.separated(
-                padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
-                cacheExtent: layout.isTv ? 2200 : 1200,
-                itemCount: items.length + 2,
-                separatorBuilder: (context, index) =>
-                    SizedBox(height: layout.cardSpacing),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _VodHeroShelf(
-                      layout: layout,
-                      item: featured,
-                      totalItems: items.length,
-                    );
-                  }
-
-                  if (index == 1) {
-                    return _CatalogHeader(
-                      layout: layout,
-                      totalItems: items.length,
-                    );
-                  }
-
-                  final item = items[index - 2];
-                  final metadata = <String>[
-                    'Filme',
-                    'Xtream VOD',
-                    if (item.rating?.trim().isNotEmpty == true)
-                      'Nota ${item.rating}',
-                  ];
-
-                  return ContentListTile(
-                    interactiveKey: AppTestKeys.vodItem(item.id),
-                    autofocus: index == 2,
-                    testId: AppTestKeys.vodItemId(item.id),
-                    overline: 'Filme sob demanda',
-                    title: item.name,
-                    subtitle: item.rating?.trim().isNotEmpty == true
-                        ? 'Nota ${item.rating} no catálogo. Abra para ver detalhes e reproduzir.'
-                        : 'Abra para ver detalhes e reproduzir.',
-                    metadata: metadata,
-                    badge: item.rating?.trim().isNotEmpty == true
-                        ? '★ ${item.rating}'
-                        : null,
-                    icon: Icons.movie_creation_outlined,
-                    imageUrl: item.coverUrl,
-                    thumbnailLabel: 'Poster indisponível',
-                    thumbnailWidth: layout.isTv ? 96 : 74,
-                    onPressed: () =>
-                        context.push(VodDetailsScreen.buildLocation(item.id)),
-                  );
-                },
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _VodMobileLibraryHeader(
+                      spec: spec,
+                      totalItems: visibleItems.length,
+                      currentCategoryLabel: _resolveVodCategoryLabel(
+                        categories: filteredCategories,
+                        categoryId: categoryId,
+                      ),
+                      categoryStrip: _VodCategoryStrip(
+                        spec: spec,
+                        currentCategoryId: categoryId,
+                        categories: filteredCategories,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      top: 12,
+                      bottom: layout.pageBottomPadding,
+                    ),
+                    sliver: SliverGrid(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = visibleItems[index];
+                        return _VodPosterCard(
+                          layout: layout,
+                          item: item,
+                          badge: spec.badge,
+                          autofocus: index == 0,
+                          onPressed: () => context.push(
+                            VodDetailsScreen.buildLocation(item.id),
+                          ),
+                        );
+                      }, childCount: visibleItems.length),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: layout.deviceClass == DeviceClass.tablet
+                            ? 3
+                            : 2,
+                        mainAxisSpacing: layout.cardSpacing,
+                        crossAxisSpacing: layout.cardSpacing,
+                        childAspectRatio: 0.56,
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
           );
@@ -165,58 +203,79 @@ VodStream _resolveFeatured(List<VodStream> items) {
   );
 }
 
+String? _resolveVodCategoryLabel({
+  required List<VodCategory> categories,
+  required String categoryId,
+}) {
+  if (categoryId == 'all') {
+    return null;
+  }
+
+  for (final category in categories) {
+    if (category.id == categoryId) {
+      return category.name;
+    }
+  }
+
+  return null;
+}
+
+List<VodCategory> _filterVodCategories(
+  List<VodCategory> categories,
+  OnDemandLibraryKind library,
+) {
+  final spec = OnDemandLibrarySpec.resolve(library);
+  return categories
+      .where(
+        (category) => spec.matchesCategory(
+          value: category.name,
+          libraryKind: category.libraryKind,
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<VodStream> _filterVodItems({
+  required List<VodStream> items,
+  required OnDemandLibraryKind library,
+  required Set<String> categoryIds,
+}) {
+  final spec = OnDemandLibrarySpec.resolve(library);
+  if (!spec.isFilteredVariant) {
+    return items;
+  }
+  return items
+      .where((item) {
+        final matchesCategory =
+            item.categoryId != null && categoryIds.contains(item.categoryId);
+        final hasCanonicalLibrary =
+            OnDemandLibraryKind.tryParse(item.libraryKind) != null;
+        if (hasCanonicalLibrary) {
+          return spec.hasExplicitSignal(item.libraryKind);
+        }
+        return matchesCategory ||
+            spec.matchesTextContent(primary: item.name, secondary: '');
+      })
+      .toList(growable: false);
+}
+
 class _VodHeroShelf extends StatelessWidget {
   const _VodHeroShelf({
     required this.layout,
     required this.item,
     required this.totalItems,
+    required this.spec,
   });
 
   final DeviceLayout layout;
   final VodStream item;
   final int totalItems;
+  final OnDemandLibrarySpec spec;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final image = BrandedArtwork.normalizeArtworkUrl(item.coverUrl);
-    final playButtonStyle = layout.isTv
-        ? ButtonStyle(
-            minimumSize: WidgetStatePropertyAll(Size(0, layout.isTv ? 60 : 52)),
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            shape: WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.focused)) {
-                return const Color(0xFFFFF3E7);
-              }
-              if (states.contains(WidgetState.pressed)) {
-                return colorScheme.primary.withValues(alpha: 0.86);
-              }
-              return colorScheme.primary;
-            }),
-            foregroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.focused)) {
-                return const Color(0xFF161005);
-              }
-              return colorScheme.onPrimary;
-            }),
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.focused)) {
-                return BorderSide(color: colorScheme.secondary, width: 2.8);
-              }
-              return BorderSide(
-                color: colorScheme.primary.withValues(alpha: 0.9),
-              );
-            }),
-            elevation: WidgetStateProperty.resolveWith((states) {
-              return states.contains(WidgetState.focused) ? 11 : 2;
-            }),
-          )
-        : null;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -244,7 +303,7 @@ class _VodHeroShelf extends StatelessWidget {
             ),
             if (image != null)
               Opacity(
-                opacity: 0.86,
+                opacity: 0.82,
                 child: Image.network(
                   image,
                   fit: BoxFit.cover,
@@ -277,7 +336,7 @@ class _VodHeroShelf extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          'Destaque do catálogo',
+                          'Destaque de ${spec.title}',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                 letterSpacing: 1,
@@ -301,21 +360,10 @@ class _VodHeroShelf extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _HeroChip(
-                              label: '$totalItems títulos',
-                              layout: layout,
-                            ),
-                            _HeroChip(
-                              label: layout.isTv
-                                  ? 'Streaming sob demanda'
-                                  : 'Contrato Xtream',
-                              layout: layout,
-                            ),
+                            _HeroChip(label: spec.countLabel(totalItems)),
+                            _HeroChip(label: spec.catalogLabel),
                             if (item.rating?.trim().isNotEmpty == true)
-                              _HeroChip(
-                                label: 'Nota ${item.rating}',
-                                layout: layout,
-                              ),
+                              _HeroChip(label: 'Nota ${item.rating}'),
                           ],
                         ),
                         SizedBox(height: layout.isTv ? 14 : 10),
@@ -323,7 +371,6 @@ class _VodHeroShelf extends StatelessWidget {
                           onPressed: () => context.push(
                             VodDetailsScreen.buildLocation(item.id),
                           ),
-                          style: playButtonStyle,
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('Abrir detalhes'),
                         ),
@@ -336,9 +383,10 @@ class _VodHeroShelf extends StatelessWidget {
                       width: 140,
                       child: BrandedArtwork(
                         imageUrl: item.coverUrl,
-                        icon: Icons.movie_creation_outlined,
+                        icon: spec.icon,
                         placeholderLabel: 'Poster indisponível',
                         borderRadius: 16,
+                        chrome: BrandedArtworkChrome.subtle,
                       ),
                     ),
                   ],
@@ -353,18 +401,14 @@ class _VodHeroShelf extends StatelessWidget {
 }
 
 class _HeroChip extends StatelessWidget {
-  const _HeroChip({required this.label, required this.layout});
+  const _HeroChip({required this.label});
 
   final String label;
-  final DeviceLayout layout;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: layout.isTv ? 11 : 9,
-        vertical: layout.isTv ? 6 : 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         color: Colors.black.withValues(alpha: 0.4),
@@ -372,20 +416,24 @@ class _HeroChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          fontSize: layout.isTv ? 12.5 : 11,
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }
 }
 
 class _CatalogHeader extends StatelessWidget {
-  const _CatalogHeader({required this.layout, required this.totalItems});
+  const _CatalogHeader({
+    required this.layout,
+    required this.totalItems,
+    required this.spec,
+  });
 
   final DeviceLayout layout;
   final int totalItems;
+  final OnDemandLibrarySpec spec;
 
   @override
   Widget build(BuildContext context) {
@@ -395,8 +443,8 @@ class _CatalogHeader extends StatelessWidget {
       padding: EdgeInsets.all(layout.isTv ? 18 : 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(layout.isTv ? 20 : 16),
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.32)),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.24)),
       ),
       child: Row(
         children: [
@@ -405,7 +453,7 @@ class _CatalogHeader extends StatelessWidget {
             height: layout.isTv ? 44 : 36,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: colorScheme.primary.withValues(alpha: 0.2),
+              color: colorScheme.primary.withValues(alpha: 0.16),
             ),
             child: Icon(
               Icons.grid_view_rounded,
@@ -419,7 +467,7 @@ class _CatalogHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Todos os títulos • $totalItems disponíveis',
+                  '${spec.catalogLabel} • $totalItems',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontSize: layout.isTv ? 21 : 18,
                     fontWeight: FontWeight.w700,
@@ -427,10 +475,10 @@ class _CatalogHeader extends StatelessWidget {
                 ),
                 SizedBox(height: layout.isTv ? 4 : 2),
                 Text(
-                  'Navegue pelo catálogo VOD com foco otimizado para TV.',
+                  'Entrada direta no catálogo, com posters maiores e menos moldura visual.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.76),
-                    fontSize: layout.isTv ? 13 : 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.74),
+                    height: 1.35,
                   ),
                 ),
               ],
@@ -442,24 +490,234 @@ class _CatalogHeader extends StatelessWidget {
   }
 }
 
-class _VodTvPosterCard extends StatelessWidget {
-  const _VodTvPosterCard({
+class _VodMobileLibraryHeader extends StatelessWidget {
+  const _VodMobileLibraryHeader({
+    required this.spec,
+    required this.totalItems,
+    required this.categoryStrip,
+    this.currentCategoryLabel,
+  });
+
+  final OnDemandLibrarySpec spec;
+  final int totalItems;
+  final Widget categoryStrip;
+  final String? currentCategoryLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: colorScheme.primary.withValues(alpha: 0.14),
+                ),
+                child: Icon(spec.icon, color: colorScheme.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      spec.catalogLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      currentCategoryLabel == null
+                          ? spec.countLabel(totalItems)
+                          : '${spec.countLabel(totalItems)} • $currentCategoryLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.74),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (spec.badge != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: colorScheme.primary.withValues(alpha: 0.14),
+                    border: Border.all(
+                      color: colorScheme.primary.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Text(
+                    spec.badge!,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          categoryStrip,
+        ],
+      ),
+    );
+  }
+}
+
+class _VodCategoryStrip extends StatelessWidget {
+  const _VodCategoryStrip({
+    required this.spec,
+    required this.currentCategoryId,
+    required this.categories,
+  });
+
+  final OnDemandLibrarySpec spec;
+  final String currentCategoryId;
+  final List<VodCategory> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({String id, String label, Key? key, String? testId})>[
+      (
+        id: 'all',
+        label: spec.isFilteredVariant ? 'Tudo em ${spec.title}' : 'Todos',
+        key: AppTestKeys.vodCategoryAll,
+        testId: AppTestKeys.vodCategoryAllId,
+      ),
+      ...categories.map(
+        (category) =>
+            (id: category.id, label: category.name, key: null, testId: null),
+      ),
+    ];
+
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final entry = items[index];
+          return _CategoryChipButton(
+            label: entry.label,
+            selected: currentCategoryId == entry.id,
+            interactiveKey: entry.key,
+            testId: entry.testId,
+            onPressed: () {
+              if (currentCategoryId == entry.id) {
+                return;
+              }
+
+              context.pushReplacement(
+                VodStreamsScreen.buildLocation(entry.id, library: spec.kind),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CategoryChipButton extends StatelessWidget {
+  const _CategoryChipButton({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+    this.interactiveKey,
+    this.testId,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+  final Key? interactiveKey;
+  final String? testId;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return TvFocusable(
+      interactiveKey: interactiveKey,
+      testId: testId,
+      onPressed: onPressed,
+      builder: (context, focused) {
+        final active = selected || focused;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: active
+                ? colorScheme.primary.withValues(alpha: 0.16)
+                : colorScheme.surface.withValues(alpha: 0.56),
+            border: Border.all(
+              color: active
+                  ? colorScheme.primary.withValues(alpha: 0.9)
+                  : colorScheme.outline.withValues(alpha: 0.24),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _VodPosterCard extends StatelessWidget {
+  const _VodPosterCard({
     required this.layout,
     required this.item,
     required this.onPressed,
+    this.badge,
     this.autofocus = false,
   });
 
   final DeviceLayout layout;
   final VodStream item;
   final VoidCallback onPressed;
+  final String? badge;
   final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final rating = item.rating?.trim();
-    final hasRating = rating != null && rating.isNotEmpty;
+    final overlayBadge = rating?.isNotEmpty == true
+        ? '★ $rating'
+        : badge ?? 'FILME';
 
     return TvFocusable(
       autofocus: autofocus,
@@ -469,136 +727,154 @@ class _VodTvPosterCard extends StatelessWidget {
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(layout.isTv ? 8 : 6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: focused
-                  ? [
-                      colorScheme.primary.withValues(alpha: 0.24),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.94,
-                      ),
-                    ]
-                  : [
-                      colorScheme.surface.withValues(alpha: 0.9),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.74,
-                      ),
-                    ],
-            ),
+            borderRadius: BorderRadius.circular(layout.isTv ? 20 : 18),
+            color: focused
+                ? colorScheme.primary.withValues(alpha: 0.1)
+                : Colors.transparent,
             border: Border.all(
               color: focused
-                  ? colorScheme.primary
-                  : colorScheme.outline.withValues(alpha: 0.45),
-              width: focused ? 2 : 1,
+                  ? colorScheme.primary.withValues(alpha: 0.34)
+                  : Colors.transparent,
+              width: 1.6,
             ),
-            boxShadow: focused
-                ? [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.2),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : const [],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Stack(
-                children: [
-                  BrandedArtwork(
-                    imageUrl: item.coverUrl,
-                    aspectRatio: 2 / 3,
-                    borderRadius: 14,
-                    placeholderLabel: 'Poster indisponível',
-                    icon: Icons.movie_creation_outlined,
-                  ),
-                  if (hasRating)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: Colors.black.withValues(alpha: 0.68),
-                        ),
-                        child: Text(
-                          '★ $rating',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                letterSpacing: 0.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(layout.isTv ? 16 : 18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 14,
+                      offset: const Offset(0, 7),
                     ),
-                ],
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    BrandedArtwork(
+                      imageUrl: item.coverUrl,
+                      aspectRatio: 2 / 3,
+                      borderRadius: layout.isTv ? 16 : 18,
+                      placeholderLabel: 'Poster indisponível',
+                      icon: Icons.movie_creation_outlined,
+                      chrome: BrandedArtworkChrome.subtle,
+                    ),
+                    _PosterBadge(label: overlayBadge),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: layout.isTv ? 10 : 8),
               Text(
                 item.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   height: 1.12,
+                  fontSize: layout.isTv ? 17 : 16,
                 ),
               ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  if (hasRating)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: colorScheme.primary.withValues(alpha: 0.18),
-                        border: Border.all(
-                          color: colorScheme.primary.withValues(alpha: 0.42),
-                        ),
-                      ),
-                      child: Text(
-                        'Nota $rating',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.82),
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      'Sem nota',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.76),
-                      ),
-                    ),
-                  const Spacer(),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: focused
-                        ? colorScheme.primary
-                        : colorScheme.onSurface.withValues(alpha: 0.74),
-                  ),
-                ],
+              const SizedBox(height: 4),
+              Text(
+                rating?.isNotEmpty == true
+                    ? 'Nota $rating no catálogo'
+                    : 'Filme sob demanda',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.72),
+                  height: 1.3,
+                ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _PosterBadge extends StatelessWidget {
+  const _PosterBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 8,
+      left: 8,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: Colors.black.withValues(alpha: 0.62),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VodLibraryEmptyState extends StatelessWidget {
+  const _VodLibraryEmptyState({required this.spec});
+
+  final OnDemandLibrarySpec spec;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.24),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(spec.icon, size: 38),
+              const SizedBox(height: 12),
+              Text(
+                'Nenhum item encontrado em ${spec.title}.',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                spec.isFilteredVariant
+                    ? 'O catálogo carregou, mas esta biblioteca filtrada não encontrou correspondências com as categorias disponíveis.'
+                    : 'O catálogo carregou sem títulos disponíveis nesta coleção.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.74),
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -21,6 +21,7 @@ class VodRepositoryImpl implements VodRepository {
             id: item.categoryId,
             name: item.categoryName,
             parentId: item.parentId,
+            libraryKind: item.libraryKind,
           ),
         )
         .toList();
@@ -65,6 +66,7 @@ class VodRepositoryImpl implements VodRepository {
             coverUrl: item.streamIcon,
             containerExtension: item.containerExtension,
             rating: item.rating,
+            libraryKind: item.libraryKind,
           ),
         )
         .toList();

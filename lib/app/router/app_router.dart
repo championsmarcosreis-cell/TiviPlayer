@@ -5,6 +5,7 @@ import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/auth/presentation/screens/account_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
+import '../../features/kids/presentation/screens/kids_library_screen.dart';
 import '../../features/live/presentation/screens/live_categories_screen.dart';
 import '../../features/live/presentation/screens/live_streams_screen.dart';
 import '../../features/player/domain/entities/playback_context.dart';
@@ -18,6 +19,7 @@ import '../../features/vod/presentation/screens/vod_categories_screen.dart';
 import '../../features/vod/presentation/screens/vod_details_screen.dart';
 import '../../features/vod/presentation/screens/vod_streams_screen.dart';
 import '../../shared/presentation/screens/home_screen.dart';
+import '../../shared/presentation/support/on_demand_library.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authStatus = ref.watch(
@@ -44,6 +46,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AccountScreen(),
       ),
       GoRoute(
+        path: KidsLibraryScreen.routePath,
+        builder: (context, state) => const KidsLibraryScreen(),
+      ),
+      GoRoute(
         path: SearchScreen.routePath,
         builder: (context, state) => const SearchScreen(),
       ),
@@ -62,8 +68,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: VodStreamsScreen.routePath,
-        builder: (context, state) =>
-            VodStreamsScreen(categoryId: state.pathParameters['categoryId']!),
+        builder: (context, state) => VodStreamsScreen(
+          categoryId: state.pathParameters['categoryId']!,
+          library: OnDemandLibraryKind.parse(
+            state.uri.queryParameters['library'],
+            fallback: OnDemandLibraryKind.movies,
+          ),
+        ),
       ),
       GoRoute(
         path: VodDetailsScreen.routePath,
@@ -76,8 +87,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: SeriesItemsScreen.routePath,
-        builder: (context, state) =>
-            SeriesItemsScreen(categoryId: state.pathParameters['categoryId']!),
+        builder: (context, state) => SeriesItemsScreen(
+          categoryId: state.pathParameters['categoryId']!,
+          library: OnDemandLibraryKind.parse(
+            state.uri.queryParameters['library'],
+            fallback: OnDemandLibraryKind.series,
+          ),
+        ),
       ),
       GoRoute(
         path: SeriesDetailsScreen.routePath,
