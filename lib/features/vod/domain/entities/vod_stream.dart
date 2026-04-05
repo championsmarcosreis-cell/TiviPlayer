@@ -6,6 +6,7 @@ class VodStream {
     this.coverUrl,
     this.containerExtension,
     this.rating,
+    this.genre,
     this.libraryKind,
   });
 
@@ -15,5 +16,6 @@ class VodStream {
   final String? coverUrl;
   final String? containerExtension;
   final String? rating;
+  final String? genre;
   final String? libraryKind;
 }

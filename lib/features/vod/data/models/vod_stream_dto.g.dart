@@ -14,6 +14,7 @@ _VodStreamDto _$VodStreamDtoFromJson(Map<String, dynamic> json) =>
       streamIcon: json['streamIcon'] as String?,
       containerExtension: json['containerExtension'] as String?,
       rating: json['rating'] as String?,
+      genre: json['genre'] as String?,
       libraryKind: json['libraryKind'] as String?,
     );
 
@@ -25,5 +26,6 @@ Map<String, dynamic> _$VodStreamDtoToJson(_VodStreamDto instance) =>
       'streamIcon': instance.streamIcon,
       'containerExtension': instance.containerExtension,
       'rating': instance.rating,
+      'genre': instance.genre,
       'libraryKind': instance.libraryKind,
     };

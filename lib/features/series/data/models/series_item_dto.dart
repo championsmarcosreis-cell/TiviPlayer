@@ -13,6 +13,7 @@ abstract class SeriesItemDto with _$SeriesItemDto {
     String? categoryId,
     String? cover,
     String? plot,
+    String? genre,
     String? libraryKind,
   }) = _SeriesItemDto;
 
@@ -26,6 +27,7 @@ abstract class SeriesItemDto with _$SeriesItemDto {
       categoryId: XtreamParsers.asString(json['category_id']),
       cover: XtreamParsers.asString(json['cover']),
       plot: XtreamParsers.asString(json['plot']),
+      genre: XtreamParsers.asString(json['genre']),
       libraryKind:
           XtreamParsers.asString(json['library_kind']) ??
           XtreamParsers.asString(json['libraryKind']),

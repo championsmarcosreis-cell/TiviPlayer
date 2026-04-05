@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$VodStreamDto {
 
- String get streamId; String get name; String? get categoryId; String? get streamIcon; String? get containerExtension; String? get rating; String? get libraryKind;
+ String get streamId; String get name; String? get categoryId; String? get streamIcon; String? get containerExtension; String? get rating; String? get genre; String? get libraryKind;
 /// Create a copy of VodStreamDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $VodStreamDtoCopyWith<VodStreamDto> get copyWith => _$VodStreamDtoCopyWithImpl<V
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VodStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VodStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,containerExtension,rating,libraryKind);
+int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,containerExtension,rating,genre,libraryKind);
 
 @override
 String toString() {
-  return 'VodStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, containerExtension: $containerExtension, rating: $rating, libraryKind: $libraryKind)';
+  return 'VodStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, containerExtension: $containerExtension, rating: $rating, genre: $genre, libraryKind: $libraryKind)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $VodStreamDtoCopyWith<$Res>  {
   factory $VodStreamDtoCopyWith(VodStreamDto value, $Res Function(VodStreamDto) _then) = _$VodStreamDtoCopyWithImpl;
 @useResult
 $Res call({
- String streamId, String name, String? categoryId, String? streamIcon, String? containerExtension, String? rating, String? libraryKind
+ String streamId, String name, String? categoryId, String? streamIcon, String? containerExtension, String? rating, String? genre, String? libraryKind
 });
 
 
@@ -65,7 +65,7 @@ class _$VodStreamDtoCopyWithImpl<$Res>
 
 /// Create a copy of VodStreamDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? containerExtension = freezed,Object? rating = freezed,Object? libraryKind = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? containerExtension = freezed,Object? rating = freezed,Object? genre = freezed,Object? libraryKind = freezed,}) {
   return _then(_self.copyWith(
 streamId: null == streamId ? _self.streamId : streamId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -73,6 +73,7 @@ as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // i
 as String?,streamIcon: freezed == streamIcon ? _self.streamIcon : streamIcon // ignore: cast_nullable_to_non_nullable
 as String?,containerExtension: freezed == containerExtension ? _self.containerExtension : containerExtension // ignore: cast_nullable_to_non_nullable
 as String?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as String?,genre: freezed == genre ? _self.genre : genre // ignore: cast_nullable_to_non_nullable
 as String?,libraryKind: freezed == libraryKind ? _self.libraryKind : libraryKind // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -159,10 +160,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? rating,  String? libraryKind)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? rating,  String? genre,  String? libraryKind)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VodStreamDto() when $default != null:
-return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.rating,_that.libraryKind);case _:
+return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.rating,_that.genre,_that.libraryKind);case _:
   return orElse();
 
 }
@@ -180,10 +181,10 @@ return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? rating,  String? libraryKind)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? rating,  String? genre,  String? libraryKind)  $default,) {final _that = this;
 switch (_that) {
 case _VodStreamDto():
-return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.rating,_that.libraryKind);case _:
+return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.rating,_that.genre,_that.libraryKind);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +201,10 @@ return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? rating,  String? libraryKind)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String streamId,  String name,  String? categoryId,  String? streamIcon,  String? containerExtension,  String? rating,  String? genre,  String? libraryKind)?  $default,) {final _that = this;
 switch (_that) {
 case _VodStreamDto() when $default != null:
-return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.rating,_that.libraryKind);case _:
+return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_that.containerExtension,_that.rating,_that.genre,_that.libraryKind);case _:
   return null;
 
 }
@@ -215,7 +216,7 @@ return $default(_that.streamId,_that.name,_that.categoryId,_that.streamIcon,_tha
 @JsonSerializable()
 
 class _VodStreamDto implements VodStreamDto {
-  const _VodStreamDto({required this.streamId, required this.name, this.categoryId, this.streamIcon, this.containerExtension, this.rating, this.libraryKind});
+  const _VodStreamDto({required this.streamId, required this.name, this.categoryId, this.streamIcon, this.containerExtension, this.rating, this.genre, this.libraryKind});
   factory _VodStreamDto.fromJson(Map<String, dynamic> json) => _$VodStreamDtoFromJson(json);
 
 @override final  String streamId;
@@ -224,6 +225,7 @@ class _VodStreamDto implements VodStreamDto {
 @override final  String? streamIcon;
 @override final  String? containerExtension;
 @override final  String? rating;
+@override final  String? genre;
 @override final  String? libraryKind;
 
 /// Create a copy of VodStreamDto
@@ -239,16 +241,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VodStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VodStreamDto&&(identical(other.streamId, streamId) || other.streamId == streamId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.streamIcon, streamIcon) || other.streamIcon == streamIcon)&&(identical(other.containerExtension, containerExtension) || other.containerExtension == containerExtension)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,containerExtension,rating,libraryKind);
+int get hashCode => Object.hash(runtimeType,streamId,name,categoryId,streamIcon,containerExtension,rating,genre,libraryKind);
 
 @override
 String toString() {
-  return 'VodStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, containerExtension: $containerExtension, rating: $rating, libraryKind: $libraryKind)';
+  return 'VodStreamDto(streamId: $streamId, name: $name, categoryId: $categoryId, streamIcon: $streamIcon, containerExtension: $containerExtension, rating: $rating, genre: $genre, libraryKind: $libraryKind)';
 }
 
 
@@ -259,7 +261,7 @@ abstract mixin class _$VodStreamDtoCopyWith<$Res> implements $VodStreamDtoCopyWi
   factory _$VodStreamDtoCopyWith(_VodStreamDto value, $Res Function(_VodStreamDto) _then) = __$VodStreamDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String streamId, String name, String? categoryId, String? streamIcon, String? containerExtension, String? rating, String? libraryKind
+ String streamId, String name, String? categoryId, String? streamIcon, String? containerExtension, String? rating, String? genre, String? libraryKind
 });
 
 
@@ -276,7 +278,7 @@ class __$VodStreamDtoCopyWithImpl<$Res>
 
 /// Create a copy of VodStreamDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? containerExtension = freezed,Object? rating = freezed,Object? libraryKind = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? streamId = null,Object? name = null,Object? categoryId = freezed,Object? streamIcon = freezed,Object? containerExtension = freezed,Object? rating = freezed,Object? genre = freezed,Object? libraryKind = freezed,}) {
   return _then(_VodStreamDto(
 streamId: null == streamId ? _self.streamId : streamId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -284,6 +286,7 @@ as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // i
 as String?,streamIcon: freezed == streamIcon ? _self.streamIcon : streamIcon // ignore: cast_nullable_to_non_nullable
 as String?,containerExtension: freezed == containerExtension ? _self.containerExtension : containerExtension // ignore: cast_nullable_to_non_nullable
 as String?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as String?,genre: freezed == genre ? _self.genre : genre // ignore: cast_nullable_to_non_nullable
 as String?,libraryKind: freezed == libraryKind ? _self.libraryKind : libraryKind // ignore: cast_nullable_to_non_nullable
 as String?,
   ));

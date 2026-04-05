@@ -66,6 +66,7 @@ class VodRepositoryImpl implements VodRepository {
             coverUrl: item.streamIcon,
             containerExtension: item.containerExtension,
             rating: item.rating,
+            genre: item.genre,
             libraryKind: item.libraryKind,
           ),
         )

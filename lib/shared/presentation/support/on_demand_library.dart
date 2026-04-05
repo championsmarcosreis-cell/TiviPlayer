@@ -286,6 +286,46 @@ String buildLibraryLocation(
 
 String normalizeLibraryText(String value) => _normalize(value);
 
+List<String> splitLibraryGenres(String? value) {
+  final source = value?.trim();
+  if (source == null || source.isEmpty) {
+    return const <String>[];
+  }
+
+  final seen = <String>{};
+  final genres = <String>[];
+  for (final rawPart in source.split(RegExp(r'[,/;|]'))) {
+    final genre = rawPart.trim();
+    if (genre.isEmpty) {
+      continue;
+    }
+
+    final key = _normalize(genre);
+    if (key.isEmpty || !seen.add(key)) {
+      continue;
+    }
+
+    genres.add(genre);
+  }
+
+  return genres;
+}
+
+bool matchesLibraryGenre(String? rawGenres, String selectedGenre) {
+  final selectedKey = _normalize(selectedGenre);
+  if (selectedKey.isEmpty) {
+    return true;
+  }
+
+  for (final genre in splitLibraryGenres(rawGenres)) {
+    if (_normalize(genre) == selectedKey) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 String _normalize(String value) {
   return value
       .toLowerCase()

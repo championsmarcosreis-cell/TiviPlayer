@@ -14,6 +14,7 @@ abstract class VodStreamDto with _$VodStreamDto {
     String? streamIcon,
     String? containerExtension,
     String? rating,
+    String? genre,
     String? libraryKind,
   }) = _VodStreamDto;
 
@@ -28,6 +29,7 @@ abstract class VodStreamDto with _$VodStreamDto {
       streamIcon: XtreamParsers.asString(json['stream_icon']),
       containerExtension: XtreamParsers.asString(json['container_extension']),
       rating: XtreamParsers.asString(json['rating']),
+      genre: XtreamParsers.asString(json['genre']),
       libraryKind:
           XtreamParsers.asString(json['library_kind']) ??
           XtreamParsers.asString(json['libraryKind']),

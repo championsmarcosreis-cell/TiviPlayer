@@ -5,6 +5,7 @@ class SeriesItem {
     this.categoryId,
     this.coverUrl,
     this.plot,
+    this.genre,
     this.libraryKind,
   });
 
@@ -13,5 +14,6 @@ class SeriesItem {
   final String? categoryId;
   final String? coverUrl;
   final String? plot;
+  final String? genre;
   final String? libraryKind;
 }

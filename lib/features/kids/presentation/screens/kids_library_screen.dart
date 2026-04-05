@@ -110,7 +110,7 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
             return CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  child: _KidsMobileCatalogHeader(
+                  child: _KidsMobileCatalogLead(
                     spec: spec,
                     totalItems: mobileCatalogItems.length,
                     movieCount: filteredVodItems.length,
@@ -137,7 +137,7 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
                 else
                   SliverPadding(
                     padding: EdgeInsets.only(
-                      top: 12,
+                      top: 8,
                       bottom: layout.pageBottomPadding,
                     ),
                     sliver: SliverGrid(
@@ -154,12 +154,20 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
                         );
                       }, childCount: visibleMobileItems.length),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: layout.deviceClass == DeviceClass.tablet
-                            ? 3
-                            : 2,
+                        crossAxisCount: switch (layout.deviceClass) {
+                          DeviceClass.mobilePortrait => 3,
+                          DeviceClass.mobileLandscape => 4,
+                          DeviceClass.tablet => 4,
+                          DeviceClass.tvCompact || DeviceClass.tvLarge => 3,
+                        },
                         mainAxisSpacing: layout.cardSpacing,
                         crossAxisSpacing: layout.cardSpacing,
-                        childAspectRatio: 0.56,
+                        childAspectRatio: switch (layout.deviceClass) {
+                          DeviceClass.mobilePortrait => 0.69,
+                          DeviceClass.mobileLandscape => 0.72,
+                          DeviceClass.tablet => 0.74,
+                          DeviceClass.tvCompact || DeviceClass.tvLarge => 0.56,
+                        },
                       ),
                     ),
                   ),
@@ -369,8 +377,8 @@ List<_KidsCatalogItem> _filterKidsCatalogItems({
   };
 }
 
-class _KidsMobileCatalogHeader extends StatelessWidget {
-  const _KidsMobileCatalogHeader({
+class _KidsMobileCatalogLead extends StatelessWidget {
+  const _KidsMobileCatalogLead({
     required this.spec,
     required this.totalItems,
     required this.movieCount,
@@ -390,28 +398,13 @@ class _KidsMobileCatalogHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: colorScheme.primary.withValues(alpha: 0.14),
-                ),
-                child: Icon(spec.icon, color: colorScheme.primary, size: 20),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,17 +419,18 @@ class _KidsMobileCatalogHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$totalItems títulos infantis',
+                      '$totalItems títulos • $movieCount filmes • $seriesCount séries',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.74),
+                        color: colorScheme.onSurface.withValues(alpha: 0.72),
                       ),
                     ),
                   ],
                 ),
               ),
-              if (spec.badge != null)
+              if (spec.badge != null) ...[
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 9,
@@ -457,98 +451,75 @@ class _KidsMobileCatalogHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _KidsFilterChipButton(
-                  label: 'Tudo',
-                  meta: '$totalItems',
-                  selected: selectedFilter == _KidsLibraryFilter.all,
-                  onPressed: () => onFilterSelected(_KidsLibraryFilter.all),
+            width: double.infinity,
+            child: SegmentedButton<_KidsLibraryFilter>(
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 ),
-                const SizedBox(width: 8),
-                _KidsFilterChipButton(
-                  label: 'Filmes',
-                  meta: '$movieCount',
-                  selected: selectedFilter == _KidsLibraryFilter.movies,
-                  onPressed: () => onFilterSelected(_KidsLibraryFilter.movies),
+                backgroundColor: WidgetStateProperty.resolveWith<Color?>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return colorScheme.primary.withValues(alpha: 0.14);
+                  }
+                  return colorScheme.surface.withValues(alpha: 0.22);
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return colorScheme.onSurface;
+                  }
+                  return colorScheme.onSurface.withValues(alpha: 0.76);
+                }),
+                side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return BorderSide(
+                      color: colorScheme.primary.withValues(alpha: 0.4),
+                    );
+                  }
+                  return BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.2),
+                  );
+                }),
+                textStyle: WidgetStatePropertyAll(
+                  Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _KidsFilterChipButton(
-                  label: 'Séries',
-                  meta: '$seriesCount',
-                  selected: selectedFilter == _KidsLibraryFilter.series,
-                  onPressed: () => onFilterSelected(_KidsLibraryFilter.series),
+              ),
+              segments: const [
+                ButtonSegment<_KidsLibraryFilter>(
+                  value: _KidsLibraryFilter.all,
+                  label: Text('Tudo'),
+                ),
+                ButtonSegment<_KidsLibraryFilter>(
+                  value: _KidsLibraryFilter.movies,
+                  label: Text('Filmes'),
+                ),
+                ButtonSegment<_KidsLibraryFilter>(
+                  value: _KidsLibraryFilter.series,
+                  label: Text('Séries'),
                 ),
               ],
+              selected: <_KidsLibraryFilter>{selectedFilter},
+              onSelectionChanged: (selection) {
+                final filter = selection.firstOrNull;
+                if (filter != null) {
+                  onFilterSelected(filter);
+                }
+              },
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _KidsFilterChipButton extends StatelessWidget {
-  const _KidsFilterChipButton({
-    required this.label,
-    required this.meta,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final String label;
-  final String meta;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onPressed,
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            color: selected
-                ? colorScheme.primary.withValues(alpha: 0.16)
-                : colorScheme.surface.withValues(alpha: 0.56),
-            border: Border.all(
-              color: selected
-                  ? colorScheme.primary.withValues(alpha: 0.9)
-                  : colorScheme.outline.withValues(alpha: 0.24),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                meta,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -778,6 +749,117 @@ class _KidsPosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    if (!layout.isTv) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onPressed,
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.06),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  BrandedArtwork(
+                    imageUrl: imageUrl,
+                    aspectRatio: 2 / 3,
+                    borderRadius: 16,
+                    icon: icon,
+                    placeholderLabel: 'Poster indisponível',
+                    chrome: BrandedArtworkChrome.subtle,
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.1),
+                          Colors.black.withValues(alpha: 0.78),
+                        ],
+                        stops: const [0.45, 0.68, 1],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: Colors.black.withValues(alpha: 0.62),
+                      ),
+                      child: Text(
+                        badge,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 10,
+                    right: 10,
+                    bottom: 10,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                height: 1.08,
+                              ),
+                        ),
+                        if (subtitle.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.82),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Material(
       color: Colors.transparent,

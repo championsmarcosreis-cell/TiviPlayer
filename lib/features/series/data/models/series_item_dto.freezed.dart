@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SeriesItemDto {
 
- String get seriesId; String get name; String? get categoryId; String? get cover; String? get plot; String? get libraryKind;
+ String get seriesId; String get name; String? get categoryId; String? get cover; String? get plot; String? get genre; String? get libraryKind;
 /// Create a copy of SeriesItemDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $SeriesItemDtoCopyWith<SeriesItemDto> get copyWith => _$SeriesItemDtoCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SeriesItemDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SeriesItemDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,seriesId,name,categoryId,cover,plot,libraryKind);
+int get hashCode => Object.hash(runtimeType,seriesId,name,categoryId,cover,plot,genre,libraryKind);
 
 @override
 String toString() {
-  return 'SeriesItemDto(seriesId: $seriesId, name: $name, categoryId: $categoryId, cover: $cover, plot: $plot, libraryKind: $libraryKind)';
+  return 'SeriesItemDto(seriesId: $seriesId, name: $name, categoryId: $categoryId, cover: $cover, plot: $plot, genre: $genre, libraryKind: $libraryKind)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $SeriesItemDtoCopyWith<$Res>  {
   factory $SeriesItemDtoCopyWith(SeriesItemDto value, $Res Function(SeriesItemDto) _then) = _$SeriesItemDtoCopyWithImpl;
 @useResult
 $Res call({
- String seriesId, String name, String? categoryId, String? cover, String? plot, String? libraryKind
+ String seriesId, String name, String? categoryId, String? cover, String? plot, String? genre, String? libraryKind
 });
 
 
@@ -65,13 +65,14 @@ class _$SeriesItemDtoCopyWithImpl<$Res>
 
 /// Create a copy of SeriesItemDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? seriesId = null,Object? name = null,Object? categoryId = freezed,Object? cover = freezed,Object? plot = freezed,Object? libraryKind = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? seriesId = null,Object? name = null,Object? categoryId = freezed,Object? cover = freezed,Object? plot = freezed,Object? genre = freezed,Object? libraryKind = freezed,}) {
   return _then(_self.copyWith(
 seriesId: null == seriesId ? _self.seriesId : seriesId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String?,cover: freezed == cover ? _self.cover : cover // ignore: cast_nullable_to_non_nullable
 as String?,plot: freezed == plot ? _self.plot : plot // ignore: cast_nullable_to_non_nullable
+as String?,genre: freezed == genre ? _self.genre : genre // ignore: cast_nullable_to_non_nullable
 as String?,libraryKind: freezed == libraryKind ? _self.libraryKind : libraryKind // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -158,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? categoryId,  String? cover,  String? plot,  String? libraryKind)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? categoryId,  String? cover,  String? plot,  String? genre,  String? libraryKind)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SeriesItemDto() when $default != null:
-return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plot,_that.libraryKind);case _:
+return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plot,_that.genre,_that.libraryKind);case _:
   return orElse();
 
 }
@@ -179,10 +180,10 @@ return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plo
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? categoryId,  String? cover,  String? plot,  String? libraryKind)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String seriesId,  String name,  String? categoryId,  String? cover,  String? plot,  String? genre,  String? libraryKind)  $default,) {final _that = this;
 switch (_that) {
 case _SeriesItemDto():
-return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plot,_that.libraryKind);case _:
+return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plot,_that.genre,_that.libraryKind);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +200,10 @@ return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plo
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String seriesId,  String name,  String? categoryId,  String? cover,  String? plot,  String? libraryKind)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String seriesId,  String name,  String? categoryId,  String? cover,  String? plot,  String? genre,  String? libraryKind)?  $default,) {final _that = this;
 switch (_that) {
 case _SeriesItemDto() when $default != null:
-return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plot,_that.libraryKind);case _:
+return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plot,_that.genre,_that.libraryKind);case _:
   return null;
 
 }
@@ -214,7 +215,7 @@ return $default(_that.seriesId,_that.name,_that.categoryId,_that.cover,_that.plo
 @JsonSerializable()
 
 class _SeriesItemDto implements SeriesItemDto {
-  const _SeriesItemDto({required this.seriesId, required this.name, this.categoryId, this.cover, this.plot, this.libraryKind});
+  const _SeriesItemDto({required this.seriesId, required this.name, this.categoryId, this.cover, this.plot, this.genre, this.libraryKind});
   factory _SeriesItemDto.fromJson(Map<String, dynamic> json) => _$SeriesItemDtoFromJson(json);
 
 @override final  String seriesId;
@@ -222,6 +223,7 @@ class _SeriesItemDto implements SeriesItemDto {
 @override final  String? categoryId;
 @override final  String? cover;
 @override final  String? plot;
+@override final  String? genre;
 @override final  String? libraryKind;
 
 /// Create a copy of SeriesItemDto
@@ -237,16 +239,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SeriesItemDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SeriesItemDto&&(identical(other.seriesId, seriesId) || other.seriesId == seriesId)&&(identical(other.name, name) || other.name == name)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.cover, cover) || other.cover == cover)&&(identical(other.plot, plot) || other.plot == plot)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.libraryKind, libraryKind) || other.libraryKind == libraryKind));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,seriesId,name,categoryId,cover,plot,libraryKind);
+int get hashCode => Object.hash(runtimeType,seriesId,name,categoryId,cover,plot,genre,libraryKind);
 
 @override
 String toString() {
-  return 'SeriesItemDto(seriesId: $seriesId, name: $name, categoryId: $categoryId, cover: $cover, plot: $plot, libraryKind: $libraryKind)';
+  return 'SeriesItemDto(seriesId: $seriesId, name: $name, categoryId: $categoryId, cover: $cover, plot: $plot, genre: $genre, libraryKind: $libraryKind)';
 }
 
 
@@ -257,7 +259,7 @@ abstract mixin class _$SeriesItemDtoCopyWith<$Res> implements $SeriesItemDtoCopy
   factory _$SeriesItemDtoCopyWith(_SeriesItemDto value, $Res Function(_SeriesItemDto) _then) = __$SeriesItemDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String seriesId, String name, String? categoryId, String? cover, String? plot, String? libraryKind
+ String seriesId, String name, String? categoryId, String? cover, String? plot, String? genre, String? libraryKind
 });
 
 
@@ -274,13 +276,14 @@ class __$SeriesItemDtoCopyWithImpl<$Res>
 
 /// Create a copy of SeriesItemDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? seriesId = null,Object? name = null,Object? categoryId = freezed,Object? cover = freezed,Object? plot = freezed,Object? libraryKind = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? seriesId = null,Object? name = null,Object? categoryId = freezed,Object? cover = freezed,Object? plot = freezed,Object? genre = freezed,Object? libraryKind = freezed,}) {
   return _then(_SeriesItemDto(
 seriesId: null == seriesId ? _self.seriesId : seriesId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String?,cover: freezed == cover ? _self.cover : cover // ignore: cast_nullable_to_non_nullable
 as String?,plot: freezed == plot ? _self.plot : plot // ignore: cast_nullable_to_non_nullable
+as String?,genre: freezed == genre ? _self.genre : genre // ignore: cast_nullable_to_non_nullable
 as String?,libraryKind: freezed == libraryKind ? _self.libraryKind : libraryKind // ignore: cast_nullable_to_non_nullable
 as String?,
   ));

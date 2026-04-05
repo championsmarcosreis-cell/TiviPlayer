@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/tv/tv_focusable.dart';
 import '../../../../features/favorites/domain/entities/favorite_item.dart';
 import '../../../../features/favorites/presentation/controllers/favorites_controller.dart';
 import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/controllers/playback_history_controller.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
+import '../../../../shared/presentation/support/on_demand_library.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
 import '../../../../shared/widgets/content_list_tile.dart';
 import '../../../../shared/widgets/mobile_primary_dock.dart';
+import '../../../../shared/widgets/on_demand_related_poster_card.dart';
 import '../../domain/entities/series_episode.dart';
 import '../../domain/entities/series_info.dart';
 import '../../domain/entities/series_item.dart';
@@ -634,7 +635,7 @@ class _RelatedSeriesSection extends StatelessWidget {
             ),
             SizedBox(height: layout.cardSpacing),
             SizedBox(
-              height: layout.isTv ? 350 : 286,
+              height: layout.isTv ? 344 : 276,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: related.length,
@@ -643,7 +644,7 @@ class _RelatedSeriesSection extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final series = related[index];
                   return SizedBox(
-                    width: layout.isTv ? 210 : 160,
+                    width: layout.isTv ? 206 : 156,
                     child: _RelatedSeriesCard(
                       item: series,
                       layout: layout,
@@ -675,86 +676,31 @@ class _RelatedSeriesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final primaryGenre = splitLibraryGenres(item.genre).firstOrNull;
+    final libraryKind = OnDemandLibraryKind.tryParse(item.libraryKind);
+    final badge = switch (libraryKind) {
+      OnDemandLibraryKind.anime => 'ANIME',
+      OnDemandLibraryKind.kids => 'KIDS',
+      _ => 'SÉRIE',
+    };
+    final subtitle =
+        primaryGenre ??
+        (item.plot?.trim().isNotEmpty == true
+            ? item.plot!
+            : libraryKind == OnDemandLibraryKind.anime
+            ? 'Anime para maratonar'
+            : 'Série para maratonar');
 
-    return TvFocusable(
+    return OnDemandRelatedPosterCard(
+      layout: layout,
       autofocus: autofocus,
+      title: item.name,
+      imageUrl: item.coverUrl,
+      icon: Icons.tv_outlined,
+      placeholderLabel: 'Capa indisponível',
+      badge: badge,
+      subtitle: subtitle,
       onPressed: () => context.push(SeriesDetailsScreen.buildLocation(item.id)),
-      builder: (context, focused) {
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: focused
-                  ? [
-                      colorScheme.primary.withValues(alpha: 0.24),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.92,
-                      ),
-                    ]
-                  : [
-                      colorScheme.surface.withValues(alpha: 0.9),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.74,
-                      ),
-                    ],
-            ),
-            border: Border.all(
-              color: focused
-                  ? colorScheme.primary
-                  : colorScheme.outline.withValues(alpha: 0.45),
-              width: focused ? 2 : 1,
-            ),
-            boxShadow: focused
-                ? [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.2),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : const [],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BrandedArtwork(
-                imageUrl: item.coverUrl,
-                aspectRatio: 2 / 3,
-                borderRadius: 16,
-                placeholderLabel: 'Capa indisponível',
-                icon: Icons.tv_outlined,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                item.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: layout.isTv ? 16 : 15,
-                  fontWeight: FontWeight.w700,
-                  height: 1.12,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                item.plot?.trim().isNotEmpty == true
-                    ? item.plot!
-                    : 'Série disponível para assistir',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.76),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

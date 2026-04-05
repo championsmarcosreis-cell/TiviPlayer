@@ -77,6 +77,7 @@ class SeriesRepositoryImpl implements SeriesRepository {
             categoryId: item.categoryId,
             coverUrl: item.cover,
             plot: item.plot,
+            genre: item.genre,
             libraryKind: item.libraryKind,
           ),
         )

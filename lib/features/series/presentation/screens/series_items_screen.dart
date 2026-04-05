@@ -14,7 +14,7 @@ import '../../domain/entities/series_item.dart';
 import '../providers/series_providers.dart';
 import 'series_details_screen.dart';
 
-class SeriesItemsScreen extends ConsumerWidget {
+class SeriesItemsScreen extends ConsumerStatefulWidget {
   const SeriesItemsScreen({
     super.key,
     required this.categoryId,
@@ -38,10 +38,28 @@ class SeriesItemsScreen extends ConsumerWidget {
   final OnDemandLibraryKind library;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SeriesItemsScreen> createState() => _SeriesItemsScreenState();
+}
+
+class _SeriesItemsScreenState extends ConsumerState<SeriesItemsScreen> {
+  String? _selectedGenre;
+
+  @override
+  void didUpdateWidget(covariant SeriesItemsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.categoryId != widget.categoryId ||
+        oldWidget.library != widget.library) {
+      _selectedGenre = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final screenLayout = DeviceLayout.of(context);
-    final spec = OnDemandLibrarySpec.resolve(library);
-    final effectiveCategoryId = categoryId == 'all' ? null : categoryId;
+    final spec = OnDemandLibrarySpec.resolve(widget.library);
+    final effectiveCategoryId = screenLayout.isTv
+        ? (widget.categoryId == 'all' ? null : widget.categoryId)
+        : null;
     final itemsAsync = ref.watch(seriesItemsProvider(effectiveCategoryId));
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
 
@@ -62,14 +80,14 @@ class SeriesItemsScreen extends ConsumerWidget {
               categoriesAsync.asData?.value ?? const <SeriesCategory>[];
           final filteredCategories = _filterSeriesCategories(
             categories,
-            library,
+            widget.library,
           );
           final filteredCategoryIds = filteredCategories
               .map((category) => category.id)
               .toSet();
           final visibleItems = _filterSeriesItems(
             items: items,
-            library: library,
+            library: widget.library,
             categoryIds: filteredCategoryIds,
           );
 
@@ -77,7 +95,17 @@ class SeriesItemsScreen extends ConsumerWidget {
             return _SeriesLibraryEmptyState(spec: spec);
           }
 
-          final featured = _resolveFeatured(visibleItems);
+          final catalogGenres = _collectSeriesGenres(visibleItems);
+          final genreFilteredItems = _filterSeriesItemsByGenre(
+            items: visibleItems,
+            selectedGenre: _selectedGenre,
+          );
+
+          if (genreFilteredItems.isEmpty) {
+            return _SeriesLibraryEmptyState(spec: spec);
+          }
+
+          final featured = _resolveFeatured(genreFilteredItems);
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -103,13 +131,13 @@ class SeriesItemsScreen extends ConsumerWidget {
                       _SeriesHeroShelf(
                         layout: layout,
                         item: featured,
-                        totalItems: visibleItems.length,
+                        totalItems: genreFilteredItems.length,
                         spec: spec,
                       ),
                       SizedBox(height: layout.cardSpacing),
                       _SeriesCatalogHeader(
                         layout: layout,
-                        totalItems: visibleItems.length,
+                        totalItems: genreFilteredItems.length,
                         spec: spec,
                       ),
                       SizedBox(height: layout.cardSpacing),
@@ -119,19 +147,19 @@ class SeriesItemsScreen extends ConsumerWidget {
                         children: [
                           for (
                             var index = 0;
-                            index < visibleItems.length;
+                            index < genreFilteredItems.length;
                             index++
                           )
                             SizedBox(
                               width: itemWidth,
                               child: _SeriesPosterCard(
                                 layout: layout,
-                                item: visibleItems[index],
+                                item: genreFilteredItems[index],
                                 badge: spec.badge,
                                 autofocus: index == 0,
                                 onPressed: () => context.push(
                                   SeriesDetailsScreen.buildLocation(
-                                    visibleItems[index].id,
+                                    genreFilteredItems[index].id,
                                   ),
                                 ),
                               ),
@@ -146,28 +174,31 @@ class SeriesItemsScreen extends ConsumerWidget {
               return CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
-                    child: _SeriesMobileLibraryHeader(
+                    child: _SeriesMobileCatalogLead(
                       spec: spec,
-                      totalItems: visibleItems.length,
-                      currentCategoryLabel: _resolveSeriesCategoryLabel(
-                        categories: filteredCategories,
-                        categoryId: categoryId,
-                      ),
-                      categoryStrip: _SeriesCategoryStrip(
-                        spec: spec,
-                        currentCategoryId: categoryId,
-                        categories: filteredCategories,
+                      showCategoriesAction: catalogGenres.isNotEmpty,
+                      currentCategoryLabel: _selectedGenre,
+                      onOpenCategories: () => _showSeriesCategorySheet(
+                        context,
+                        selectedGenre: _selectedGenre,
+                        genres: catalogGenres,
+                        onSelected: (genre) {
+                          if (_selectedGenre == genre) {
+                            return;
+                          }
+                          setState(() => _selectedGenre = genre);
+                        },
                       ),
                     ),
                   ),
                   SliverPadding(
                     padding: EdgeInsets.only(
-                      top: 12,
+                      top: 8,
                       bottom: layout.pageBottomPadding,
                     ),
                     sliver: SliverGrid(
                       delegate: SliverChildBuilderDelegate((context, index) {
-                        final item = visibleItems[index];
+                        final item = genreFilteredItems[index];
                         return _SeriesPosterCard(
                           layout: layout,
                           item: item,
@@ -177,14 +208,22 @@ class SeriesItemsScreen extends ConsumerWidget {
                             SeriesDetailsScreen.buildLocation(item.id),
                           ),
                         );
-                      }, childCount: visibleItems.length),
+                      }, childCount: genreFilteredItems.length),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: layout.deviceClass == DeviceClass.tablet
-                            ? 3
-                            : 2,
+                        crossAxisCount: switch (layout.deviceClass) {
+                          DeviceClass.mobilePortrait => 3,
+                          DeviceClass.mobileLandscape => 4,
+                          DeviceClass.tablet => 4,
+                          DeviceClass.tvCompact || DeviceClass.tvLarge => 3,
+                        },
                         mainAxisSpacing: layout.cardSpacing,
                         crossAxisSpacing: layout.cardSpacing,
-                        childAspectRatio: 0.56,
+                        childAspectRatio: switch (layout.deviceClass) {
+                          DeviceClass.mobilePortrait => 0.69,
+                          DeviceClass.mobileLandscape => 0.72,
+                          DeviceClass.tablet => 0.74,
+                          DeviceClass.tvCompact || DeviceClass.tvLarge => 0.56,
+                        },
                       ),
                     ),
                   ),
@@ -205,21 +244,33 @@ SeriesItem _resolveFeatured(List<SeriesItem> items) {
   );
 }
 
-String? _resolveSeriesCategoryLabel({
-  required List<SeriesCategory> categories,
-  required String categoryId,
-}) {
-  if (categoryId == 'all') {
-    return null;
-  }
+List<String> _collectSeriesGenres(List<SeriesItem> items) {
+  final counts = <String, int>{};
+  final labels = <String, String>{};
 
-  for (final category in categories) {
-    if (category.id == categoryId) {
-      return category.name;
+  for (final item in items) {
+    for (final genre in splitLibraryGenres(item.genre)) {
+      final key = normalizeLibraryText(genre);
+      if (key.isEmpty) {
+        continue;
+      }
+      labels.putIfAbsent(key, () => genre);
+      counts.update(key, (value) => value + 1, ifAbsent: () => 1);
     }
   }
 
-  return null;
+  final sortedEntries = counts.entries.toList()
+    ..sort((left, right) {
+      final countCompare = right.value.compareTo(left.value);
+      if (countCompare != 0) {
+        return countCompare;
+      }
+      return labels[left.key]!.compareTo(labels[right.key]!);
+    });
+
+  return sortedEntries
+      .map((entry) => labels[entry.key]!)
+      .toList(growable: false);
 }
 
 List<SeriesCategory> _filterSeriesCategories(
@@ -261,6 +312,19 @@ List<SeriesItem> _filterSeriesItems({
               secondary: item.plot ?? '',
             );
       })
+      .toList(growable: false);
+}
+
+List<SeriesItem> _filterSeriesItemsByGenre({
+  required List<SeriesItem> items,
+  required String? selectedGenre,
+}) {
+  if (selectedGenre == null || selectedGenre.trim().isEmpty) {
+    return items;
+  }
+
+  return items
+      .where((item) => matchesLibraryGenre(item.genre, selectedGenre))
       .toList(growable: false);
 }
 
@@ -478,195 +542,75 @@ class _SeriesCatalogHeader extends StatelessWidget {
   }
 }
 
-class _SeriesMobileLibraryHeader extends StatelessWidget {
-  const _SeriesMobileLibraryHeader({
+class _SeriesMobileCatalogLead extends StatelessWidget {
+  const _SeriesMobileCatalogLead({
     required this.spec,
-    required this.totalItems,
-    required this.categoryStrip,
+    required this.showCategoriesAction,
+    required this.onOpenCategories,
     this.currentCategoryLabel,
   });
 
   final OnDemandLibrarySpec spec;
-  final int totalItems;
-  final Widget categoryStrip;
+  final bool showCategoriesAction;
   final String? currentCategoryLabel;
+  final VoidCallback onOpenCategories;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
-      ),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: colorScheme.primary.withValues(alpha: 0.14),
-                ),
-                child: Icon(spec.icon, color: colorScheme.primary, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      spec.catalogLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      currentCategoryLabel == null
-                          ? spec.countLabel(totalItems)
-                          : '${spec.countLabel(totalItems)} • $currentCategoryLabel',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.74),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (spec.badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: colorScheme.primary.withValues(alpha: 0.14),
-                    border: Border.all(
-                      color: colorScheme.primary.withValues(alpha: 0.22),
-                    ),
-                  ),
-                  child: Text(
-                    spec.badge!,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.7,
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  spec.catalogLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-            ],
+                if (currentCategoryLabel != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    currentCategoryLabel!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.72),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          categoryStrip,
+          if (showCategoriesAction) ...[
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              onPressed: onOpenCategories,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 38),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                backgroundColor: colorScheme.surface.withValues(alpha: 0.32),
+                side: BorderSide(
+                  color: colorScheme.outline.withValues(alpha: 0.24),
+                ),
+              ),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+              label: const Text('Categorias'),
+            ),
+          ],
         ],
       ),
-    );
-  }
-}
-
-class _SeriesCategoryStrip extends StatelessWidget {
-  const _SeriesCategoryStrip({
-    required this.spec,
-    required this.currentCategoryId,
-    required this.categories,
-  });
-
-  final OnDemandLibrarySpec spec;
-  final String currentCategoryId;
-  final List<SeriesCategory> categories;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <({String id, String label})>[
-      (
-        id: 'all',
-        label: spec.isFilteredVariant ? 'Tudo em ${spec.title}' : 'Todas',
-      ),
-      ...categories.map((category) => (id: category.id, label: category.name)),
-    ];
-
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final entry = items[index];
-          return _CategoryChipButton(
-            label: entry.label,
-            selected: currentCategoryId == entry.id,
-            onPressed: () {
-              if (currentCategoryId == entry.id) {
-                return;
-              }
-
-              context.pushReplacement(
-                SeriesItemsScreen.buildLocation(entry.id, library: spec.kind),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _CategoryChipButton extends StatelessWidget {
-  const _CategoryChipButton({
-    required this.label,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return TvFocusable(
-      onPressed: onPressed,
-      builder: (context, focused) {
-        final active = selected || focused;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            color: active
-                ? colorScheme.primary.withValues(alpha: 0.16)
-                : colorScheme.surface.withValues(alpha: 0.56),
-            border: Border.all(
-              color: active
-                  ? colorScheme.primary.withValues(alpha: 0.9)
-                  : colorScheme.outline.withValues(alpha: 0.24),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -689,11 +633,105 @@ class _SeriesPosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final primaryGenre = splitLibraryGenres(item.genre).firstOrNull;
 
     return TvFocusable(
       autofocus: autofocus,
       onPressed: onPressed,
       builder: (context, focused) {
+        if (!layout.isTv) {
+          return AnimatedScale(
+            scale: focused ? 1.02 : 1,
+            duration: const Duration(milliseconds: 140),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: focused
+                      ? colorScheme.primary.withValues(alpha: 0.34)
+                      : colorScheme.outline.withValues(alpha: 0.06),
+                  width: focused ? 1.4 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    BrandedArtwork(
+                      imageUrl: item.coverUrl,
+                      aspectRatio: 2 / 3,
+                      borderRadius: 16,
+                      placeholderLabel: 'Capa indisponível',
+                      icon: Icons.tv_rounded,
+                      chrome: BrandedArtworkChrome.subtle,
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.1),
+                            Colors.black.withValues(alpha: 0.78),
+                          ],
+                          stops: const [0.45, 0.68, 1],
+                        ),
+                      ),
+                    ),
+                    _PosterBadge(label: badge ?? 'SÉRIE'),
+                    Positioned(
+                      left: 10,
+                      right: 10,
+                      bottom: 10,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            item.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  height: 1.08,
+                                ),
+                          ),
+                          if (primaryGenre != null ||
+                              item.plot?.trim().isNotEmpty == true) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              primaryGenre ?? item.plot!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.82),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           padding: EdgeInsets.all(layout.isTv ? 8 : 6),
@@ -750,9 +788,10 @@ class _SeriesPosterCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                item.plot?.trim().isNotEmpty == true
-                    ? item.plot!
-                    : 'Série para maratonar',
+                primaryGenre ??
+                    (item.plot?.trim().isNotEmpty == true
+                        ? item.plot!
+                        : 'Série para maratonar'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -766,6 +805,94 @@ class _SeriesPosterCard extends StatelessWidget {
       },
     );
   }
+}
+
+Future<void> _showSeriesCategorySheet(
+  BuildContext context, {
+  required String? selectedGenre,
+  required List<String> genres,
+  required ValueChanged<String?> onSelected,
+}) {
+  final entries = <({String? value, String label})>[
+    (value: null, label: 'Todos'),
+    ...genres.map((genre) => (value: genre, label: genre)),
+  ];
+
+  final colorScheme = Theme.of(context).colorScheme;
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    backgroundColor: colorScheme.surface,
+    builder: (sheetContext) {
+      return SafeArea(
+        child: FractionallySizedBox(
+          heightFactor: 0.82,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+            itemCount: entries.length + 1,
+            separatorBuilder: (context, index) => const SizedBox(height: 4),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Categorias',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                );
+              }
+
+              final entry = entries[index - 1];
+              final selected = selectedGenre == entry.value;
+              return TvFocusable(
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  onSelected(entry.value);
+                },
+                builder: (context, focused) {
+                  final active = selected || focused;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      color: active
+                          ? colorScheme.primary.withValues(alpha: 0.14)
+                          : colorScheme.surfaceContainerHighest.withValues(
+                              alpha: 0.32,
+                            ),
+                      border: Border.all(
+                        color: active
+                            ? colorScheme.primary.withValues(alpha: 0.42)
+                            : colorScheme.outline.withValues(alpha: 0.14),
+                      ),
+                    ),
+                    child: ListTile(
+                      title: Text(
+                        entry.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      trailing: selected
+                          ? Icon(
+                              Icons.check_rounded,
+                              color: colorScheme.primary,
+                            )
+                          : null,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _PosterBadge extends StatelessWidget {
