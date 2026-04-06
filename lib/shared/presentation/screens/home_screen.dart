@@ -6,9 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/formatting/display_formatters.dart';
 import '../../../core/tv/tv_focusable.dart';
-import '../../../features/auth/domain/entities/xtream_session.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../../features/auth/presentation/screens/account_screen.dart';
 import '../../../features/home/data/models/home_discovery_dto.dart';
@@ -24,6 +22,7 @@ import '../../../features/player/domain/entities/playback_history_entry.dart';
 import '../../../features/player/presentation/controllers/playback_history_controller.dart';
 import '../../../features/player/presentation/screens/player_screen.dart';
 import '../../../features/player/presentation/support/player_screen_arguments.dart';
+import '../../../features/search/presentation/screens/search_screen.dart';
 import '../../../features/series/domain/entities/series_item.dart';
 import '../../../features/series/presentation/providers/series_providers.dart';
 import '../../../features/series/presentation/screens/series_categories_screen.dart';
@@ -45,11 +44,6 @@ import '../../widgets/tv_stage.dart';
 
 const _kHomeTvFocusColor = Color(0xFFAF7BFF);
 const _kHomeTvFocusGlow = Color(0x66AF7BFF);
-const _kHomeTvPanelBorderColor = Colors.transparent;
-const _kHomeTvPanelGradient = [Color(0xFF1C1330), Color(0xFF151022)];
-const _kHomeTvSurface = Color(0xFF211637);
-const _kHomeTvSurfaceAlt = Color(0xFF191226);
-const _kHomeTvSurfaceFocus = Color(0xFF342052);
 const _kMobileContinueWatchingMaxItems = 6;
 
 class HomeScreen extends ConsumerWidget {
@@ -77,11 +71,8 @@ class HomeScreen extends ConsumerWidget {
     final livePreview = ref.watch(liveStreamsProvider(null));
     final vodPreview = ref.watch(vodStreamsProvider(null));
     final seriesPreview = ref.watch(seriesItemsProvider(null));
-    final homeDiscoveryState = headerLayout.isTv
-        ? const AsyncValue<HomeDiscoveryDto?>.data(null)
-        : ref.watch(homeDiscoveryProvider(12));
+    final homeDiscoveryState = ref.watch(homeDiscoveryProvider(12));
     final playbackHistory = ref.watch(playbackHistoryControllerProvider);
-    final expiresAt = DisplayFormatters.humanizeDate(session.expirationDate);
 
     final mobilePrimaryActions = [
       _HomeQuickAction(
@@ -149,57 +140,23 @@ class HomeScreen extends ConsumerWidget {
       ),
     ];
 
-    final tvPrimaryNavigationItems = <_TvNavigationItem>[
+    final tvSidebarItems = <_TvNavigationItem>[
       _TvNavigationItem(
-        label: 'TV ao vivo',
-        subtitle: 'Abrir guia e canais em tempo real',
-        badge: 'LIVE',
-        icon: Icons.live_tv_rounded,
-        interactiveKey: AppTestKeys.homeLiveCard,
-        testId: AppTestKeys.homeLiveCardId,
-        onTap: () =>
-            _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
+        label: 'Home',
+        icon: Icons.home_rounded,
+        selected: true,
+        onTap: () => context.go(HomeScreen.routePath),
       ),
       _TvNavigationItem(
-        label: 'Filmes',
-        subtitle: 'Catalogo sob demanda',
-        icon: Icons.movie_creation_outlined,
-        interactiveKey: AppTestKeys.homeMoviesCard,
-        testId: AppTestKeys.homeMoviesCardId,
-        onTap: () =>
-            _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+        label: 'Busca',
+        icon: Icons.search_rounded,
+        onTap: () => context.go(SearchScreen.routePath),
       ),
-      _TvNavigationItem(
-        label: 'Series',
-        subtitle: 'Colecoes e temporadas',
-        icon: Icons.tv_rounded,
-        interactiveKey: AppTestKeys.homeSeriesCard,
-        testId: AppTestKeys.homeSeriesCardId,
-        onTap: () =>
-            _openPrimaryDestination(context, SeriesCategoriesScreen.routePath),
-      ),
-      _TvNavigationItem(
-        label: 'Minha assinatura',
-        subtitle: _buildAccountCardDescription(session, expiresAt),
-        icon: Icons.verified_user_rounded,
-        interactiveKey: AppTestKeys.homeAccountCard,
-        testId: AppTestKeys.homeAccountCardId,
-        onTap: () => context.push(AccountScreen.routePath),
-      ),
-    ];
-
-    final tvUtilityNavigationItems = <_TvNavigationItem>[
       _TvNavigationItem(
         label: 'Conta',
         icon: Icons.verified_user_rounded,
         interactiveKey: AppTestKeys.homeAccountAction,
-        onTap: () => context.push(AccountScreen.routePath),
-      ),
-      _TvNavigationItem(
-        label: 'Sair',
-        icon: Icons.logout_rounded,
-        interactiveKey: AppTestKeys.homeLogoutButton,
-        onTap: () => ref.read(authControllerProvider.notifier).logout(),
+        onTap: () => context.go(AccountScreen.routePath),
       ),
     ];
 
@@ -392,6 +349,36 @@ class HomeScreen extends ConsumerWidget {
         : fallbackDiscoveryAnimeCards.isNotEmpty
         ? fallbackDiscoveryAnimeCards
         : animeCards;
+    final discoveryAdditionalRails = _buildAdditionalDiscoveryRails(
+      home: discoveryHome,
+      context: context,
+      liveStreams: resolvedLive ?? const <LiveStream>[],
+      discoveryState: homeDiscoveryState,
+    );
+    final effectiveTvHero = _resolveTvHeroChoice(
+      context: context,
+      heroSliderChoices: discoveryHeroSliderChoices,
+      highlightsCards: discoveryHighlightsCards,
+      vodCards: effectiveMoviesCards,
+      seriesCards: effectiveSeriesCards,
+      animeCards: effectiveAnimeCards,
+      additionalRails: discoveryAdditionalRails,
+      fallbackHero: effectiveHero,
+    );
+    final effectiveTvContinueItem = _resolveTvContinueItem(
+      continueSection: effectiveContinueSection,
+      fallback: continueItem,
+    );
+    final effectiveTvHeroSlider = _resolveTvHeroSliderChoices(
+      context: context,
+      heroSliderChoices: discoveryHeroSliderChoices,
+      highlightsCards: discoveryHighlightsCards,
+      vodCards: effectiveMoviesCards,
+      seriesCards: effectiveSeriesCards,
+      animeCards: effectiveAnimeCards,
+      additionalRails: discoveryAdditionalRails,
+      fallbackHero: effectiveTvHero,
+    );
     final showMobileLiveRail = effectiveLiveCards.isNotEmpty;
     final showMobileMoviesRail = effectiveMoviesCards.isNotEmpty;
     final showMobileSeriesRail = effectiveSeriesCards.isNotEmpty;
@@ -414,27 +401,94 @@ class HomeScreen extends ConsumerWidget {
       if (showMobileKidsRail) mobilePrimaryActions[3],
       if (showMobileLiveRail) mobilePrimaryActions[4],
     ];
-    final discoveryAdditionalRails = _buildAdditionalDiscoveryRails(
-      home: discoveryHome,
-      context: context,
-      liveStreams: resolvedLive ?? const <LiveStream>[],
-      discoveryState: homeDiscoveryState,
+    final effectiveTvPrimaryNavigationItems = _buildTvPrimaryNavigationItems(
+      effectivePrimaryActions,
+    );
+    final effectiveTvHighlightsCards = _filterNonLiveHomeCards(
+      discoveryHighlightsCards,
     );
 
     if (headerLayout.isTv) {
       return WillPopScope(
         onWillPop: () => _handleHomeExitRequest(context),
         child: _TvHomeSurface(
-          layout: headerLayout,
-          primaryNavItems: tvPrimaryNavigationItems,
-          utilityNavItems: tvUtilityNavigationItems,
-          continueItem: continueItem,
-          liveCards: liveCards,
-          vodCards: vodCards,
-          seriesCards: seriesCards,
-          liveState: livePreview,
-          vodState: vodPreview,
-          seriesState: seriesPreview,
+          primaryNavItems: effectiveTvPrimaryNavigationItems,
+          utilityNavItems: tvSidebarItems,
+          hero: effectiveTvHero,
+          heroSlider: effectiveTvHeroSlider,
+          continueItem: effectiveTvContinueItem,
+          highlightsHeading: _resolveMobileRailTitle(
+            slug: discoveryHighlightsRail?.slug,
+            rawTitle: discoveryHighlightsRail?.title,
+            fallback: 'Destaques',
+          ),
+          highlightsSubtitle: _resolveMobileRailSubtitle(
+            slug: discoveryHighlightsRail?.slug,
+            rawDescription: discoveryHighlightsRail?.description,
+            fallback: 'Os títulos mais acessados com base no uso real.',
+          ),
+          highlightsCards: effectiveTvHighlightsCards,
+          liveHeading: _resolveMobileRailTitle(
+            slug: discoveryLiveRail?.slug ?? fallbackLiveRail?.slug,
+            rawTitle: discoveryLiveRail?.title ?? fallbackLiveRail?.title,
+            fallback: 'TV ao vivo',
+          ),
+          liveSubtitle: _resolveMobileRailSubtitle(
+            slug: discoveryLiveRail?.slug ?? fallbackLiveRail?.slug,
+            rawDescription:
+                discoveryLiveRail?.description ?? fallbackLiveRail?.description,
+            fallback: 'Canais ao vivo para assistir agora.',
+          ),
+          liveCards: effectiveLiveCards,
+          vodHeading: _resolveMobileRailTitle(
+            slug: discoveryMoviesRail?.slug ?? fallbackMoviesRail?.slug,
+            rawTitle: discoveryMoviesRail?.title ?? fallbackMoviesRail?.title,
+            fallback: 'Filmes',
+          ),
+          vodSubtitle: _resolveMobileRailSubtitle(
+            slug: discoveryMoviesRail?.slug ?? fallbackMoviesRail?.slug,
+            rawDescription:
+                discoveryMoviesRail?.description ??
+                fallbackMoviesRail?.description,
+            fallback: 'Filmes para escolher e assistir agora.',
+          ),
+          vodCards: effectiveMoviesCards,
+          seriesHeading: _resolveMobileRailTitle(
+            slug: discoverySeriesRail?.slug ?? fallbackSeriesRail?.slug,
+            rawTitle: discoverySeriesRail?.title ?? fallbackSeriesRail?.title,
+            fallback: 'Séries',
+          ),
+          seriesSubtitle: _resolveMobileRailSubtitle(
+            slug: discoverySeriesRail?.slug ?? fallbackSeriesRail?.slug,
+            rawDescription:
+                discoverySeriesRail?.description ??
+                fallbackSeriesRail?.description,
+            fallback: 'Séries para seguir episódio após episódio.',
+          ),
+          seriesCards: effectiveSeriesCards,
+          animeHeading: _resolveMobileRailTitle(
+            slug: discoveryAnimeRail?.slug ?? fallbackAnimeRail?.slug,
+            rawTitle: discoveryAnimeRail?.title ?? fallbackAnimeRail?.title,
+            fallback: 'Anime',
+          ),
+          animeSubtitle: _resolveMobileRailSubtitle(
+            slug: discoveryAnimeRail?.slug ?? fallbackAnimeRail?.slug,
+            rawDescription:
+                discoveryAnimeRail?.description ??
+                fallbackAnimeRail?.description,
+            fallback: 'Uma seleção para entrar no universo anime.',
+          ),
+          animeCards: effectiveAnimeCards,
+          liveState: useDiscoveryLive ? homeDiscoveryState : livePreview,
+          highlightsState: useDiscoveryHighlights
+              ? homeDiscoveryState
+              : const AsyncValue.data(null),
+          vodState: useDiscoveryMovies ? homeDiscoveryState : vodPreview,
+          seriesState: useDiscoverySeries ? homeDiscoveryState : seriesPreview,
+          animeState: useDiscoveryAnime
+              ? homeDiscoveryState
+              : _combineRailStates([vodPreview, seriesPreview]),
+          additionalRails: discoveryAdditionalRails,
         ),
       );
     }
@@ -607,6 +661,9 @@ class _HomeHeroChoice {
     required this.onPrimary,
     required this.onSecondary,
     this.metadata = const <String>[],
+    this.isLive = false,
+    this.hasBackdropArtwork = false,
+    this.backdropImageUrl,
   });
 
   final String title;
@@ -618,6 +675,9 @@ class _HomeHeroChoice {
   final VoidCallback onPrimary;
   final VoidCallback onSecondary;
   final List<String> metadata;
+  final bool isLive;
+  final bool hasBackdropArtwork;
+  final String? backdropImageUrl;
 }
 
 class _DiscoveryLiveMatch {
@@ -920,46 +980,116 @@ String _formatContinueRemainingText(String remainingLabel) {
   return 'Restam $normalized';
 }
 
-class _TvHomeSurface extends StatelessWidget {
+class _TvHomeSurface extends StatefulWidget {
   const _TvHomeSurface({
-    required this.layout,
     required this.primaryNavItems,
     required this.utilityNavItems,
+    required this.hero,
+    required this.heroSlider,
     required this.continueItem,
+    required this.highlightsHeading,
+    required this.highlightsSubtitle,
+    required this.highlightsCards,
+    required this.highlightsState,
+    required this.liveHeading,
+    required this.liveSubtitle,
     required this.liveCards,
+    required this.vodHeading,
+    required this.vodSubtitle,
     required this.vodCards,
+    required this.seriesHeading,
+    required this.seriesSubtitle,
     required this.seriesCards,
+    required this.animeHeading,
+    required this.animeSubtitle,
+    required this.animeCards,
     required this.liveState,
     required this.vodState,
     required this.seriesState,
+    required this.animeState,
+    required this.additionalRails,
   });
 
-  final DeviceLayout layout;
   final List<_TvNavigationItem> primaryNavItems;
   final List<_TvNavigationItem> utilityNavItems;
+  final _HomeHeroChoice hero;
+  final List<_HomeHeroChoice> heroSlider;
   final _ContinueWatchingData? continueItem;
+  final String highlightsHeading;
+  final String highlightsSubtitle;
+  final List<_HomeRailCardData> highlightsCards;
+  final AsyncValue<dynamic> highlightsState;
+  final String liveHeading;
+  final String liveSubtitle;
   final List<_HomeRailCardData> liveCards;
+  final String vodHeading;
+  final String vodSubtitle;
   final List<_HomeRailCardData> vodCards;
+  final String seriesHeading;
+  final String seriesSubtitle;
   final List<_HomeRailCardData> seriesCards;
+  final String animeHeading;
+  final String animeSubtitle;
+  final List<_HomeRailCardData> animeCards;
   final AsyncValue<dynamic> liveState;
   final AsyncValue<dynamic> vodState;
   final AsyncValue<dynamic> seriesState;
+  final AsyncValue<dynamic> animeState;
+  final List<_DiscoveryAdditionalRail> additionalRails;
+
+  @override
+  State<_TvHomeSurface> createState() => _TvHomeSurfaceState();
+}
+
+class _TvHomeSurfaceState extends State<_TvHomeSurface> {
+  late final FocusNode _heroEntryFocusNode = FocusNode(
+    debugLabel: 'tv.home.hero.primary',
+  );
+  late final FocusNode _primaryNavEntryFocusNode = FocusNode(
+    debugLabel: 'tv.home.primaryNav.entry',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleEntryFocus();
+    _scheduleEntryFocus(const Duration(milliseconds: 220));
+    _scheduleEntryFocus(const Duration(milliseconds: 650));
+  }
+
+  @override
+  void dispose() {
+    _heroEntryFocusNode.dispose();
+    _primaryNavEntryFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _scheduleEntryFocus([Duration delay = Duration.zero]) {
+    Future<void>.delayed(delay, () {
+      if (!mounted || _heroEntryFocusNode.hasFocus) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _heroEntryFocusNode.hasFocus) {
+          return;
+        }
+        _heroEntryFocusNode.requestFocus();
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final highlights = _buildTvHighlights(liveCards: liveCards);
-    final isLoading = liveState.isLoading && highlights.isEmpty;
-    final hasHardError = liveState.hasError && highlights.isEmpty;
-
     return TvStageScaffold(
+      padding: const EdgeInsets.fromLTRB(16, 10, 2, 18),
       backdrop: const TvStageBackdrop(
         gradientColors: [
-          Color(0xFF12081E),
-          Color(0xFF1B1032),
-          Color(0xFF0D0718),
+          Color(0xFF020305),
+          Color(0xFF060A12),
+          Color(0xFF020305),
         ],
-        topGlowColor: Color(0x4D7A3DF0),
-        bottomGlowColor: Color(0x336529A8),
+        topGlowColor: Color(0x2E355E9A),
+        bottomGlowColor: Color(0x223A2211),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -967,45 +1097,62 @@ class _TvHomeSurface extends StatelessWidget {
             context,
             constraints: constraints,
           );
-          final spacing = resolvedLayout.cardSpacing;
+          final sidebarWidth = resolvedLayout.isTvCompact ? 72.0 : 80.0;
+          final contentGap = resolvedLayout.isTvCompact ? 12.0 : 14.0;
 
-          return Column(
+          return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TvHomeHeader(
-                layout: resolvedLayout,
-                utilityItems: utilityNavItems,
+              SizedBox(
+                width: sidebarWidth,
+                child: _TvHomeSidebar(
+                  layout: resolvedLayout,
+                  items: widget.utilityNavItems,
+                  rightFocusNode: _primaryNavEntryFocusNode,
+                ),
               ),
-              SizedBox(height: spacing),
-              _TvHomePrimaryActions(
-                layout: resolvedLayout,
-                items: primaryNavItems,
-              ),
-              SizedBox(height: spacing),
+              SizedBox(width: contentGap),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _TvHighlightsPanel(
-                        layout: resolvedLayout,
-                        highlights: highlights,
-                        isLoading: isLoading,
-                        hasHardError: hasHardError,
-                        onOpenLive: primaryNavItems.first.onTap,
-                      ),
+                child: Scrollbar(
+                  thumbVisibility: false,
+                  child: ListView(
+                    padding: EdgeInsets.only(
+                      top: resolvedLayout.isTvCompact ? 4 : 6,
+                      bottom: resolvedLayout.pageBottomPadding,
                     ),
-                    if (continueItem != null) ...[
-                      SizedBox(width: spacing),
-                      SizedBox(
-                        width: resolvedLayout.isTvCompact ? 350 : 390,
-                        child: _TvContinuePanel(
-                          layout: resolvedLayout,
-                          item: continueItem!,
-                        ),
+                    children: [
+                      _TvHomeExperience(
+                        layout: resolvedLayout,
+                        hero: widget.hero,
+                        heroSlider: widget.heroSlider,
+                        heroFocusNode: _heroEntryFocusNode,
+                        primaryNavEntryFocusNode: _primaryNavEntryFocusNode,
+                        primaryNavItems: widget.primaryNavItems,
+                        continueItem: widget.continueItem,
+                        highlightsHeading: widget.highlightsHeading,
+                        highlightsSubtitle: widget.highlightsSubtitle,
+                        highlightsCards: widget.highlightsCards,
+                        highlightsState: widget.highlightsState,
+                        liveHeading: widget.liveHeading,
+                        liveSubtitle: widget.liveSubtitle,
+                        liveCards: widget.liveCards,
+                        vodHeading: widget.vodHeading,
+                        vodSubtitle: widget.vodSubtitle,
+                        vodCards: widget.vodCards,
+                        seriesHeading: widget.seriesHeading,
+                        seriesSubtitle: widget.seriesSubtitle,
+                        seriesCards: widget.seriesCards,
+                        animeHeading: widget.animeHeading,
+                        animeSubtitle: widget.animeSubtitle,
+                        animeCards: widget.animeCards,
+                        liveState: widget.liveState,
+                        vodState: widget.vodState,
+                        seriesState: widget.seriesState,
+                        animeState: widget.animeState,
+                        additionalRails: widget.additionalRails,
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -1016,138 +1163,147 @@ class _TvHomeSurface extends StatelessWidget {
   }
 }
 
-class _TvHomeHeader extends StatelessWidget {
-  const _TvHomeHeader({required this.layout, required this.utilityItems});
+class _TvHomeSidebar extends StatelessWidget {
+  const _TvHomeSidebar({
+    required this.layout,
+    required this.items,
+    this.rightFocusNode,
+  });
 
   final DeviceLayout layout;
-  final List<_TvNavigationItem> utilityItems;
+  final List<_TvNavigationItem> items;
+  final FocusNode? rightFocusNode;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return TvStagePanel(
-      borderColor: _kHomeTvPanelBorderColor,
-      gradientColors: _kHomeTvPanelGradient,
-      padding: EdgeInsets.symmetric(
-        horizontal: layout.isTvCompact ? 16 : 18,
-        vertical: layout.isTvCompact ? 12 : 14,
-      ),
-      radius: 16,
-      child: Row(
-        children: [
-          const BrandWordmark(height: 42, compact: true, showTagline: false),
-          SizedBox(width: layout.isTvCompact ? 14 : 18),
-          Expanded(
-            child: Text(
-              'Painel principal da experiencia TV',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.74),
-              ),
-            ),
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: BrandLogo(
+            variant: BrandLogoVariant.icon,
+            width: 34,
+            height: 34,
           ),
-          for (final item in utilityItems) ...[
-            const SizedBox(width: 10),
-            _TvHomeUtilityButton(item: item),
-          ],
-          const SizedBox(width: 12),
-          const TvStageClock(),
+        ),
+        SizedBox(height: layout.isTvCompact ? 26 : 30),
+        for (final item in items) ...[
+          _TvHomeSidebarItem(
+            layout: layout,
+            item: item,
+            rightFocusNode: rightFocusNode,
+          ),
+          SizedBox(height: layout.isTvCompact ? 18 : 20),
         ],
-      ),
+      ],
     );
   }
 }
 
-class _TvHomeUtilityButton extends StatelessWidget {
-  const _TvHomeUtilityButton({required this.item});
+class _TvHomeSidebarItem extends StatelessWidget {
+  const _TvHomeSidebarItem({
+    required this.layout,
+    required this.item,
+    this.rightFocusNode,
+  });
 
+  final DeviceLayout layout;
   final _TvNavigationItem item;
+  final FocusNode? rightFocusNode;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 132,
-      child: TvFocusable(
-        onPressed: item.onTap,
-        interactiveKey: item.interactiveKey,
-        testId: item.testId,
-        builder: (context, focused) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: focused ? _kHomeTvSurfaceFocus : _kHomeTvSurfaceAlt,
-              border: Border.all(
-                color: focused ? _kHomeTvFocusColor : Colors.transparent,
-                width: focused ? 2 : 1,
-              ),
-              boxShadow: focused
-                  ? [
-                      BoxShadow(
-                        color: _kHomeTvFocusGlow.withValues(alpha: 0.32),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : const [],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(item.icon, size: 18, color: focused ? Colors.white : null),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    item.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: focused ? Colors.white : null,
+    final bool selected = item.selected;
+    return TvFocusable(
+      onPressed: item.onTap,
+      interactiveKey: item.interactiveKey,
+      testId: item.testId,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent ||
+            event.logicalKey != LogicalKeyboardKey.arrowRight ||
+            rightFocusNode == null) {
+          return KeyEventResult.ignored;
+        }
+
+        rightFocusNode!.requestFocus();
+        return KeyEventResult.handled;
+      },
+      builder: (context, focused) {
+        final isEmphasized = focused || selected;
+        final itemExtent = layout.isTvCompact ? 54.0 : 58.0;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: itemExtent,
+          height: itemExtent,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: isEmphasized
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.transparent,
+            boxShadow: focused
+                ? [
+                    BoxShadow(
+                      color: _kHomeTvFocusGlow.withValues(alpha: 0.26),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+                  ]
+                : const [],
+          ),
+          child: Icon(
+            item.icon,
+            size: 23,
+            color: isEmphasized
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.74),
+          ),
+        );
+      },
     );
   }
 }
 
 class _TvHomePrimaryActions extends StatelessWidget {
-  const _TvHomePrimaryActions({required this.layout, required this.items});
+  const _TvHomePrimaryActions({
+    required this.layout,
+    required this.items,
+    this.entryFocusNode,
+    this.downFocusNode,
+  });
 
   final DeviceLayout layout;
   final List<_TvNavigationItem> items;
+  final FocusNode? entryFocusNode;
+  final FocusNode? downFocusNode;
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return TvStagePanel(
-      borderColor: _kHomeTvPanelBorderColor,
-      gradientColors: _kHomeTvPanelGradient,
-      padding: EdgeInsets.all(layout.isTvCompact ? 14 : 16),
-      radius: 18,
+      padding: EdgeInsets.zero,
+      radius: 0,
+      borderColor: Colors.transparent,
+      gradientColors: const [Colors.transparent, Colors.transparent],
       child: FocusTraversalGroup(
         policy: OrderedTraversalPolicy(),
-        child: Row(
+        child: Wrap(
+          spacing: layout.isTvCompact ? 16 : 18,
+          runSpacing: 10,
           children: [
-            for (var index = 0; index < items.length; index++) ...[
-              if (index > 0) const SizedBox(width: 12),
-              Expanded(
-                child: FocusTraversalOrder(
-                  order: NumericFocusOrder(index + 1),
-                  child: _TvHomePrimaryTile(
-                    item: items[index],
-                    autofocus: index == 0,
-                    compact: layout.isTvCompact,
-                  ),
+            for (var index = 0; index < items.length; index++)
+              FocusTraversalOrder(
+                order: NumericFocusOrder(index + 1),
+                child: _TvHomePrimaryTile(
+                  item: items[index],
+                  compact: layout.isTvCompact,
+                  focusNode: index == 0 ? entryFocusNode : null,
+                  downFocusNode: downFocusNode,
                 ),
               ),
-            ],
           ],
         ),
       ),
@@ -1158,735 +1314,187 @@ class _TvHomePrimaryActions extends StatelessWidget {
 class _TvHomePrimaryTile extends StatelessWidget {
   const _TvHomePrimaryTile({
     required this.item,
-    required this.autofocus,
     required this.compact,
+    this.focusNode,
+    this.downFocusNode,
   });
 
   final _TvNavigationItem item;
-  final bool autofocus;
   final bool compact;
+  final FocusNode? focusNode;
+  final FocusNode? downFocusNode;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    return TvFocusable(
+      focusNode: focusNode,
+      onPressed: item.onTap,
+      interactiveKey: item.interactiveKey,
+      testId: item.testId,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent ||
+            event.logicalKey != LogicalKeyboardKey.arrowDown ||
+            downFocusNode == null) {
+          return KeyEventResult.ignored;
+        }
 
-    return SizedBox(
-      height: compact ? 138 : 146,
-      child: TvFocusable(
-        autofocus: autofocus,
-        onPressed: item.onTap,
-        interactiveKey: item.interactiveKey,
-        testId: item.testId,
-        builder: (context, focused) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 14 : 16,
-              vertical: compact ? 12 : 14,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: focused
-                  ? const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF4A2A77), Color(0xFF2E1A4A)],
-                    )
-                  : const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_kHomeTvSurface, _kHomeTvSurfaceAlt],
-                    ),
-              border: Border.all(
-                color: focused ? _kHomeTvFocusColor : Colors.transparent,
-                width: focused ? 2.2 : 1,
-              ),
-              boxShadow: focused
-                  ? [
-                      BoxShadow(
-                        color: _kHomeTvFocusGlow.withValues(alpha: 0.34),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : const [],
-            ),
-            child: Stack(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      item.icon,
-                      size: compact ? 28 : 30,
-                      color: focused ? Colors.white : null,
-                    ),
-                    const Spacer(),
-                    Text(
-                      item.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: focused ? Colors.white : null,
-                      ),
-                    ),
-                    if (item.subtitle?.trim().isNotEmpty == true) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        item.subtitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: focused
-                              ? Colors.white.withValues(alpha: 0.82)
-                              : colorScheme.onSurface.withValues(alpha: 0.74),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                if (item.badge != null)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: focused
-                            ? const Color(0xCC161005)
-                            : const Color(0xD9FF5D67),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        item.badge!,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white,
-                          letterSpacing: 0.8,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _TvHighlightsPanel extends StatelessWidget {
-  const _TvHighlightsPanel({
-    required this.layout,
-    required this.highlights,
-    required this.isLoading,
-    required this.hasHardError,
-    required this.onOpenLive,
-  });
-
-  final DeviceLayout layout;
-  final List<_TvHomeHighlightItem> highlights;
-  final bool isLoading;
-  final bool hasHardError;
-  final VoidCallback onOpenLive;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    Widget body;
-    if (isLoading) {
-      body = const Center(child: CircularProgressIndicator());
-    } else if (hasHardError) {
-      body = _TvHighlightsState(
-        title: 'Falha ao carregar destaques ao vivo',
-        message: 'Abra a TV ao vivo para tentar carregar o que esta no ar.',
-        actionLabel: 'Abrir TV ao vivo',
-        onAction: onOpenLive,
-      );
-    } else if (highlights.isEmpty) {
-      body = _TvHighlightsState(
-        title: 'Nenhum destaque ao vivo agora',
-        message: 'Abra a TV ao vivo para navegar pelos canais do momento.',
-        actionLabel: 'Abrir TV ao vivo',
-        onAction: onOpenLive,
-      );
-    } else {
-      body = _TvHighlightsShelf(layout: layout, highlights: highlights);
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(
-        left: layout.isTvCompact ? 4 : 6,
-        top: layout.isTvCompact ? 4 : 6,
-        bottom: layout.isTvCompact ? 2 : 4,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+        downFocusNode!.requestFocus();
+        return KeyEventResult.handled;
+      },
+      builder: (context, focused) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 12 : 14,
+            vertical: compact ? 7 : 8,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: focused
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.transparent,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _TvPill(label: 'Destaques de agora', color: colorScheme.primary),
-              _TvPill(
-                label: '${highlights.length} canais',
-                color: colorScheme.secondary,
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: focused
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.82),
+                ),
               ),
             ],
           ),
-          SizedBox(height: layout.isTvCompact ? 14 : 16),
-          Expanded(child: body),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _TvPill extends StatelessWidget {
-  const _TvPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.18),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _TvHighlightsShelf extends StatelessWidget {
-  const _TvHighlightsShelf({required this.layout, required this.highlights});
-
-  final DeviceLayout layout;
-  final List<_TvHomeHighlightItem> highlights;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: layout.isTvCompact ? 316 : 332,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: highlights.length,
-        separatorBuilder: (_, _) => SizedBox(width: layout.cardSpacing + 10),
-        itemBuilder: (context, index) {
-          return _TvHighlightsCard(
-            layout: layout,
-            item: highlights[index],
-            autofocus: false,
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _TvHighlightsCard extends ConsumerWidget {
-  const _TvHighlightsCard({
-    required this.layout,
-    required this.item,
-    required this.autofocus,
-  });
-
-  final DeviceLayout layout;
-  final _TvHomeHighlightItem item;
-  final bool autofocus;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final width = layout.isTvCompact ? 312.0 : 336.0;
-    final epgState = item.data.supportsLiveEpg && item.data.liveStreamId != null
-        ? ref
-              .watch(liveShortEpgProvider(item.data.liveStreamId!))
-              .maybeWhen(
-                data: _resolveHomeLiveEpgState,
-                orElse: () => const _HomeLiveEpgState(),
-              )
-        : const _HomeLiveEpgState();
-    final presentation = _resolveTvLiveHighlightPresentation(
-      data: item.data,
-      epgState: epgState,
-    );
-    final hasDenseMetadata =
-        presentation.scheduleLine != null ||
-        presentation.supportingLine != null ||
-        presentation.progress != null;
-    final headlineMaxLines = hasDenseMetadata ? 2 : 3;
-    final showSupportingLine = presentation.scheduleLine == null;
-    final showFooterLabel = !hasDenseMetadata;
-    final chipColor = switch (presentation.statusLabel) {
-      'AGORA' => const Color(0xFFFF8A3D),
-      'A SEGUIR' => colorScheme.tertiary,
-      _ => colorScheme.primary,
-    };
-
-    return SizedBox(
-      width: width,
-      child: TvFocusable(
-        autofocus: autofocus,
-        onPressed: item.data.onPressed,
-        builder: (context, focused) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.all(1),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              color: focused
-                  ? const Color(0xCC231338)
-                  : Colors.white.withValues(alpha: 0.05),
-              border: Border.all(
-                color: focused
-                    ? _kHomeTvFocusColor
-                    : Colors.white.withValues(alpha: 0.12),
-                width: focused ? 2.4 : 1.15,
-              ),
-              boxShadow: [
-                if (focused)
-                  BoxShadow(
-                    color: _kHomeTvFocusGlow.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  )
-                else
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    layout.isTvCompact ? 16 : 18,
-                    layout.isTvCompact ? 15 : 17,
-                    layout.isTvCompact ? 14 : 16,
-                    layout.isTvCompact ? 14 : 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _TvHighlightChip(
-                            label: presentation.statusLabel,
-                            color: chipColor,
-                            focused: focused,
-                          ),
-                          if (item.data.hasReplay)
-                            _TvHighlightChip(
-                              label: 'REPLAY',
-                              color: colorScheme.secondary,
-                              focused: focused,
-                              emphasized: false,
-                            ),
-                        ],
-                      ),
-                      SizedBox(height: layout.isTvCompact ? 12 : 14),
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    presentation.channelLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelLarge
-                                        ?.copyWith(
-                                          letterSpacing: 0.7,
-                                          fontWeight: FontWeight.w700,
-                                          color: colorScheme.onSurface
-                                              .withValues(alpha: 0.78),
-                                        ),
-                                  ),
-                                  SizedBox(height: layout.isTvCompact ? 8 : 10),
-                                  Text(
-                                    presentation.headline,
-                                    maxLines: headlineMaxLines,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          fontSize: layout.isTvCompact
-                                              ? 23
-                                              : 25,
-                                          fontWeight: FontWeight.w800,
-                                          height: 1.04,
-                                        ),
-                                  ),
-                                  if (presentation.scheduleLine != null) ...[
-                                    SizedBox(
-                                      height: layout.isTvCompact ? 8 : 10,
-                                    ),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.schedule_rounded,
-                                          size: 18,
-                                          color: chipColor.withValues(
-                                            alpha: 0.9,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            presentation.scheduleLine!,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w700,
-                                                  color: colorScheme.onSurface
-                                                      .withValues(alpha: 0.9),
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                  if (showSupportingLine &&
-                                      presentation.supportingLine != null) ...[
-                                    SizedBox(
-                                      height: layout.isTvCompact ? 7 : 8,
-                                    ),
-                                    Text(
-                                      presentation.supportingLine!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            fontSize: layout.isTvCompact
-                                                ? 12.5
-                                                : 13,
-                                            height: 1.28,
-                                            color: colorScheme.onSurface
-                                                .withValues(alpha: 0.74),
-                                          ),
-                                    ),
-                                  ],
-                                  const Spacer(),
-                                  if (presentation.progress != null) ...[
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(999),
-                                      child: LinearProgressIndicator(
-                                        value: presentation.progress,
-                                        minHeight: 7,
-                                        backgroundColor: colorScheme.onSurface
-                                            .withValues(alpha: 0.12),
-                                        valueColor: AlwaysStoppedAnimation(
-                                          chipColor,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                  ],
-                                  if (showFooterLabel)
-                                    Text(
-                                      presentation.footerLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(
-                                            color: colorScheme.onSurface
-                                                .withValues(alpha: 0.76),
-                                          ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(width: layout.isTvCompact ? 16 : 18),
-                            Padding(
-                              padding: EdgeInsets.only(
-                                top: layout.isTvCompact ? 16 : 18,
-                                bottom: 4,
-                              ),
-                              child: _TvLiveChannelLogo(
-                                imageUrl: item.data.imageUrl,
-                                channelLabel: presentation.channelLabel,
-                                compact: layout.isTvCompact,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _TvHighlightsState extends StatelessWidget {
-  const _TvHighlightsState({
-    required this.title,
-    required this.message,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  final String title;
-  final String message;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.78),
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onAction,
-              icon: const Icon(Icons.chevron_right_rounded),
-              label: Text(actionLabel),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TvContinuePanel extends StatelessWidget {
-  const _TvContinuePanel({required this.layout, required this.item});
-
-  final DeviceLayout layout;
-  final _ContinueWatchingData item;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return TvStagePanel(
-      borderColor: _kHomeTvPanelBorderColor,
-      gradientColors: _kHomeTvPanelGradient,
-      padding: EdgeInsets.all(layout.isTvCompact ? 16 : 18),
-      radius: 20,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Continuar assistindo',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: TvFocusable(
-              onPressed: item.onPressed,
-              builder: (context, focused) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: focused ? _kHomeTvSurfaceFocus : _kHomeTvSurfaceAlt,
-                    border: Border.all(
-                      color: focused ? _kHomeTvFocusColor : Colors.transparent,
-                      width: focused ? 2.2 : 1,
-                    ),
-                    boxShadow: focused
-                        ? [
-                            BoxShadow(
-                              color: _kHomeTvFocusGlow.withValues(alpha: 0.28),
-                              blurRadius: 18,
-                              offset: const Offset(0, 8),
-                            ),
-                          ]
-                        : const [],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      BrandedArtwork(
-                        imageUrl: item.imageUrl,
-                        aspectRatio: 16 / 9,
-                        placeholderLabel: 'Sem capa',
-                        icon: item.icon,
-                        borderRadius: 12,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              height: 1.12,
-                            ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        item.subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.74),
-                        ),
-                      ),
-                      const Spacer(),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          value: item.progress,
-                          minHeight: 8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Restante ${item.remainingLabel}',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TvHomeHighlightItem {
-  const _TvHomeHighlightItem({required this.data});
-
-  final _HomeRailCardData data;
-}
-
-List<_TvHomeHighlightItem> _buildTvHighlights({
-  required List<_HomeRailCardData> liveCards,
-}) {
-  final prioritized = <_HomeRailCardData>[
-    ...liveCards.where((item) => item.supportsLiveEpg),
-    ...liveCards.where((item) => !item.supportsLiveEpg),
-  ];
-
-  return prioritized
-      .take(10)
-      .map((item) => _TvHomeHighlightItem(data: item))
-      .toList();
-}
-
-// ignore: unused_element
 class _TvHomeExperience extends StatelessWidget {
   const _TvHomeExperience({
     required this.layout,
     required this.hero,
+    required this.heroSlider,
+    required this.heroFocusNode,
+    required this.primaryNavEntryFocusNode,
     required this.primaryNavItems,
-    required this.utilityNavItems,
     required this.continueItem,
+    required this.highlightsHeading,
+    required this.highlightsSubtitle,
+    required this.highlightsCards,
+    required this.highlightsState,
+    required this.liveHeading,
+    required this.liveSubtitle,
     required this.liveCards,
+    required this.vodHeading,
+    required this.vodSubtitle,
     required this.vodCards,
+    required this.seriesHeading,
+    required this.seriesSubtitle,
     required this.seriesCards,
+    required this.animeHeading,
+    required this.animeSubtitle,
+    required this.animeCards,
     required this.liveState,
     required this.vodState,
     required this.seriesState,
+    required this.animeState,
+    required this.additionalRails,
   });
 
   final DeviceLayout layout;
   final _HomeHeroChoice hero;
+  final List<_HomeHeroChoice> heroSlider;
+  final FocusNode heroFocusNode;
+  final FocusNode primaryNavEntryFocusNode;
   final List<_TvNavigationItem> primaryNavItems;
-  final List<_TvNavigationItem> utilityNavItems;
   final _ContinueWatchingData? continueItem;
+  final String highlightsHeading;
+  final String highlightsSubtitle;
+  final List<_HomeRailCardData> highlightsCards;
+  final AsyncValue<dynamic> highlightsState;
+  final String liveHeading;
+  final String liveSubtitle;
   final List<_HomeRailCardData> liveCards;
+  final String vodHeading;
+  final String vodSubtitle;
   final List<_HomeRailCardData> vodCards;
+  final String seriesHeading;
+  final String seriesSubtitle;
   final List<_HomeRailCardData> seriesCards;
+  final String animeHeading;
+  final String animeSubtitle;
+  final List<_HomeRailCardData> animeCards;
   final AsyncValue<dynamic> liveState;
   final AsyncValue<dynamic> vodState;
   final AsyncValue<dynamic> seriesState;
+  final AsyncValue<dynamic> animeState;
+  final List<_DiscoveryAdditionalRail> additionalRails;
 
   @override
   Widget build(BuildContext context) {
     final hasContinue = continueItem != null;
-    final hasLive = liveCards.isNotEmpty;
-    final hasVod = vodCards.isNotEmpty;
-    final hasSeries = seriesCards.isNotEmpty;
-    final liveWithEpg = liveCards.where((card) => card.supportsLiveEpg).length;
-    final liveWithoutEpg = (liveCards.length - liveWithEpg).clamp(0, 999);
-    final liveSectionSubtitle = _buildLiveSectionSubtitle(
-      liveWithEpg: liveWithEpg,
-      liveWithoutEpg: liveWithoutEpg,
+    final showHighlights = _shouldShowMobileRail(
+      cards: highlightsCards,
+      state: highlightsState,
+    );
+    final showLive = _shouldShowMobileRail(cards: liveCards, state: liveState);
+    final showVod = _shouldShowMobileRail(cards: vodCards, state: vodState);
+    final showSeries = _shouldShowMobileRail(
+      cards: seriesCards,
+      state: seriesState,
+    );
+    final showAnime = _shouldShowMobileRail(
+      cards: animeCards,
+      state: animeState,
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _TvTopNavigationBar(
+        _TvHeroCarousel(
           layout: layout,
-          primaryItems: primaryNavItems,
-          utilityItems: utilityNavItems,
+          slides: heroSlider,
+          fallbackHero: hero,
+          heroFocusNode: heroFocusNode,
+          primaryNavEntryFocusNode: primaryNavEntryFocusNode,
+          primaryNavItems: primaryNavItems,
         ),
-        if (hasLive) ...[
+        if (hasContinue) ...[
+          SizedBox(height: layout.sectionSpacing),
+          _ContinueWatchingCard(
+            layout: layout,
+            item: continueItem,
+            compactTvCard: true,
+            heading: 'Continuar assistindo',
+          ),
+        ],
+        if (showHighlights) ...[
+          SizedBox(height: layout.sectionSpacing + 2),
+          _HomeRailSection(
+            layout: layout,
+            title: highlightsHeading,
+            subtitle: highlightsSubtitle,
+            icon: Icons.auto_awesome_rounded,
+            onViewAll: () =>
+                _openPrimaryDestination(context, VodCategoriesScreen.routePath),
+            cards: highlightsCards,
+            state: highlightsState,
+            collapseWhenEmptyOnTv: true,
+          ),
+        ],
+        if (showLive) ...[
           SizedBox(height: layout.sectionSpacing + 4),
           _HomeRailSection(
             layout: layout,
-            title: 'No ar agora',
-            subtitle: liveSectionSubtitle,
+            title: liveHeading,
+            subtitle: liveSubtitle,
             icon: Icons.live_tv_rounded,
             onViewAll: () => _openPrimaryDestination(
               context,
@@ -1896,25 +1504,13 @@ class _TvHomeExperience extends StatelessWidget {
             state: liveState,
             collapseWhenEmptyOnTv: true,
           ),
-        ] else ...[
-          SizedBox(height: layout.sectionSpacing + 6),
-          _CinematicHeroCard(layout: layout, hero: hero, tvMode: true),
         ],
-        if (hasContinue) ...[
-          SizedBox(height: layout.sectionSpacing + 8),
-          _ContinueWatchingCard(
-            layout: layout,
-            item: continueItem,
-            compactTvCard: true,
-            heading: 'Retomar',
-          ),
-        ],
-        if (hasVod) ...[
-          SizedBox(height: layout.sectionSpacing + 10),
+        if (showVod) ...[
+          SizedBox(height: layout.sectionSpacing + 4),
           _HomeRailSection(
             layout: layout,
-            title: 'Filmes',
-            subtitle: 'Sob demanda',
+            title: vodHeading,
+            subtitle: vodSubtitle,
             icon: Icons.local_movies_rounded,
             onViewAll: () =>
                 _openPrimaryDestination(context, VodCategoriesScreen.routePath),
@@ -1923,12 +1519,12 @@ class _TvHomeExperience extends StatelessWidget {
             collapseWhenEmptyOnTv: true,
           ),
         ],
-        if (hasSeries) ...[
-          SizedBox(height: layout.sectionSpacing + 10),
+        if (showSeries) ...[
+          SizedBox(height: layout.sectionSpacing + 4),
           _HomeRailSection(
             layout: layout,
-            title: 'Series',
-            subtitle: 'Temporadas e colecoes',
+            title: seriesHeading,
+            subtitle: seriesSubtitle,
             icon: Icons.tv_rounded,
             onViewAll: () => _openPrimaryDestination(
               context,
@@ -1939,22 +1535,38 @@ class _TvHomeExperience extends StatelessWidget {
             collapseWhenEmptyOnTv: true,
           ),
         ],
+        if (showAnime) ...[
+          SizedBox(height: layout.sectionSpacing + 4),
+          _HomeRailSection(
+            layout: layout,
+            title: animeHeading,
+            subtitle: animeSubtitle,
+            icon: Icons.auto_awesome_rounded,
+            onViewAll: () => _openPrimaryDestination(
+              context,
+              SeriesCategoriesScreen.routePath,
+            ),
+            cards: animeCards,
+            state: animeState,
+            collapseWhenEmptyOnTv: true,
+          ),
+        ],
+        for (final rail in additionalRails) ...[
+          SizedBox(height: layout.sectionSpacing + 4),
+          _HomeRailSection(
+            layout: layout,
+            title: rail.title,
+            subtitle: rail.subtitle,
+            icon: rail.icon,
+            onViewAll: rail.onViewAll,
+            cards: rail.cards,
+            state: rail.state,
+            collapseWhenEmptyOnTv: true,
+          ),
+        ],
       ],
     );
   }
-}
-
-String _buildLiveSectionSubtitle({
-  required int liveWithEpg,
-  required int liveWithoutEpg,
-}) {
-  if (liveWithEpg > 0 && liveWithoutEpg > 0) {
-    return 'Programas no ar e canais ao vivo para zapear';
-  }
-  if (liveWithEpg > 0) {
-    return 'Programas no ar agora';
-  }
-  return 'Canais ao vivo para assistir agora';
 }
 
 List<_HomeRailCardData> _buildAnimeCards({
@@ -2034,6 +1646,199 @@ AsyncValue<void> _combineRailStates(List<AsyncValue<dynamic>> states) {
   return const AsyncValue.data(null);
 }
 
+_ContinueWatchingData? _resolveTvContinueItem({
+  required _ContinueWatchingSectionData? continueSection,
+  required _ContinueWatchingData? fallback,
+}) {
+  final items = continueSection?.items;
+  if (items != null && items.isNotEmpty) {
+    return items.first;
+  }
+  return fallback;
+}
+
+List<_HomeRailCardData> _filterNonLiveHomeCards(List<_HomeRailCardData> cards) {
+  return cards
+      .where((card) => card.liveStreamId == null)
+      .toList(growable: false);
+}
+
+_HomeHeroChoice _buildOnDemandHeroChoiceFromCard({
+  required BuildContext context,
+  required _HomeRailCardData card,
+}) {
+  final libraryKind = card.libraryKind;
+  final isAnime =
+      libraryKind == OnDemandLibraryKind.anime ||
+      (libraryKind == null && _looksLikeAnime(card.title, card.subtitle));
+  final isSeries = !isAnime && libraryKind == OnDemandLibraryKind.series;
+  final isKids = libraryKind == OnDemandLibraryKind.kids;
+
+  return _HomeHeroChoice(
+    title: card.title,
+    kicker: 'Novidade',
+    description: isKids
+        ? 'Uma seleção para abrir a sessão infantil.'
+        : isAnime
+        ? 'Uma escolha para começar sua sessão de anime.'
+        : isSeries
+        ? 'Uma série para começar ou retomar agora.'
+        : 'Comece por um destaque escolhido para abrir sua sessão.',
+    imageUrl: card.imageUrl,
+    primaryLabel: isSeries || isAnime || isKids
+        ? 'Abrir agora'
+        : 'Assistir agora',
+    secondaryLabel: isKids
+        ? 'Ver kids'
+        : isAnime
+        ? 'Ver animes'
+        : isSeries
+        ? 'Ver séries'
+        : 'Ver filmes',
+    onPrimary: card.onPressed,
+    onSecondary: () {
+      if (isKids) {
+        _openOnDemandLibraryDestination(context, KidsLibraryScreen.routePath);
+        return;
+      }
+      if (isAnime || isSeries) {
+        _openPrimaryDestination(context, SeriesCategoriesScreen.routePath);
+        return;
+      }
+      _openPrimaryDestination(context, VodCategoriesScreen.routePath);
+    },
+    metadata: [
+      if (isKids)
+        'Kids'
+      else if (isAnime)
+        'Anime'
+      else if (isSeries)
+        'Série'
+      else
+        'Filme',
+      'Novidade',
+    ],
+  );
+}
+
+_HomeHeroChoice _resolveTvHeroChoice({
+  required BuildContext context,
+  required List<_HomeHeroChoice> heroSliderChoices,
+  required List<_HomeRailCardData> highlightsCards,
+  required List<_HomeRailCardData> vodCards,
+  required List<_HomeRailCardData> seriesCards,
+  required List<_HomeRailCardData> animeCards,
+  required List<_DiscoveryAdditionalRail> additionalRails,
+  required _HomeHeroChoice fallbackHero,
+}) {
+  for (final choice in heroSliderChoices) {
+    if (!choice.isLive) {
+      return choice;
+    }
+  }
+
+  final additionalCandidates = additionalRails.expand((rail) => rail.cards);
+  final onDemandCandidates = <_HomeRailCardData>[
+    ..._filterNonLiveHomeCards(highlightsCards),
+    ...vodCards,
+    ...seriesCards,
+    ...animeCards,
+    ..._filterNonLiveHomeCards(additionalCandidates.toList(growable: false)),
+  ];
+
+  if (onDemandCandidates.isNotEmpty) {
+    return _buildOnDemandHeroChoiceFromCard(
+      context: context,
+      card: onDemandCandidates.first,
+    );
+  }
+
+  if (!fallbackHero.isLive) {
+    return fallbackHero;
+  }
+
+  return _resolveMobileHeroChoice(
+    context: context,
+    liveCards: const <_HomeRailCardData>[],
+    vodCards: vodCards,
+    seriesCards: seriesCards,
+    animeCards: animeCards,
+  );
+}
+
+List<_HomeHeroChoice> _resolveTvHeroSliderChoices({
+  required BuildContext context,
+  required List<_HomeHeroChoice> heroSliderChoices,
+  required List<_HomeRailCardData> highlightsCards,
+  required List<_HomeRailCardData> vodCards,
+  required List<_HomeRailCardData> seriesCards,
+  required List<_HomeRailCardData> animeCards,
+  required List<_DiscoveryAdditionalRail> additionalRails,
+  required _HomeHeroChoice fallbackHero,
+}) {
+  final slides = <_HomeHeroChoice>[];
+  final seenKeys = <String>{};
+
+  void addChoice(_HomeHeroChoice choice) {
+    final key = choice.title.trim().toLowerCase();
+    if (key.isEmpty || seenKeys.contains(key)) {
+      return;
+    }
+    seenKeys.add(key);
+    slides.add(choice);
+  }
+
+  if (!fallbackHero.isLive) {
+    addChoice(fallbackHero);
+  }
+
+  for (final choice in heroSliderChoices) {
+    if (!choice.isLive) {
+      addChoice(choice);
+    }
+  }
+
+  final additionalCandidates = additionalRails.expand((rail) => rail.cards);
+  final onDemandCandidates = <_HomeRailCardData>[
+    ..._filterNonLiveHomeCards(highlightsCards),
+    ...vodCards,
+    ...seriesCards,
+    ...animeCards,
+    ..._filterNonLiveHomeCards(additionalCandidates.toList(growable: false)),
+  ];
+
+  for (final card in onDemandCandidates) {
+    addChoice(_buildOnDemandHeroChoiceFromCard(context: context, card: card));
+    if (slides.length >= 6) {
+      break;
+    }
+  }
+
+  if (slides.isEmpty) {
+    slides.add(fallbackHero);
+  }
+
+  return slides;
+}
+
+List<_TvNavigationItem> _buildTvPrimaryNavigationItems(
+  List<_HomeQuickAction> actions,
+) {
+  return actions
+      .map(
+        (action) => _TvNavigationItem(
+          label: action.title,
+          subtitle: action.description,
+          badge: action.badge,
+          icon: action.icon,
+          onTap: action.onTap,
+          interactiveKey: action.interactiveKey,
+          testId: action.testId,
+        ),
+      )
+      .toList(growable: false);
+}
+
 bool _shouldShowMobileRail({
   required List<_HomeRailCardData> cards,
   required AsyncValue<dynamic> state,
@@ -2065,6 +1870,7 @@ _HomeHeroChoice _resolveMobileHeroChoice({
       onSecondary: () =>
           _openPrimaryDestination(context, LiveCategoriesScreen.routePath),
       metadata: const ['LIVE', 'Agora'],
+      isLive: true,
     );
   }
 
@@ -2280,16 +2086,6 @@ String _resolveDiscoveryBadgeLabel({
     return 'SÉRIE';
   }
 
-  for (final badge in badges) {
-    final normalized = badge.trim().toUpperCase();
-    if (normalized == 'TRENDING' || normalized == 'TRENDING_NOW') {
-      return 'DESTAQUE';
-    }
-    if (normalized == 'TOP') {
-      return 'TOP';
-    }
-  }
-
   return fallback;
 }
 
@@ -2348,13 +2144,6 @@ List<String> _resolveDiscoveryHeroMetadata({
       'Filme',
     if (item.year != null) '${item.year}',
   ];
-
-  final highlightBadge = item.badges
-      .map((badge) => badge.trim().toUpperCase())
-      .where((badge) => badge == 'TOP' || badge == 'TRENDING')
-      .map((badge) => badge == 'TRENDING' ? 'Destaque' : 'Top')
-      .toList();
-  values.addAll(highlightBadge.take(1));
 
   return values;
 }
@@ -2728,6 +2517,16 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
   }
 
   final cleanedDescription = _cleanDiscoveryText(item.description);
+  final heroPosterImage = item.image?.trim().isNotEmpty == true
+      ? item.image
+      : item.backdrop;
+  final heroBackdropImage = item.backdrop?.trim().isNotEmpty == true
+      ? item.backdrop
+      : item.image;
+  final hasDistinctBackdrop =
+      item.backdrop?.trim().isNotEmpty == true &&
+      item.image?.trim().isNotEmpty == true &&
+      item.backdrop!.trim() != item.image!.trim();
 
   return _HomeHeroChoice(
     title: item.title!.trim(),
@@ -2747,7 +2546,8 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
         : isSeries
         ? 'Uma série para puxar a próxima maratona.'
         : 'Uma escolha para começar sua sessão.',
-    imageUrl: item.backdrop ?? item.image,
+    imageUrl: heroPosterImage,
+    backdropImageUrl: heroBackdropImage,
     primaryLabel: isLive
         ? 'Assistir ao vivo'
         : isSeries
@@ -2766,6 +2566,8 @@ _HomeHeroChoice? _buildHeroChoiceFromDiscoveryItem({
       isSeries: isSeries,
       isAnime: isAnime,
     ),
+    isLive: isLive,
+    hasBackdropArtwork: hasDistinctBackdrop,
   );
 }
 
@@ -3489,6 +3291,7 @@ class _TvNavigationItem {
     required this.onTap,
     this.subtitle,
     this.badge,
+    this.selected = false,
     this.interactiveKey,
     this.testId,
   });
@@ -3498,172 +3301,9 @@ class _TvNavigationItem {
   final String? badge;
   final IconData icon;
   final VoidCallback onTap;
+  final bool selected;
   final Key? interactiveKey;
   final String? testId;
-}
-
-class _TvTopNavigationBar extends StatelessWidget {
-  const _TvTopNavigationBar({
-    required this.layout,
-    required this.primaryItems,
-    required this.utilityItems,
-  });
-
-  final DeviceLayout layout;
-  final List<_TvNavigationItem> primaryItems;
-  final List<_TvNavigationItem> utilityItems;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: layout.isTvCompact ? 12 : 14,
-        vertical: layout.isTvCompact ? 9 : 10,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: [Color(0xB9121D30), Color(0xA80D1626)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.34)),
-      ),
-      child: FocusTraversalGroup(
-        policy: OrderedTraversalPolicy(),
-        child: Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  for (var index = 0; index < primaryItems.length; index++) ...[
-                    if (index > 0) const SizedBox(width: 8),
-                    Expanded(
-                      child: _TvTopNavigationButton(
-                        item: primaryItems[index],
-                        layout: layout,
-                        autofocus: index == 0,
-                        focusOrder: index + 1,
-                        kind: _TvNavigationButtonKind.primary,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            for (var index = 0; index < utilityItems.length; index++) ...[
-              const SizedBox(width: 8),
-              _TvTopNavigationButton(
-                item: utilityItems[index],
-                layout: layout,
-                autofocus: false,
-                focusOrder: primaryItems.length + index + 1,
-                kind: _TvNavigationButtonKind.utility,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-enum _TvNavigationButtonKind { primary, utility }
-
-class _TvTopNavigationButton extends StatelessWidget {
-  const _TvTopNavigationButton({
-    required this.item,
-    required this.layout,
-    required this.autofocus,
-    required this.focusOrder,
-    required this.kind,
-  });
-
-  final _TvNavigationItem item;
-  final DeviceLayout layout;
-  final bool autofocus;
-  final int focusOrder;
-  final _TvNavigationButtonKind kind;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isUtility = kind == _TvNavigationButtonKind.utility;
-    final iconSize = isUtility ? 18.0 : 20.0;
-    final fontSize = isUtility ? 16.0 : 18.0;
-    final button = TvFocusable(
-      autofocus: autofocus,
-      onPressed: item.onTap,
-      interactiveKey: item.interactiveKey,
-      testId: item.testId,
-      builder: (context, focused) {
-        final active = focused;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: EdgeInsets.symmetric(
-            horizontal: isUtility ? 10 : 12,
-            vertical: 8,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: active
-                ? const LinearGradient(
-                    colors: [Color(0xFFFFF0DE), Color(0xFFFFD6AE)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : LinearGradient(
-                    colors: [
-                      colorScheme.surface.withValues(alpha: 0.7),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.5,
-                      ),
-                    ],
-                  ),
-            border: Border.all(
-              color: active
-                  ? colorScheme.secondary
-                  : colorScheme.outline.withValues(alpha: 0.34),
-              width: active ? 2.0 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                item.icon,
-                size: iconSize,
-                color: active ? const Color(0xFF130D03) : null,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w700,
-                    color: active ? const Color(0xFF130D03) : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    return FocusTraversalOrder(
-      order: NumericFocusOrder(focusOrder.toDouble()),
-      child: isUtility
-          ? SizedBox(width: layout.isTvCompact ? 112 : 120, child: button)
-          : button,
-    );
-  }
 }
 
 class _MobileTopBar extends StatelessWidget {
@@ -3753,6 +3393,474 @@ class _MobileTopActionChip extends StatelessWidget {
   }
 }
 
+class _TvHeroCarousel extends StatefulWidget {
+  const _TvHeroCarousel({
+    required this.layout,
+    required this.slides,
+    required this.fallbackHero,
+    required this.heroFocusNode,
+    required this.primaryNavEntryFocusNode,
+    required this.primaryNavItems,
+  });
+
+  final DeviceLayout layout;
+  final List<_HomeHeroChoice> slides;
+  final _HomeHeroChoice fallbackHero;
+  final FocusNode heroFocusNode;
+  final FocusNode primaryNavEntryFocusNode;
+  final List<_TvNavigationItem> primaryNavItems;
+
+  @override
+  State<_TvHeroCarousel> createState() => _TvHeroCarouselState();
+}
+
+class _TvHeroCarouselState extends State<_TvHeroCarousel> {
+  static const _autoAdvanceInterval = Duration(seconds: 15);
+  static const _manualCooldown = Duration(seconds: 15);
+
+  late final PageController _controller;
+  Timer? _autoAdvanceTimer;
+  int _currentIndex = 0;
+  DateTime? _lastManualInteractionAt;
+  bool _autoAnimating = false;
+
+  List<_HomeHeroChoice> get _effectiveSlides => widget.slides.isNotEmpty
+      ? widget.slides
+      : <_HomeHeroChoice>[widget.fallbackHero];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+    _restartAutoAdvance();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TvHeroCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.slides.length != widget.slides.length) {
+      if (_currentIndex >= _effectiveSlides.length) {
+        _currentIndex = 0;
+        if (_controller.hasClients) {
+          _controller.jumpToPage(0);
+        }
+      }
+      _restartAutoAdvance();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoAdvanceTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _restartAutoAdvance() {
+    _autoAdvanceTimer?.cancel();
+    if (_effectiveSlides.length <= 1) {
+      return;
+    }
+    _autoAdvanceTimer = Timer.periodic(_autoAdvanceInterval, (_) {
+      _advanceToNextSlide();
+    });
+  }
+
+  void _registerManualInteraction() {
+    _lastManualInteractionAt = DateTime.now();
+  }
+
+  Future<void> _advanceToNextSlide() async {
+    if (!mounted || !_controller.hasClients || _effectiveSlides.length <= 1) {
+      return;
+    }
+
+    final lastInteractionAt = _lastManualInteractionAt;
+    if (lastInteractionAt != null &&
+        DateTime.now().difference(lastInteractionAt) < _manualCooldown) {
+      return;
+    }
+
+    final nextIndex = (_currentIndex + 1) % _effectiveSlides.length;
+    _autoAnimating = true;
+    try {
+      await _controller.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+      );
+    } finally {
+      _autoAnimating = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slides = _effectiveSlides;
+    final stageAspectRatio = widget.layout.isTvCompact ? 16 / 6.5 : 16 / 6.8;
+
+    return Stack(
+      children: [
+        AspectRatio(
+          aspectRatio: stageAspectRatio,
+          child: PageView.builder(
+            controller: _controller,
+            physics: const NeverScrollableScrollPhysics(),
+            onPageChanged: (index) {
+              if (_currentIndex != index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              }
+              if (!_autoAnimating) {
+                _registerManualInteraction();
+              }
+              if (widget.heroFocusNode.hasFocus) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) {
+                    return;
+                  }
+                  widget.heroFocusNode.requestFocus();
+                });
+              }
+            },
+            itemCount: slides.length,
+            itemBuilder: (context, index) {
+              final isActiveSlide = index == _currentIndex;
+              return _MobileHeroSlideCard(
+                layout: widget.layout,
+                hero: slides[index],
+                focusNode: isActiveSlide ? widget.heroFocusNode : null,
+                autofocus: isActiveSlide,
+                onKeyEvent: (node, event) {
+                  if (event is! KeyDownEvent ||
+                      event.logicalKey != LogicalKeyboardKey.arrowUp) {
+                    return KeyEventResult.ignored;
+                  }
+
+                  widget.primaryNavEntryFocusNode.requestFocus();
+                  return KeyEventResult.handled;
+                },
+              );
+            },
+          ),
+        ),
+        if (widget.primaryNavItems.isNotEmpty)
+          Positioned(
+            top: 14,
+            left: 20,
+            right: 20,
+            child: _TvHomePrimaryActions(
+              layout: widget.layout,
+              items: widget.primaryNavItems,
+              entryFocusNode: widget.primaryNavEntryFocusNode,
+              downFocusNode: widget.heroFocusNode,
+            ),
+          ),
+        if (slides.length > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var index = 0; index < slides.length; index++) ...[
+                  if (index > 0) const SizedBox(width: 6),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: index == _currentIndex ? 20 : 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: index == _currentIndex
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ignore: unused_element
+class _TvHeroStage extends StatelessWidget {
+  const _TvHeroStage({
+    required this.layout,
+    required this.hero,
+    required this.focusNode,
+    required this.autofocus,
+  });
+
+  final DeviceLayout layout;
+  final _HomeHeroChoice hero;
+  final FocusNode focusNode;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final posterImageUrl = BrandedArtwork.normalizeArtworkUrl(hero.imageUrl);
+    final backdropImageUrl = BrandedArtwork.normalizeArtworkUrl(
+      hero.backdropImageUrl ?? hero.imageUrl,
+    );
+    final effectiveBackdropImageUrl = backdropImageUrl ?? posterImageUrl;
+    final effectivePosterImageUrl = posterImageUrl ?? effectiveBackdropImageUrl;
+    final titleSize = layout.isTvCompact ? 33.0 : 41.0;
+    final contentWidth = layout.isTvCompact ? 270.0 : 304.0;
+    final hasBackdropArtwork =
+        hero.hasBackdropArtwork && effectiveBackdropImageUrl != null;
+    final metadataText = hero.metadata
+        .where((value) => value.trim().isNotEmpty)
+        .join('  •  ');
+    final borderRadius = layout.isTvCompact ? 16.0 : 18.0;
+    final stageAspectRatio = layout.isTvCompact ? 16 / 5.75 : 16 / 5.45;
+    final backdropAlignment = layout.isTvCompact
+        ? const Alignment(0.18, -0.06)
+        : const Alignment(0.22, -0.04);
+    final artworkRightInset = layout.isTvCompact ? 4.0 : 8.0;
+    final artworkWidthFactor = layout.isTvCompact ? 0.60 : 0.64;
+    final artworkHeightFactor = layout.isTvCompact ? 0.86 : 0.90;
+
+    return AspectRatio(
+      aspectRatio: stageAspectRatio,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF04070C),
+                    Color(0xFF07111F),
+                    Color(0xFF04070C),
+                  ],
+                ),
+              ),
+            ),
+            if (effectiveBackdropImageUrl != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ImageFiltered(
+                        imageFilter: ui.ImageFilter.blur(
+                          sigmaX: hasBackdropArtwork ? 18 : 22,
+                          sigmaY: hasBackdropArtwork ? 18 : 22,
+                        ),
+                        child: Opacity(
+                          opacity: hasBackdropArtwork ? 0.28 : 0.34,
+                          child: Transform.scale(
+                            scale: hasBackdropArtwork ? 1.04 : 1.08,
+                            child: Image.network(
+                              effectiveBackdropImageUrl,
+                              fit: BoxFit.cover,
+                              alignment: hasBackdropArtwork
+                                  ? backdropAlignment
+                                  : const Alignment(0.3, -0.02),
+                              filterQuality: FilterQuality.low,
+                              headers: const {'Accept-Encoding': 'identity'},
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FractionallySizedBox(
+                          widthFactor: artworkWidthFactor,
+                          heightFactor: artworkHeightFactor,
+                          child: Padding(
+                            padding: EdgeInsets.only(right: artworkRightInset),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.24),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 12),
+                                  ),
+                                ],
+                              ),
+                              child: Image.network(
+                                effectivePosterImageUrl!,
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                                filterQuality: FilterQuality.high,
+                                headers: const {'Accept-Encoding': 'identity'},
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xA804070C),
+                    Color(0x6804070C),
+                    Color(0x2604070C),
+                    Color(0x0804070C),
+                    Color(0x0004070C),
+                  ],
+                  stops: [0.0, 0.14, 0.32, 0.62, 1.0],
+                ),
+              ),
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x24000000), Color(0x00000000)],
+                  stops: [0.0, 0.28],
+                ),
+              ),
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0x34000000), Color(0x00000000)],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: layout.isTvCompact ? 0.42 : 0.38,
+                    heightFactor: 0.92,
+                    alignment: Alignment.centerLeft,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: const Alignment(-0.6, -0.04),
+                          radius: 1.12,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.22),
+                            Colors.black.withValues(alpha: 0.10),
+                            const Color(0x00000000),
+                          ],
+                          stops: const [0.0, 0.58, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                layout.isTvCompact ? 20 : 22,
+                layout.isTvCompact ? 30 : 34,
+                22,
+                layout.isTvCompact ? 20 : 22,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: contentWidth),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: const Color(0xE9F0701E),
+                        ),
+                        child: Text(
+                          hero.kicker.toUpperCase(),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: Colors.black,
+                                letterSpacing: 0.9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        hero.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(
+                              fontSize: titleSize,
+                              height: 0.96,
+                              fontWeight: FontWeight.w800,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0xCC000000),
+                                  blurRadius: 18,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                      ),
+                      if (metadataText.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          metadataText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.86,
+                                ),
+                                fontWeight: FontWeight.w600,
+                                height: 1.18,
+                              ),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      TvFocusable(
+                        autofocus: autofocus,
+                        focusNode: focusNode,
+                        onPressed: hero.onPrimary,
+                        builder: (context, focused) => _TvHeroActionPill(
+                          label: hero.primaryLabel,
+                          focused: focused,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MobileHeroSlider extends StatefulWidget {
   const _MobileHeroSlider({
     required this.layout,
@@ -3769,8 +3877,8 @@ class _MobileHeroSlider extends StatefulWidget {
 }
 
 class _MobileHeroSliderState extends State<_MobileHeroSlider> {
-  static const _autoAdvanceInterval = Duration(seconds: 40);
-  static const _manualCooldown = Duration(seconds: 40);
+  static const _autoAdvanceInterval = Duration(seconds: 15);
+  static const _manualCooldown = Duration(seconds: 15);
 
   late final PageController _controller;
   Timer? _autoAdvanceTimer;
@@ -3924,157 +4032,402 @@ class _MobileHeroSliderState extends State<_MobileHeroSlider> {
 }
 
 class _MobileHeroSlideCard extends StatelessWidget {
-  const _MobileHeroSlideCard({required this.layout, required this.hero});
+  const _MobileHeroSlideCard({
+    required this.layout,
+    required this.hero,
+    this.focusNode,
+    this.autofocus = false,
+    this.onKeyEvent,
+  });
 
   final DeviceLayout layout;
   final _HomeHeroChoice hero;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final FocusOnKeyEventCallback? onKeyEvent;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final imageUrl = BrandedArtwork.normalizeArtworkUrl(hero.imageUrl);
-    final metadata = hero.metadata.take(2).join('  •  ');
+    final backdropImageUrl = BrandedArtwork.normalizeArtworkUrl(
+      hero.backdropImageUrl,
+    );
+    final posterImageUrl = BrandedArtwork.normalizeArtworkUrl(hero.imageUrl);
+    final metadata = hero.metadata.take(layout.isTv ? 3 : 2).join('  •  ');
 
     return TvFocusable(
+      autofocus: autofocus,
+      focusNode: focusNode,
+      onKeyEvent: onKeyEvent,
       onPressed: hero.onPrimary,
       builder: (context, focused) {
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: focused
-                  ? colorScheme.primary
-                  : colorScheme.outline.withValues(alpha: 0.42),
-              width: focused ? 1.8 : 1,
-            ),
+        if (layout.isTv) {
+          return _buildTvCard(
+            context: context,
+            focused: focused,
+            colorScheme: colorScheme,
+            backdropImageUrl: backdropImageUrl,
+            posterImageUrl: posterImageUrl,
+            metadata: metadata,
+          );
+        }
+
+        return _buildMobileCard(
+          context: context,
+          colorScheme: colorScheme,
+          imageUrl: backdropImageUrl ?? posterImageUrl,
+          metadata: metadata,
+        );
+      },
+    );
+  }
+
+  Widget _buildTvCard({
+    required BuildContext context,
+    required bool focused,
+    required ColorScheme colorScheme,
+    required String? backdropImageUrl,
+    required String? posterImageUrl,
+    required String metadata,
+  }) {
+    final ambientImageUrl = backdropImageUrl ?? posterImageUrl;
+    final showcaseImageUrl = backdropImageUrl ?? posterImageUrl;
+    final borderRadius = BorderRadius.circular(26);
+    final titleSize = layout.isTvCompact ? 42.0 : 48.0;
+    final contentWidth = layout.isTvCompact ? 360.0 : 430.0;
+    final showcaseWidthFactor = layout.isTvCompact ? 0.42 : 0.46;
+    final showcaseHeightFactor = layout.isTvCompact ? 0.84 : 0.9;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF03060B), Color(0xFF07111D), Color(0xFF03060B)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: focused ? 0.32 : 0.2),
+            blurRadius: focused ? 30 : 22,
+            offset: const Offset(0, 14),
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (imageUrl != null)
-                Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.medium,
-                  headers: const {'Accept-Encoding': 'identity'},
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox.shrink(),
-                )
-              else
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF0F1A2E), Color(0xFF172842)],
+        ],
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (ambientImageUrl != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ImageFiltered(
+                      imageFilter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: Opacity(
+                        opacity: 0.24,
+                        child: Transform.scale(
+                          scale: 1.06,
+                          child: Image.network(
+                            ambientImageUrl,
+                            fit: BoxFit.cover,
+                            alignment: const Alignment(0.28, -0.06),
+                            filterQuality: FilterQuality.low,
+                            headers: const {'Accept-Encoding': 'identity'},
+                            errorBuilder: (context, error, stackTrace) =>
+                                const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Color(0xF004080F),
-                      Color(0xCC050A13),
-                      Color(0x78050A13),
-                    ],
-                  ),
+                    if (showcaseImageUrl != null)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: layout.isTvCompact ? 16 : 18,
+                            top: layout.isTvCompact ? 18 : 20,
+                            bottom: layout.isTvCompact ? 18 : 20,
+                          ),
+                          child: FractionallySizedBox(
+                            widthFactor: showcaseWidthFactor,
+                            heightFactor: showcaseHeightFactor,
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: EdgeInsets.all(
+                                layout.isTvCompact ? 10 : 12,
+                              ),
+                              child: Image.network(
+                                showcaseImageUrl,
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                                filterQuality: FilterQuality.high,
+                                headers: const {'Accept-Encoding': 'identity'},
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xF7060910),
+                  Color(0xD9070B13),
+                  Color(0x78070B13),
+                  Color(0x18070B13),
+                ],
+                stops: [0.0, 0.26, 0.56, 1.0],
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [Color(0x50000000), Color(0x00000000)],
+                stops: [0.0, 0.34],
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x24000000), Color(0x00000000)],
+                stops: [0.0, 0.22],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              layout.isTvCompact ? 20 : 24,
+              layout.isTvCompact ? 18 : 22,
+              layout.isTvCompact ? 24 : 30,
+              layout.isTvCompact ? 20 : 22,
+            ),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentWidth),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
+                        horizontal: 14,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
-                        color: const Color(0xCCFF6A1A),
+                        color: const Color(0xEAF0701E),
                       ),
                       child: Text(
                         hero.kicker.toUpperCase(),
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: Colors.black,
-                              letterSpacing: 0.9,
-                              fontWeight: FontWeight.w900,
-                            ),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Colors.black,
+                          letterSpacing: 0.9,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
                     Text(
                       hero.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            fontSize: 26,
-                            height: 1,
-                            fontWeight: FontWeight.w800,
-                            shadows: const [
-                              Shadow(
-                                color: Color(0xB8000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        fontSize: titleSize,
+                        height: 0.96,
+                        fontWeight: FontWeight.w800,
+                        shadows: const [
+                          Shadow(
+                            color: Color(0xCC000000),
+                            blurRadius: 18,
+                            offset: Offset(0, 4),
                           ),
+                        ],
+                      ),
                     ),
                     if (metadata.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Text(
                         metadata,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
                               color: colorScheme.onSurface.withValues(
-                                alpha: 0.84,
+                                alpha: 0.86,
                               ),
                               fontWeight: FontWeight.w700,
                             ),
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.play_arrow_rounded,
-                          size: 16,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          hero.primaryLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.82,
-                                ),
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ],
+                    const SizedBox(height: 18),
+                    _TvHeroActionPill(
+                      label: hero.primaryLabel,
+                      focused: focused,
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileCard({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required String? imageUrl,
+    required String metadata,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.42),
+          width: 1,
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(color: Color(0xFF030507)),
+          ),
+          if (imageUrl != null)
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.medium,
+              headers: const {'Accept-Encoding': 'identity'},
+              errorBuilder: (context, error, stackTrace) =>
+                  const SizedBox.shrink(),
+            )
+          else
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF0F1A2E), Color(0xFF172842)],
+                ),
+              ),
+            ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xF004080F),
+                  Color(0xCC050A13),
+                  Color(0x78050A13),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: const Color(0xCCFF6A1A),
+                  ),
+                  child: Text(
+                    hero.kicker.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.black,
+                      letterSpacing: 0.9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  hero.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontSize: 26,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                    shadows: const [
+                      Shadow(
+                        color: Color(0xB8000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+                if (metadata.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    metadata,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.84),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.play_arrow_rounded,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      hero.primaryLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.82),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4094,229 +4447,305 @@ class _CinematicHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final imageUrl = BrandedArtwork.normalizeArtworkUrl(hero.imageUrl);
+    Widget buildCard(BuildContext context, {required bool focused}) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(layout.isTv ? 24 : 24),
+          border: tvMode && focused
+              ? Border.all(color: _kHomeTvFocusColor, width: 2.2)
+              : null,
+          boxShadow: tvMode && focused
+              ? [
+                  BoxShadow(
+                    color: _kHomeTvFocusGlow.withValues(alpha: 0.28),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+              : const [],
+        ),
+        child: AspectRatio(
+          aspectRatio: tvMode ? 16 / 4.4 : 16 / 9.8,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compactMobile = !tvMode && constraints.maxHeight < 260;
+              final veryCompactMobile = !tvMode && constraints.maxHeight < 236;
+              final metadata = hero.metadata
+                  .take(
+                    tvMode
+                        ? 3
+                        : (veryCompactMobile ? 0 : (compactMobile ? 1 : 2)),
+                  )
+                  .toList();
+              final titleFontSize = tvMode
+                  ? (layout.isTvCompact ? 34.0 : 38.0)
+                  : (compactMobile ? 27.0 : 32.0);
+              final metadataFontSize = tvMode
+                  ? 14.0
+                  : (compactMobile ? 13.0 : 14.0);
+              final descriptionFontSize = tvMode
+                  ? 13.0
+                  : (compactMobile ? 11.8 : 12.6);
+              final actionStyle = tvMode
+                  ? ButtonStyle(
+                      minimumSize: const WidgetStatePropertyAll(Size(0, 50)),
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                      ),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      backgroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.focused)) {
+                          return const Color(0xFFFFF3E7);
+                        }
+                        if (states.contains(WidgetState.pressed)) {
+                          return colorScheme.primary.withValues(alpha: 0.86);
+                        }
+                        return colorScheme.primary;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.focused)) {
+                          return const Color(0xFF161005);
+                        }
+                        return colorScheme.onPrimary;
+                      }),
+                      side: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.focused)) {
+                          return BorderSide(
+                            color: colorScheme.secondary,
+                            width: 2.6,
+                          );
+                        }
+                        return BorderSide(
+                          color: colorScheme.primary.withValues(alpha: 0.9),
+                        );
+                      }),
+                      elevation: WidgetStateProperty.resolveWith((states) {
+                        return states.contains(WidgetState.focused) ? 9 : 1;
+                      }),
+                    )
+                  : FilledButton.styleFrom(
+                      minimumSize: Size(0, veryCompactMobile ? 42 : 46),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: veryCompactMobile ? 14 : 16,
+                        vertical: veryCompactMobile ? 10 : 11,
+                      ),
+                      textStyle: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: veryCompactMobile ? 13.5 : 14.5,
+                          ),
+                    );
+              final showDescription = tvMode || !compactMobile;
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 30 : 24),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.44)),
-      ),
-      child: AspectRatio(
-        aspectRatio: tvMode ? 16 / 3.9 : 16 / 9.8,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compactMobile = !tvMode && constraints.maxHeight < 260;
-            final veryCompactMobile = !tvMode && constraints.maxHeight < 236;
-            final metadata = hero.metadata
-                .take(
-                  tvMode
-                      ? 3
-                      : (veryCompactMobile ? 0 : (compactMobile ? 1 : 2)),
-                )
-                .toList();
-            final titleFontSize = tvMode
-                ? (layout.isTvCompact ? 34.0 : 38.0)
-                : (compactMobile ? 27.0 : 32.0);
-            final metadataFontSize = tvMode
-                ? 14.0
-                : (compactMobile ? 13.0 : 14.0);
-            final descriptionFontSize = tvMode
-                ? 13.0
-                : (compactMobile ? 11.8 : 12.6);
-            final actionStyle = tvMode
-                ? ButtonStyle(
-                    minimumSize: const WidgetStatePropertyAll(Size(0, 50)),
-                    padding: const WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                    ),
-                    shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (imageUrl != null)
+                    Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.medium,
+                      headers: const {'Accept-Encoding': 'identity'},
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox.shrink(),
+                    )
+                  else
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF0F1A2E), Color(0xFF172842)],
+                        ),
                       ),
                     ),
-                    backgroundColor: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.focused)) {
-                        return const Color(0xFFFFF3E7);
-                      }
-                      if (states.contains(WidgetState.pressed)) {
-                        return colorScheme.primary.withValues(alpha: 0.86);
-                      }
-                      return colorScheme.primary;
-                    }),
-                    foregroundColor: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.focused)) {
-                        return const Color(0xFF161005);
-                      }
-                      return colorScheme.onPrimary;
-                    }),
-                    side: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.focused)) {
-                        return BorderSide(
-                          color: colorScheme.secondary,
-                          width: 2.6,
-                        );
-                      }
-                      return BorderSide(
-                        color: colorScheme.primary.withValues(alpha: 0.9),
-                      );
-                    }),
-                    elevation: WidgetStateProperty.resolveWith((states) {
-                      return states.contains(WidgetState.focused) ? 9 : 1;
-                    }),
-                  )
-                : FilledButton.styleFrom(
-                    minimumSize: Size(0, veryCompactMobile ? 42 : 46),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: veryCompactMobile ? 14 : 16,
-                      vertical: veryCompactMobile ? 10 : 11,
-                    ),
-                    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: veryCompactMobile ? 13.5 : 14.5,
-                    ),
-                  );
-            final showDescription = tvMode || !compactMobile;
-
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                if (imageUrl != null)
-                  Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.medium,
-                    headers: const {'Accept-Encoding': 'identity'},
-                    errorBuilder: (context, error, stackTrace) =>
-                        const SizedBox.shrink(),
-                  )
-                else
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF0F1A2E), Color(0xFF172842)],
-                      ),
-                    ),
-                  ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Color(0xEE04080F),
-                        Color(0xC2050A13),
-                        Color(0x6A050A13),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(
-                    tvMode ? 16 : (compactMobile ? 14 : 16),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: tvMode
-                        ? MainAxisAlignment.center
-                        : MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compactMobile ? 10 : 12,
-                          vertical: compactMobile ? 5 : 7,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: const Color(0xCCFF6A1A),
-                        ),
-                        child: Text(
-                          hero.kicker.toUpperCase(),
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: Colors.black,
-                                letterSpacing: 0.9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                        ),
-                      ),
-                      SizedBox(height: tvMode ? 12 : (compactMobile ? 6 : 8)),
-                      Text(
-                        hero.title,
-                        maxLines: tvMode ? 1 : (veryCompactMobile ? 2 : 3),
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineLarge
-                            ?.copyWith(
-                              fontSize: titleFontSize,
-                              height: veryCompactMobile ? 1.02 : 1.0,
-                              fontWeight: FontWeight.w800,
-                              shadows: const [
-                                Shadow(
-                                  color: Color(0xB8000000),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                      ),
-                      if (showDescription) ...[
-                        SizedBox(height: tvMode ? 4 : 6),
-                        Text(
-                          hero.description,
-                          maxLines: tvMode ? 1 : (veryCompactMobile ? 1 : 2),
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                fontSize: descriptionFontSize,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.84,
-                                ),
-                              ),
-                        ),
-                      ],
-                      if (metadata.isNotEmpty && !tvMode) ...[
-                        SizedBox(height: compactMobile ? 5 : 7),
-                        Text(
-                          metadata.join('  •  '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.88,
-                                ),
-                                fontSize: metadataFontSize,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ],
-                      SizedBox(height: tvMode ? 8 : (compactMobile ? 8 : 10)),
-                      Wrap(
-                        spacing: compactMobile ? 10 : 12,
-                        runSpacing: compactMobile ? 8 : 10,
-                        children: [
-                          FilledButton.icon(
-                            style: actionStyle,
-                            onPressed: hero.onPrimary,
-                            icon: const Icon(Icons.play_arrow_rounded),
-                            label: Text(hero.primaryLabel),
-                          ),
-                          if (!tvMode)
-                            OutlinedButton.icon(
-                              onPressed: hero.onSecondary,
-                              icon: const Icon(Icons.explore_rounded),
-                              label: Text(hero.secondaryLabel),
-                            ),
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xEE04080F),
+                          Color(0xC2050A13),
+                          Color(0x6A050A13),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
+                  Padding(
+                    padding: tvMode
+                        ? const EdgeInsets.fromLTRB(18, 54, 18, 18)
+                        : EdgeInsets.all(compactMobile ? 14 : 16),
+                    child: Column(
+                      mainAxisAlignment: tvMode
+                          ? MainAxisAlignment.center
+                          : MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compactMobile ? 10 : 12,
+                            vertical: compactMobile ? 5 : 7,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: const Color(0xCCFF6A1A),
+                          ),
+                          child: Text(
+                            hero.kicker.toUpperCase(),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: Colors.black,
+                                  letterSpacing: 0.9,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                        ),
+                        SizedBox(height: tvMode ? 12 : (compactMobile ? 6 : 8)),
+                        Text(
+                          hero.title,
+                          maxLines: tvMode ? 1 : (veryCompactMobile ? 2 : 3),
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.headlineLarge
+                              ?.copyWith(
+                                fontSize: titleFontSize,
+                                height: veryCompactMobile ? 1.02 : 1.0,
+                                fontWeight: FontWeight.w800,
+                                shadows: const [
+                                  Shadow(
+                                    color: Color(0xB8000000),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                        ),
+                        if (showDescription) ...[
+                          SizedBox(height: tvMode ? 4 : 6),
+                          Text(
+                            hero.description,
+                            maxLines: tvMode ? 1 : (veryCompactMobile ? 1 : 2),
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontSize: descriptionFontSize,
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.84,
+                                  ),
+                                ),
+                          ),
+                        ],
+                        if (metadata.isNotEmpty && !tvMode) ...[
+                          SizedBox(height: compactMobile ? 5 : 7),
+                          Text(
+                            metadata.join('  •  '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.88,
+                                  ),
+                                  fontSize: metadataFontSize,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                        SizedBox(height: tvMode ? 8 : (compactMobile ? 8 : 10)),
+                        Wrap(
+                          spacing: compactMobile ? 10 : 12,
+                          runSpacing: compactMobile ? 8 : 10,
+                          children: [
+                            if (tvMode)
+                              TvFocusable(
+                                onPressed: hero.onPrimary,
+                                builder: (context, pillFocused) =>
+                                    _TvHeroActionPill(
+                                      label: hero.primaryLabel,
+                                      focused: pillFocused,
+                                    ),
+                              )
+                            else
+                              FilledButton.icon(
+                                style: actionStyle,
+                                onPressed: hero.onPrimary,
+                                icon: const Icon(Icons.play_arrow_rounded),
+                                label: Text(hero.primaryLabel),
+                              ),
+                            if (!tvMode)
+                              OutlinedButton.icon(
+                                onPressed: hero.onSecondary,
+                                icon: const Icon(Icons.explore_rounded),
+                                label: Text(hero.secondaryLabel),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
+      );
+    }
+
+    return buildCard(context, focused: false);
+  }
+}
+
+class _TvHeroActionPill extends StatelessWidget {
+  const _TvHeroActionPill({required this.label, required this.focused});
+
+  final String label;
+  final bool focused;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 140),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: focused ? const Color(0xFFFFF3E7) : const Color(0xFFF28A38),
+        boxShadow: focused
+            ? [
+                BoxShadow(
+                  color: _kHomeTvFocusGlow.withValues(alpha: 0.24),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : const [],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.play_arrow_rounded,
+            size: 20,
+            color: focused ? const Color(0xFF161005) : Colors.black,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: focused ? const Color(0xFF161005) : Colors.black,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5662,7 +6091,7 @@ class _TvViewAllButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return SizedBox(
-      width: 158,
+      width: 140,
       child: TvFocusable(
         autofocus: false,
         onPressed: onPressed,
@@ -5684,6 +6113,7 @@ class _TvViewAllButton extends StatelessWidget {
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Ver tudo',
@@ -5885,38 +6315,45 @@ class _HomeRailCard extends StatelessWidget {
 
           return AnimatedContainer(
             duration: const Duration(milliseconds: 140),
-            padding: EdgeInsets.all(layout.isTv ? 9 : 7),
+            padding: EdgeInsets.all(layout.isTv ? 0 : 7),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: focused
-                    ? [
-                        colorScheme.primary.withValues(alpha: 0.26),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.96,
-                        ),
-                      ]
-                    : [
-                        colorScheme.surface.withValues(alpha: 0.86),
-                        colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.72,
-                        ),
-                      ],
-              ),
-              border: Border.all(
-                color: focused
-                    ? colorScheme.primary
-                    : colorScheme.outline.withValues(alpha: 0.5),
-                width: focused ? 2.6 : 1,
-              ),
+              borderRadius: BorderRadius.circular(layout.isTv ? 16 : 18),
+              color: layout.isTv ? Colors.transparent : null,
+              gradient: layout.isTv
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: focused
+                          ? [
+                              colorScheme.primary.withValues(alpha: 0.26),
+                              colorScheme.surfaceContainerHighest.withValues(
+                                alpha: 0.96,
+                              ),
+                            ]
+                          : [
+                              colorScheme.surface.withValues(alpha: 0.86),
+                              colorScheme.surfaceContainerHighest.withValues(
+                                alpha: 0.72,
+                              ),
+                            ],
+                    ),
+              border: layout.isTv
+                  ? null
+                  : Border.all(
+                      color: focused
+                          ? colorScheme.primary
+                          : colorScheme.outline.withValues(alpha: 0.5),
+                      width: focused ? 2.6 : 1,
+                    ),
               boxShadow: focused
                   ? [
                       BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.24),
-                        blurRadius: 18,
-                        offset: const Offset(0, 9),
+                        color: colorScheme.primary.withValues(
+                          alpha: layout.isTv ? 0.16 : 0.24,
+                        ),
+                        blurRadius: layout.isTv ? 12 : 18,
+                        offset: Offset(0, layout.isTv ? 6 : 9),
                       ),
                     ]
                   : const [],
@@ -6303,73 +6740,6 @@ _MobileHomeLiveEpgPresentation _resolveMobileHomeLiveEpgPresentation({
   );
 }
 
-class _TvLiveHighlightPresentation {
-  const _TvLiveHighlightPresentation({
-    required this.statusLabel,
-    required this.channelLabel,
-    required this.headline,
-    required this.footerLabel,
-    this.scheduleLine,
-    this.supportingLine,
-    this.progress,
-  });
-
-  final String statusLabel;
-  final String channelLabel;
-  final String headline;
-  final String footerLabel;
-  final String? scheduleLine;
-  final String? supportingLine;
-  final double? progress;
-}
-
-_TvLiveHighlightPresentation _resolveTvLiveHighlightPresentation({
-  required _HomeRailCardData data,
-  required _HomeLiveEpgState epgState,
-}) {
-  final current = epgState.current;
-  final next = epgState.next;
-
-  if (current != null) {
-    return _TvLiveHighlightPresentation(
-      statusLabel: 'AGORA',
-      channelLabel: data.title,
-      headline: current.title,
-      scheduleLine: _formatHomeTimeRange(current.startAt, current.endAt),
-      supportingLine: next != null
-          ? 'Depois ${_formatHomeClock(next.startAt)} • ${next.title}'
-          : data.hasReplay
-          ? 'Canal com replay disponivel'
-          : 'Entre no canal para assistir agora',
-      footerLabel: 'No ar neste momento',
-      progress: _homeEpgProgress(current, now: DateTime.now()),
-    );
-  }
-
-  if (next != null) {
-    return _TvLiveHighlightPresentation(
-      statusLabel: 'A SEGUIR',
-      channelLabel: data.title,
-      headline: next.title,
-      scheduleLine: _formatHomeTimeRange(next.startAt, next.endAt),
-      supportingLine: data.hasReplay
-          ? 'Canal com replay disponivel'
-          : 'Canal ao vivo agora',
-      footerLabel: 'Abrir canal ao vivo',
-    );
-  }
-
-  return _TvLiveHighlightPresentation(
-    statusLabel: 'AO VIVO',
-    channelLabel: data.title,
-    headline: 'No ar agora',
-    supportingLine: data.hasReplay
-        ? 'Canal com replay disponivel'
-        : 'Entre no canal para assistir agora',
-    footerLabel: 'Canal ao vivo agora',
-  );
-}
-
 String _formatHomeTimeRange(DateTime startAt, DateTime endAt) {
   return '${_formatHomeClock(startAt)} - ${_formatHomeClock(endAt)}';
 }
@@ -6389,209 +6759,6 @@ double? _homeEpgProgress(LiveEpgEntry entry, {required DateTime now}) {
 
   final elapsed = now.difference(entry.startAt).inMilliseconds;
   return (elapsed / total).clamp(0.0, 1.0);
-}
-
-class _TvHighlightChip extends StatelessWidget {
-  const _TvHighlightChip({
-    required this.label,
-    required this.color,
-    required this.focused,
-    this.emphasized = true,
-  });
-
-  final String label;
-  final Color color;
-  final bool focused;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = focused && emphasized
-        ? const Color(0xFF1C1003)
-        : color.computeLuminance() > 0.45
-        ? const Color(0xFF1C1003)
-        : Colors.white;
-    final background = emphasized
-        ? color.withValues(alpha: focused ? 0.92 : 0.82)
-        : color.withValues(alpha: focused ? 0.24 : 0.16);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: background,
-        border: Border.all(color: color.withValues(alpha: 0.32)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: emphasized ? foreground : color,
-          letterSpacing: 0.8,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _TvLiveChannelLogo extends StatelessWidget {
-  const _TvLiveChannelLogo({
-    required this.imageUrl,
-    required this.channelLabel,
-    required this.compact,
-  });
-
-  final String? imageUrl;
-  final String channelLabel;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalizedUrl = BrandedArtwork.normalizeArtworkUrl(imageUrl);
-    final size = compact ? 92.0 : 102.0;
-    final radius = compact ? 22.0 : 24.0;
-
-    Widget fallback() => _TvLiveChannelLogoFallback(
-      channelLabel: channelLabel,
-      compact: compact,
-    );
-
-    if (normalizedUrl != null) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 6 : 8),
-          child: Image.network(
-            normalizedUrl,
-            fit: BoxFit.contain,
-            headers: const {'Accept-Encoding': 'identity'},
-            filterQuality: FilterQuality.high,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) {
-                return child;
-              }
-              return fallback();
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return fallback();
-            },
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          color: Colors.white.withValues(alpha: 0.03),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: fallback(),
-        ),
-      ),
-    );
-  }
-}
-
-class _TvLiveChannelLogoFallback extends StatelessWidget {
-  const _TvLiveChannelLogoFallback({
-    required this.channelLabel,
-    required this.compact,
-  });
-
-  final String channelLabel;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final monogram = _buildChannelMonogram(channelLabel);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary.withValues(alpha: 0.08),
-            colorScheme.tertiary.withValues(alpha: 0.06),
-            colorScheme.surface.withValues(alpha: 0.88),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 8 : 10),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  monogram,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                SizedBox(height: compact ? 4 : 6),
-                Text(
-                  'Canal',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface.withValues(alpha: 0.66),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _buildChannelMonogram(String channelLabel) {
-  final cleaned = channelLabel
-      .replaceAll(RegExp(r'[^A-Za-z0-9 ]'), ' ')
-      .trim()
-      .toUpperCase();
-  if (cleaned.isEmpty) {
-    return 'TV';
-  }
-
-  final tokens = cleaned
-      .split(RegExp(r'\s+'))
-      .where((token) => token.isNotEmpty)
-      .toList();
-  if (tokens.isEmpty) {
-    return 'TV';
-  }
-
-  final preferred = tokens.firstWhere(
-    (token) => token.length >= 2,
-    orElse: () => tokens.first,
-  );
-  if (preferred.length <= 4) {
-    return preferred;
-  }
-
-  final initials = tokens.take(3).map((token) => token[0]).join();
-  return initials.length >= 2 ? initials : preferred.substring(0, 3);
 }
 
 class _RailPlaceholder extends StatelessWidget {
@@ -6708,17 +6875,4 @@ class _RailErrorCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _buildAccountCardDescription(XtreamSession session, String? expiresAt) {
-  final parts = [
-    DisplayFormatters.humanizeAccountStatus(session.accountStatus),
-    if (expiresAt != null) 'Vence em $expiresAt',
-  ];
-
-  if (parts.isEmpty) {
-    return 'Consulte os dados do acesso neste aparelho.';
-  }
-
-  return parts.join(' • ');
 }

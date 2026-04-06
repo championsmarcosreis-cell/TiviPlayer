@@ -11,7 +11,6 @@ class MobilePrimaryDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     var currentPath = '';
     try {
       currentPath = GoRouter.of(
@@ -27,15 +26,13 @@ class MobilePrimaryDock extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          color: colorScheme.surface.withValues(alpha: 0.94),
-          border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.22),
-          ),
+          color: Colors.black,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+              color: Colors.black.withValues(alpha: 0.42),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),

@@ -35,115 +35,99 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF03060D), Color(0xFF0A1321), Color(0xFF060B13)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -210,
-              right: -180,
-              child: _GlowOrb(
-                size: 460,
-                colors: const [Color(0x26FF6A1A), Color(0x00FF6A1A)],
-              ),
-            ),
-            Positioned(
-              bottom: -260,
-              left: -150,
-              child: _GlowOrb(
-                size: 520,
-                colors: const [Color(0x1E16C7FF), Color(0x00E33DFF)],
-              ),
-            ),
-            const Positioned.fill(child: _ScaffoldTexture()),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final layout = DeviceLayout.of(
-                    context,
-                    constraints: constraints,
-                  );
-                  final horizontalPadding = layout.pageHorizontalPadding;
-                  final effectiveMobileBottomBar = layout.isTv
-                      ? null
-                      : mobileBottomBar;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = DeviceLayout.of(context, constraints: constraints);
+        final horizontalPadding = layout.pageHorizontalPadding;
+        final effectiveMobileBottomBar = layout.isTv ? null : mobileBottomBar;
 
-                  return Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      horizontalPadding,
-                      layout.pageTopPadding,
-                      horizontalPadding,
-                      layout.pageBottomPadding,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (showHeader) ...[
-                          _AppScaffoldHeader(
-                            title: title,
-                            subtitle: subtitle,
-                            actions: actions,
-                            showBack: showBack,
-                            onBack: onBack,
-                            layout: layout,
-                            decoratedHeader: decoratedHeader,
-                            showBrand: showBrand,
-                          ),
-                          SizedBox(height: layout.sectionSpacing + 4),
-                        ],
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              Align(
-                                alignment: Alignment.topCenter,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: layout.maxContentWidth,
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.only(
-                                      bottom: effectiveMobileBottomBar == null
-                                          ? 0
-                                          : mobileBottomInset,
-                                    ),
-                                    child: child,
-                                  ),
-                                ),
-                              ),
-                              if (effectiveMobileBottomBar != null)
-                                Positioned(
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  child: Align(
-                                    alignment: Alignment.bottomCenter,
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxWidth: layout.maxContentWidth,
-                                      ),
-                                      child: effectiveMobileBottomBar,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+        final contentColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showHeader) ...[
+              _AppScaffoldHeader(
+                title: title,
+                subtitle: subtitle,
+                actions: actions,
+                showBack: showBack,
+                onBack: onBack,
+                layout: layout,
+                decoratedHeader: decoratedHeader,
+                showBrand: showBrand,
+              ),
+              SizedBox(height: layout.sectionSpacing + 4),
+            ],
+            Expanded(
+              child: Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: layout.maxContentWidth,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: effectiveMobileBottomBar == null
+                              ? 0
+                              : mobileBottomInset,
                         ),
-                      ],
+                        child: child,
+                      ),
                     ),
-                  );
-                },
+                  ),
+                  if (effectiveMobileBottomBar != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: layout.maxContentWidth,
+                          ),
+                          child: effectiveMobileBottomBar,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
-        ),
-      ),
+        );
+
+        final routeLocation = GoRouterState.of(context).matchedLocation;
+
+        return Scaffold(
+          body: ColoredBox(
+            color: Colors.black,
+            child: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  layout.pageTopPadding,
+                  horizontalPadding,
+                  layout.pageBottomPadding,
+                ),
+                child: layout.isTv
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: layout.isTvCompact ? 72 : 80,
+                            child: _TvAppSidebar(routeLocation: routeLocation),
+                          ),
+                          SizedBox(width: layout.isTvCompact ? 12 : 14),
+                          Expanded(child: contentColumn),
+                        ],
+                      )
+                    : contentColumn,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -366,69 +350,101 @@ class _HeaderBackButton extends StatelessWidget {
   }
 }
 
-class _GlowOrb extends StatelessWidget {
-  const _GlowOrb({required this.size, required this.colors});
+class _TvAppSidebar extends StatelessWidget {
+  const _TvAppSidebar({required this.routeLocation});
 
-  final double size;
-  final List<Color> colors;
+  final String routeLocation;
 
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: colors),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScaffoldTexture extends StatelessWidget {
-  const _ScaffoldTexture();
+  bool get _searchSelected => routeLocation == '/search';
+  bool get _accountSelected => routeLocation == '/account';
+  bool get _homeSelected => !_searchSelected && !_accountSelected;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Opacity(
-        opacity: 0.22,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.02),
-                Colors.transparent,
-                Colors.white.withValues(alpha: 0.015),
-              ],
-              stops: const [0, 0.45, 1],
-            ),
+    final layout = DeviceLayout.of(context);
+
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: BrandLogo(
+            variant: BrandLogoVariant.icon,
+            width: 34,
+            height: 34,
           ),
-          child: CustomPaint(painter: _TexturePainter()),
         ),
-      ),
+        SizedBox(height: layout.isTvCompact ? 26 : 30),
+        _TvAppSidebarItem(
+          icon: Icons.home_rounded,
+          selected: _homeSelected,
+          onPressed: () => context.go('/home'),
+        ),
+        SizedBox(height: layout.isTvCompact ? 18 : 20),
+        _TvAppSidebarItem(
+          icon: Icons.search_rounded,
+          selected: _searchSelected,
+          onPressed: () => context.go('/search'),
+        ),
+        SizedBox(height: layout.isTvCompact ? 18 : 20),
+        _TvAppSidebarItem(
+          icon: Icons.verified_user_rounded,
+          selected: _accountSelected,
+          onPressed: () => context.go('/account'),
+        ),
+      ],
     );
   }
 }
 
-class _TexturePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..color = Colors.white.withValues(alpha: 0.035)
-      ..strokeWidth = 1;
+class _TvAppSidebarItem extends StatelessWidget {
+  const _TvAppSidebarItem({
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
 
-    for (var index = 0; index < 18; index++) {
-      final y = (size.height / 18) * index;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y + 22), paint);
-    }
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = DeviceLayout.of(context);
+
+    return TvFocusable(
+      onPressed: onPressed,
+      builder: (context, focused) {
+        final emphasized = focused || selected;
+        final itemExtent = layout.isTvCompact ? 54.0 : 58.0;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: itemExtent,
+          height: itemExtent,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: emphasized
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.transparent,
+            boxShadow: focused
+                ? [
+                    BoxShadow(
+                      color: const Color(0x66AF7BFF).withValues(alpha: 0.26),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Icon(
+            icon,
+            size: 23,
+            color: emphasized
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.74),
+          ),
+        );
+      },
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

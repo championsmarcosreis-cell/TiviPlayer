@@ -28,6 +28,14 @@ class TvFocusable extends StatefulWidget {
 }
 
 class _TvFocusableState extends State<TvFocusable> {
+  static final Set<LogicalKeyboardKey> _activationKeys = {
+    LogicalKeyboardKey.select,
+    LogicalKeyboardKey.enter,
+    LogicalKeyboardKey.numpadEnter,
+    LogicalKeyboardKey.space,
+    LogicalKeyboardKey.gameButtonA,
+  };
+
   bool _focused = false;
   FocusNode? _internalFocusNode;
 
@@ -79,47 +87,71 @@ class _TvFocusableState extends State<TvFocusable> {
     });
   }
 
+  void _ensureVisibleIfNeeded() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_effectiveFocusNode.hasFocus) {
+        return;
+      }
+      if (MediaQuery.maybeNavigationModeOf(context) !=
+          NavigationMode.directional) {
+        return;
+      }
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 130),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final usesDirectionalNavigation =
         MediaQuery.navigationModeOf(context) == NavigationMode.directional;
     final focusedScale = usesDirectionalNavigation ? 1.014 : 1.008;
 
-    return FocusableActionDetector(
+    return Focus(
       autofocus: widget.autofocus,
       focusNode: _effectiveFocusNode,
-      enabled: widget.onPressed != null,
-      mouseCursor: widget.onPressed != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
+      canRequestFocus: widget.onPressed != null,
       onFocusChange: (focused) {
         if (_focused != focused) {
           setState(() {
             _focused = focused;
           });
         }
+        if (focused) {
+          _ensureVisibleIfNeeded();
+        }
         widget.onFocusChanged?.call(focused);
       },
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
+      onKeyEvent: (node, event) {
+        final customResult = widget.onKeyEvent?.call(node, event);
+        if (customResult == KeyEventResult.handled ||
+            customResult == KeyEventResult.skipRemainingHandlers) {
+          return customResult!;
+        }
+
+        if (event is KeyDownEvent &&
+            widget.onPressed != null &&
+            _activationKeys.contains(event.logicalKey)) {
+          widget.onPressed!.call();
+          return KeyEventResult.handled;
+        }
+
+        return customResult ?? KeyEventResult.ignored;
       },
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (intent) {
-            widget.onPressed?.call();
-            return null;
-          },
-        ),
-      },
-      child: _buildFocusableChild(context, focusedScale),
+      child: MouseRegion(
+        cursor: widget.onPressed != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: _buildFocusableChild(context, focusedScale),
+      ),
     );
   }
 
   Widget _buildFocusableChild(BuildContext context, double focusedScale) {
-    final content = Stack(
+    return Stack(
       children: [
         GestureDetector(
           key: widget.interactiveKey,
@@ -142,18 +174,6 @@ class _TvFocusableState extends State<TvFocusable> {
             ),
           ),
       ],
-    );
-
-    if (widget.onKeyEvent == null) {
-      return content;
-    }
-
-    return Focus(
-      canRequestFocus: false,
-      skipTraversal: true,
-      onKeyEvent: (node, event) =>
-          widget.onKeyEvent!.call(_effectiveFocusNode, event),
-      child: content,
     );
   }
 }

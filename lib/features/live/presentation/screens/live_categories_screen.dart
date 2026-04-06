@@ -16,6 +16,13 @@ import '../providers/live_providers.dart';
 import '../support/live_playback_context.dart';
 import 'live_tv_guide_screen.dart';
 
+const _kGuideMobileAccent = Color(0xFF27C2FF);
+const _kGuideMobileAccentSoft = Color(0x3327C2FF);
+const _kGuideMobileAccentGlow = Color(0x1A27C2FF);
+const _kGuideMobileAction = Color(0xFFFF7A1A);
+const _kGuideMobilePanelTop = Color(0xFF142338);
+const _kGuideMobilePanelBottom = Color(0xFF0E1828);
+
 class LiveCategoriesScreen extends StatelessWidget {
   const LiveCategoriesScreen({super.key});
 
@@ -328,20 +335,67 @@ class _MobileGuideSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return TextField(
-      controller: controller,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        hintText: 'Buscar canal...',
-        prefixIcon: const Icon(Icons.search_rounded),
-        suffixIcon: controller.text.isEmpty
-            ? null
-            : IconButton(
-                onPressed: controller.clear,
-                icon: const Icon(Icons.close_rounded),
-              ),
-        filled: true,
-        fillColor: colorScheme.surface.withValues(alpha: 0.74),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.surface.withValues(alpha: 0.9),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.68),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Buscar canal...',
+          hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.54),
+            fontWeight: FontWeight.w500,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: colorScheme.onSurface.withValues(alpha: 0.68),
+          ),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: controller.clear,
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: colorScheme.onSurface.withValues(alpha: 0.66),
+                  ),
+                ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(22),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(22),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(22),
+            borderSide: BorderSide(color: _kGuideMobileAccent, width: 1.3),
+          ),
+          filled: true,
+          fillColor: Colors.transparent,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 16,
+          ),
+        ),
       ),
     );
   }
@@ -365,15 +419,17 @@ class _MobileGuideSectionHeader extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurface.withValues(alpha: 0.74),
+            color: colorScheme.onSurface.withValues(alpha: 0.68),
+            height: 1.3,
           ),
         ),
       ],
@@ -430,11 +486,11 @@ class _MobileGuideFilterStrip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return SizedBox(
-      height: 50,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: filters.length,
-        separatorBuilder: (_, _) => SizedBox(width: layout.cardSpacing - 4),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final filter = filters[index];
           final selected = filter.id == selectedCategoryId;
@@ -447,40 +503,39 @@ class _MobileGuideFilterStrip extends StatelessWidget {
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 140),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                  horizontal: 15,
+                  vertical: 7,
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
-                  gradient: active
-                      ? LinearGradient(
-                          colors: [
-                            colorScheme.secondary.withValues(alpha: 0.22),
-                            colorScheme.surfaceContainerHighest.withValues(
-                              alpha: 0.92,
-                            ),
-                          ],
-                        )
-                      : LinearGradient(
-                          colors: [
-                            colorScheme.surface.withValues(alpha: 0.72),
-                            colorScheme.surfaceContainerHighest.withValues(
-                              alpha: 0.64,
-                            ),
-                          ],
-                        ),
+                  color: active
+                      ? _kGuideMobileAccentSoft
+                      : colorScheme.surface.withValues(alpha: 0.42),
                   border: Border.all(
                     color: active
-                        ? colorScheme.secondary
-                        : colorScheme.outline.withValues(alpha: 0.34),
-                    width: active ? 2 : 1,
+                        ? _kGuideMobileAccent
+                        : Colors.white.withValues(alpha: 0.14),
+                    width: active ? 1.4 : 1,
                   ),
+                  boxShadow: active
+                      ? [
+                          BoxShadow(
+                            color: _kGuideMobileAccentGlow,
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Center(
                   child: Text(
                     filter.label,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: active
+                          ? _kGuideMobileAccent
+                          : colorScheme.onSurface.withValues(alpha: 0.86),
                     ),
                   ),
                 ),
@@ -510,17 +565,35 @@ class _MobileGuideSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _MobileGuideStatChip(label: '$visibleCount canais'),
-        _MobileGuideStatChip(label: '$totalFilters filtros'),
-        if (liveWithEpg > 0)
-          _MobileGuideStatChip(label: '$liveWithEpg com EPG'),
-        if (liveWithReplay > 0)
-          _MobileGuideStatChip(label: '$liveWithReplay com replay'),
-      ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.surface.withValues(alpha: 0.74),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _MobileGuideStatChip(label: '$visibleCount canais'),
+            _MobileGuideStatChip(label: '$totalFilters filtros'),
+            if (liveWithEpg > 0)
+              _MobileGuideStatChip(label: '$liveWithEpg com EPG'),
+            if (liveWithReplay > 0)
+              _MobileGuideStatChip(label: '$liveWithReplay com replay'),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -544,37 +617,62 @@ class _MobileGuidePinnedTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: EdgeInsets.only(bottom: layout.cardSpacing),
+    return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF050914), Color(0xF108111D), Color(0xEA08111D)],
+          colors: [Color(0xFF060B15), Color(0xF10A1220), Color(0xEA08111D)],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _MobileGuideStatChip(label: 'Guia $windowLabel'),
-          SizedBox(height: layout.cardSpacing),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: colorScheme.surface.withValues(alpha: 0.72),
-              border: Border.all(
-                color: colorScheme.outline.withValues(alpha: 0.32),
-              ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: layout.cardSpacing),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_kGuideMobilePanelTop, _kGuideMobilePanelBottom],
             ),
-            child: _MobileGuideTimeSlotStrip(
-              layout: layout,
-              slots: slots,
-              selectedSlotId: selectedSlotId,
-              onSelectSlot: onSelectSlot,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _MobileGuideStatChip(label: 'Guia $windowLabel', accent: true),
+                SizedBox(height: layout.cardSpacing),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    color: colorScheme.surface.withValues(alpha: 0.26),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: _MobileGuideTimeSlotStrip(
+                      layout: layout,
+                      slots: slots,
+                      selectedSlotId: selectedSlotId,
+                      onSelectSlot: onSelectSlot,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -596,11 +694,11 @@ class _MobileGuideTimeSlotStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 58,
+      height: 54,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: slots.length,
-        separatorBuilder: (_, _) => SizedBox(width: layout.cardSpacing - 4),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final slot = slots[index];
           return _MobileGuideTimeSlotChip(
@@ -636,42 +734,41 @@ class _MobileGuideTimeSlotChip extends StatelessWidget {
         final active = selected || focused;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          width: slot.isNow ? 96 : 88,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          width: slot.isNow ? 94 : 84,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: active
-                ? LinearGradient(
-                    colors: [
-                      colorScheme.secondary.withValues(alpha: 0.22),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.92,
-                      ),
-                    ],
-                  )
-                : LinearGradient(
-                    colors: [
-                      colorScheme.surface.withValues(alpha: 0.72),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.64,
-                      ),
-                    ],
-                  ),
+            borderRadius: BorderRadius.circular(17),
+            color: active
+                ? Colors.white.withValues(alpha: 0.08)
+                : colorScheme.surface.withValues(alpha: 0.28),
             border: Border.all(
               color: active
-                  ? colorScheme.secondary
-                  : colorScheme.outline.withValues(alpha: 0.34),
-              width: active ? 2 : 1,
+                  ? _kGuideMobileAccent
+                  : Colors.white.withValues(alpha: 0.12),
+              width: active ? 1.4 : 1,
             ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: _kGuideMobileAccentGlow,
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
           ),
           child: Center(
             child: Text(
               slot.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: active
+                    ? _kGuideMobileAccent
+                    : colorScheme.onSurface.withValues(alpha: 0.86),
+              ),
             ),
           ),
         );
@@ -681,28 +778,35 @@ class _MobileGuideTimeSlotChip extends StatelessWidget {
 }
 
 class _MobileGuideStatChip extends StatelessWidget {
-  const _MobileGuideStatChip({required this.label});
+  const _MobileGuideStatChip({required this.label, this.accent = false});
 
   final String label;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
+        color: accent
+            ? _kGuideMobileAccentSoft
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.28),
+          color: accent
+              ? _kGuideMobileAccent.withValues(alpha: 0.5)
+              : Colors.white.withValues(alpha: 0.08),
         ),
       ),
       child: Text(
         label,
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: accent
+              ? _kGuideMobileAccent
+              : colorScheme.onSurface.withValues(alpha: 0.82),
+        ),
       ),
     );
   }
@@ -758,58 +862,78 @@ class _MobileGuideChannelTile extends ConsumerWidget {
       builder: (context, focused) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: focused
                   ? [
-                      colorScheme.secondary.withValues(alpha: 0.18),
+                      _kGuideMobileAccentSoft,
                       colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.92,
+                        alpha: 0.9,
                       ),
                     ]
                   : [
-                      colorScheme.surface.withValues(alpha: 0.82),
+                      colorScheme.surface.withValues(alpha: 0.84),
                       colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.72,
+                        alpha: 0.68,
                       ),
                     ],
             ),
             border: Border.all(
               color: focused
-                  ? colorScheme.secondary
-                  : colorScheme.outline.withValues(alpha: 0.36),
-              width: focused ? 2 : 1,
+                  ? _kGuideMobileAccent
+                  : Colors.white.withValues(alpha: 0.1),
+              width: focused ? 1.4 : 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: focused ? 0.22 : 0.14),
+                blurRadius: focused ? 24 : 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 64,
-                child: BrandedArtwork(
-                  imageUrl: item.iconUrl,
-                  aspectRatio: 1,
-                  fit: BoxFit.contain,
-                  imagePadding: const EdgeInsets.all(8),
-                  icon: Icons.live_tv_rounded,
-                  placeholderLabel: 'Canal',
-                  borderRadius: 16,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: Colors.white.withValues(alpha: 0.04),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: SizedBox(
+                  width: 66,
+                  child: BrandedArtwork(
+                    imageUrl: item.iconUrl,
+                    aspectRatio: 1,
+                    fit: BoxFit.contain,
+                    imagePadding: const EdgeInsets.all(9),
+                    icon: Icons.live_tv_rounded,
+                    placeholderLabel: 'Canal',
+                    borderRadius: 18,
+                    chrome: BrandedArtworkChrome.subtle,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
-                        _MobileGuideMetaChip(label: selectedChipLabel),
+                        _MobileGuideMetaChip(
+                          label: selectedChipLabel,
+                          primary: true,
+                        ),
                         _MobileGuideMetaChip(
                           label: item.hasArchive ? 'REPLAY' : 'LIVE',
                         ),
@@ -819,45 +943,48 @@ class _MobileGuideChannelTile extends ConsumerWidget {
                           const _MobileGuideMetaChip(label: '18+'),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Text(
                       item.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 19,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: colorScheme.onSurface.withValues(alpha: 0.94),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       selectedHeadline,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.88),
-                        fontWeight: FontWeight.w600,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w700,
+                        height: 1.18,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       selectedSupportingLine,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.74),
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     if (progress != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(999),
                         child: LinearProgressIndicator(
                           value: progress,
-                          minHeight: 5,
-                          backgroundColor: Colors.white.withValues(alpha: 0.14),
+                          minHeight: 4,
+                          backgroundColor: Colors.white.withValues(alpha: 0.1),
                           valueColor: AlwaysStoppedAnimation(
-                            colorScheme.primary,
+                            _kGuideMobileAction,
                           ),
                         ),
                       ),
@@ -869,20 +996,40 @@ class _MobileGuideChannelTile extends ConsumerWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.74),
+                          color: colorScheme.onSurface.withValues(alpha: 0.68),
+                          height: 1.3,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Icon(
-                Icons.play_circle_fill_rounded,
-                color: focused
-                    ? colorScheme.secondary
-                    : colorScheme.primary.withValues(alpha: 0.92),
-                size: 28,
+              const SizedBox(width: 12),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      _kGuideMobileAction.withValues(alpha: 0.96),
+                      _kGuideMobileAction.withValues(alpha: 0.76),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _kGuideMobileAction.withValues(alpha: 0.22),
+                      blurRadius: 14,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
               ),
             ],
           ),
@@ -893,9 +1040,10 @@ class _MobileGuideChannelTile extends ConsumerWidget {
 }
 
 class _MobileGuideMetaChip extends StatelessWidget {
-  const _MobileGuideMetaChip({required this.label});
+  const _MobileGuideMetaChip({required this.label, this.primary = false});
 
   final String label;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
@@ -904,9 +1052,13 @@ class _MobileGuideMetaChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: colorScheme.secondary.withValues(alpha: 0.14),
+        color: primary
+            ? _kGuideMobileAccentSoft
+            : colorScheme.secondary.withValues(alpha: 0.08),
         border: Border.all(
-          color: colorScheme.secondary.withValues(alpha: 0.26),
+          color: primary
+              ? _kGuideMobileAccent.withValues(alpha: 0.48)
+              : Colors.white.withValues(alpha: 0.08),
         ),
       ),
       child: Text(
@@ -914,6 +1066,9 @@ class _MobileGuideMetaChip extends StatelessWidget {
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           letterSpacing: 0.5,
           fontWeight: FontWeight.w700,
+          color: primary
+              ? _kGuideMobileAccent
+              : colorScheme.onSurface.withValues(alpha: 0.76),
         ),
       ),
     );
@@ -979,10 +1134,15 @@ class _MobileGuideStateCard extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: colorScheme.surface.withValues(alpha: 0.68),
-            border: Border.all(
-              color: colorScheme.outline.withValues(alpha: 0.34),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colorScheme.surface.withValues(alpha: 0.74),
+                colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+              ],
             ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

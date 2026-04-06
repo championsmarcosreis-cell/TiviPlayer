@@ -4,7 +4,7 @@ class AppTheme {
   const AppTheme._();
 
   static ThemeData dark() {
-    const background = Color(0xFF070C14);
+    const background = Colors.black;
     const surface = Color(0xFF121B2A);
     const surfaceContainer = Color(0xFF1A273B);
     const outline = Color(0xFF3A4A62);
