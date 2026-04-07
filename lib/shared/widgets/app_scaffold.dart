@@ -17,6 +17,7 @@ class AppScaffold extends StatelessWidget {
     this.decoratedHeader = true,
     this.showBrand = true,
     this.showHeader = true,
+    this.showTvSidebar = true,
     this.mobileBottomBar,
     this.mobileBottomInset = 92,
   });
@@ -30,6 +31,7 @@ class AppScaffold extends StatelessWidget {
   final bool decoratedHeader;
   final bool showBrand;
   final bool showHeader;
+  final bool showTvSidebar;
   final Widget? mobileBottomBar;
   final double mobileBottomInset;
 
@@ -110,7 +112,7 @@ class AppScaffold extends StatelessWidget {
                   horizontalPadding,
                   layout.pageBottomPadding,
                 ),
-                child: layout.isTv
+                child: layout.isTv && showTvSidebar
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

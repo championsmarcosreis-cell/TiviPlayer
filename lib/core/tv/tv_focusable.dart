@@ -35,9 +35,11 @@ class _TvFocusableState extends State<TvFocusable> {
     LogicalKeyboardKey.space,
     LogicalKeyboardKey.gameButtonA,
   };
+  static const _activationCooldown = Duration(milliseconds: 450);
 
   bool _focused = false;
   FocusNode? _internalFocusNode;
+  DateTime? _lastActivationAt;
 
   FocusNode get _effectiveFocusNode => widget.focusNode ?? _internalFocusNode!;
 
@@ -135,7 +137,7 @@ class _TvFocusableState extends State<TvFocusable> {
         if (event is KeyDownEvent &&
             widget.onPressed != null &&
             _activationKeys.contains(event.logicalKey)) {
-          widget.onPressed!.call();
+          _activate();
           return KeyEventResult.handled;
         }
 
@@ -156,7 +158,7 @@ class _TvFocusableState extends State<TvFocusable> {
         GestureDetector(
           key: widget.interactiveKey,
           behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed,
+          onTap: widget.onPressed == null ? null : _activate,
           child: AnimatedScale(
             duration: const Duration(milliseconds: 140),
             scale: _focused ? focusedScale : 1,
@@ -175,5 +177,22 @@ class _TvFocusableState extends State<TvFocusable> {
           ),
       ],
     );
+  }
+
+  void _activate() {
+    final onPressed = widget.onPressed;
+    if (onPressed == null) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final lastActivationAt = _lastActivationAt;
+    if (lastActivationAt != null &&
+        now.difference(lastActivationAt) < _activationCooldown) {
+      return;
+    }
+
+    _lastActivationAt = now;
+    onPressed();
   }
 }

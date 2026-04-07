@@ -56,7 +56,7 @@ class ContentListTile extends StatelessWidget {
         final hasArtwork = imageUrl != null || thumbnailLabel != null;
         final baseThumbnailWidth = hasArtwork ? thumbnailWidth : 54.0;
         final resolvedThumbnailWidth = layout.isTv
-            ? baseThumbnailWidth + 18
+            ? baseThumbnailWidth + 14
             : baseThumbnailWidth;
         final normalizedMetadata = metadata
             .map((value) => value.trim())
@@ -67,39 +67,25 @@ class ContentListTile extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           padding: EdgeInsets.symmetric(
-            horizontal: layout.isTv ? 20 : 16,
-            vertical: layout.isTv ? 16 : 12,
+            horizontal: layout.isTv ? 18 : 14,
+            vertical: layout.isTv ? 14 : 12,
           ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: focused
-                  ? [
-                      colorScheme.primary.withValues(alpha: 0.22),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.9,
-                      ),
-                    ]
-                  : [
-                      colorScheme.surface.withValues(alpha: 0.92),
-                      colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.72,
-                      ),
-                    ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: focused
+                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.38)
+                : Colors.white.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
             border: Border.all(
               color: focused
-                  ? colorScheme.primary
-                  : colorScheme.outline.withValues(alpha: 0.64),
-              width: focused ? 2 : 1,
+                  ? colorScheme.primary.withValues(alpha: 0.82)
+                  : colorScheme.outline.withValues(alpha: 0.14),
+              width: focused ? 1.6 : 1,
             ),
             boxShadow: focused
                 ? [
                     BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.2),
-                      blurRadius: 18,
+                      color: colorScheme.primary.withValues(alpha: 0.16),
+                      blurRadius: layout.isTv ? 18 : 14,
                       offset: const Offset(0, 8),
                     ),
                   ]
@@ -107,7 +93,7 @@ class ContentListTile extends StatelessWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: layout.listTileMinHeight + (layout.isTv ? 8 : 0),
+              minHeight: layout.listTileMinHeight - (layout.isTv ? 4 : 8),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -120,33 +106,31 @@ class ContentListTile extends StatelessWidget {
                       aspectRatio: thumbnailAspectRatio,
                       fit: thumbnailFit,
                       imagePadding: imagePadding,
-                      borderRadius: layout.isTv ? 20 : 18,
+                      borderRadius: layout.isTv ? 18 : 16,
                       icon: icon,
                       placeholderLabel: thumbnailLabel,
+                      chrome: BrandedArtworkChrome.subtle,
                     ),
                   )
                 else
                   Container(
-                    height: layout.isTv ? 62 : 50,
-                    width: layout.isTv ? 62 : 50,
+                    height: layout.isTv ? 58 : 48,
+                    width: layout.isTv ? 58 : 48,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          colorScheme.secondary.withValues(alpha: 0.24),
-                          colorScheme.primary.withValues(alpha: 0.2),
-                        ],
+                      color: colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.28,
                       ),
                       borderRadius: BorderRadius.circular(
                         layout.isTv ? 18 : 16,
                       ),
                       border: Border.all(
-                        color: colorScheme.outline.withValues(alpha: 0.46),
+                        color: colorScheme.outline.withValues(alpha: 0.16),
                       ),
                     ),
                     child: Icon(
                       icon,
-                      color: colorScheme.onSurface,
-                      size: layout.isTv ? 30 : 24,
+                      color: colorScheme.onSurface.withValues(alpha: 0.88),
+                      size: layout.isTv ? 28 : 22,
                     ),
                   ),
                 SizedBox(width: layout.isTv ? 18 : 12),
@@ -155,14 +139,15 @@ class ContentListTile extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (overline != null && overline!.trim().isNotEmpty) ...[
+                      if (_normalizeText(overline)
+                          case final overlineText?) ...[
                         Text(
-                          overline!.toUpperCase(),
+                          overlineText.toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(
-                                letterSpacing: 1.1,
+                                letterSpacing: 1.02,
                                 color: colorScheme.secondary.withValues(
                                   alpha: 0.92,
                                 ),
@@ -178,9 +163,9 @@ class ContentListTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
-                              fontSize: layout.isTv ? 25 : 18,
+                              fontSize: layout.isTv ? 24 : 17,
                               fontWeight: FontWeight.w700,
-                              height: 1.12,
+                              height: 1.14,
                             ),
                       ),
                       if (normalizedMetadata.isNotEmpty) ...[
@@ -194,10 +179,11 @@ class ContentListTile extends StatelessWidget {
                           ],
                         ),
                       ],
-                      if (subtitle != null) ...[
+                      if (_normalizeText(subtitle)
+                          case final subtitleText?) ...[
                         SizedBox(height: layout.isTv ? 9 : 8),
                         Text(
-                          subtitle!,
+                          subtitleText,
                           maxLines: layout.isTv ? 2 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall
@@ -205,7 +191,7 @@ class ContentListTile extends StatelessWidget {
                                 fontSize: layout.isTv ? 14 : 12.5,
                                 height: 1.38,
                                 color: colorScheme.onSurface.withValues(
-                                  alpha: 0.8,
+                                  alpha: 0.72,
                                 ),
                               ),
                         ),
@@ -218,36 +204,37 @@ class ContentListTile extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (badge != null && badge!.trim().isNotEmpty)
+                    if (_normalizeText(badge) case final badgeText?)
                       Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: layout.isTv ? 10 : 8,
-                          vertical: layout.isTv ? 5 : 4,
+                          horizontal: layout.isTv ? 9 : 8,
+                          vertical: layout.isTv ? 4.5 : 4,
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(999),
-                          color: colorScheme.secondary.withValues(alpha: 0.18),
+                          color: colorScheme.surfaceContainerHighest.withValues(
+                            alpha: 0.3,
+                          ),
                           border: Border.all(
-                            color: colorScheme.secondary.withValues(alpha: 0.4),
+                            color: colorScheme.outline.withValues(alpha: 0.16),
                           ),
                         ),
                         child: Text(
-                          badge!,
+                          badgeText,
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
-                                letterSpacing: 0.6,
+                                letterSpacing: 0.5,
                                 fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
                               ),
                         ),
                       ),
                     SizedBox(height: layout.isTv ? 10 : 8),
                     Icon(
                       Icons.arrow_forward_ios_rounded,
-                      size: layout.isTv ? 20 : 16,
+                      size: layout.isTv ? 18 : 15,
                       color: focused
                           ? colorScheme.primary
-                          : colorScheme.onSurface.withValues(alpha: 0.74),
+                          : colorScheme.onSurface.withValues(alpha: 0.54),
                     ),
                   ],
                 ),
@@ -277,17 +264,25 @@ class _MetadataPill extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.38)),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.24),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.12)),
       ),
       child: Text(
         value,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           fontSize: layout.isTv ? 11.5 : 10.5,
           fontWeight: FontWeight.w700,
-          color: colorScheme.onSurface.withValues(alpha: 0.88),
+          color: colorScheme.onSurface.withValues(alpha: 0.84),
         ),
       ),
     );
   }
+}
+
+String? _normalizeText(String? value) {
+  final normalized = value?.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (normalized == null || normalized.isEmpty) {
+    return null;
+  }
+  return normalized;
 }
