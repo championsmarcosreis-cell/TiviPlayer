@@ -6,17 +6,16 @@ import '../../../../features/series/domain/entities/series_category.dart';
 import '../../../../features/series/domain/entities/series_item.dart';
 import '../../../../features/series/presentation/providers/series_providers.dart';
 import '../../../../features/series/presentation/screens/series_details_screen.dart';
-import '../../../../features/series/presentation/screens/series_items_screen.dart';
 import '../../../../features/vod/domain/entities/vod_category.dart';
 import '../../../../features/vod/domain/entities/vod_stream.dart';
 import '../../../../features/vod/presentation/providers/vod_providers.dart';
 import '../../../../features/vod/presentation/screens/vod_details_screen.dart';
-import '../../../../features/vod/presentation/screens/vod_streams_screen.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/presentation/support/on_demand_library.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
 import '../../../../shared/widgets/mobile_primary_dock.dart';
+import '../../../../shared/widgets/tv_library_shell.dart';
 
 class KidsLibraryScreen extends ConsumerStatefulWidget {
   const KidsLibraryScreen({super.key});
@@ -74,18 +73,13 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
         seriesItemsAsync.hasError;
     final hasContent =
         filteredVodItems.isNotEmpty || filteredSeriesItems.isNotEmpty;
-    final featured = filteredVodItems.isNotEmpty
-        ? filteredVodItems.first
-        : filteredSeriesItems.isNotEmpty
-        ? filteredSeriesItems.first
-        : null;
-    final mobileCatalogItems = _buildKidsCatalogItems(
+    final catalogItems = _buildKidsCatalogItems(
       vodItems: filteredVodItems,
       seriesItems: filteredSeriesItems,
       context: context,
     );
-    final visibleMobileItems = _filterKidsCatalogItems(
-      items: mobileCatalogItems,
+    final visibleCatalogItems = _filterKidsCatalogItems(
+      items: catalogItems,
       filter: _selectedFilter,
     );
 
@@ -94,7 +88,7 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
       subtitle: layout.isTv ? spec.subtitle : null,
       showBack: true,
       showBrand: false,
-      decoratedHeader: layout.isTv,
+      decoratedHeader: !layout.isTv,
       mobileBottomBar: const MobilePrimaryDock(),
       child: Builder(
         builder: (context) {
@@ -112,7 +106,7 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
                 SliverToBoxAdapter(
                   child: _KidsMobileCatalogLead(
                     spec: spec,
-                    totalItems: mobileCatalogItems.length,
+                    totalItems: catalogItems.length,
                     movieCount: filteredVodItems.length,
                     seriesCount: filteredSeriesItems.length,
                     selectedFilter: _selectedFilter,
@@ -124,7 +118,7 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
                     },
                   ),
                 ),
-                if (visibleMobileItems.isEmpty)
+                if (visibleCatalogItems.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -142,7 +136,7 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
                     ),
                     sliver: SliverGrid(
                       delegate: SliverChildBuilderDelegate((context, index) {
-                        final item = visibleMobileItems[index];
+                        final item = visibleCatalogItems[index];
                         return _KidsPosterCard(
                           layout: layout,
                           title: item.title,
@@ -152,7 +146,7 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
                           badge: item.badge,
                           onPressed: item.onPressed,
                         );
-                      }, childCount: visibleMobileItems.length),
+                      }, childCount: visibleCatalogItems.length),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: switch (layout.deviceClass) {
                           DeviceClass.mobilePortrait => 3,
@@ -175,124 +169,60 @@ class _KidsLibraryScreenState extends ConsumerState<KidsLibraryScreen> {
             );
           }
 
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _KidsHero(
-                  layout: layout,
-                  spec: spec,
-                  featuredTitle: _featuredTitle(featured),
-                  featuredImageUrl: _featuredImageUrl(featured),
-                  movieCount: filteredVodItems.length,
-                  seriesCount: filteredSeriesItems.length,
+          final filters = <TvLibraryFilterOption>[
+            TvLibraryFilterOption(
+              id: _KidsLibraryFilter.all.name,
+              label: 'Tudo',
+              count: catalogItems.length,
+              subtitle: 'Filmes e séries',
+              icon: Icons.grid_view_rounded,
+            ),
+            TvLibraryFilterOption(
+              id: _KidsLibraryFilter.movies.name,
+              label: 'Filmes',
+              count: filteredVodItems.length,
+              subtitle: 'Conteúdo infantil',
+              icon: Icons.movie_creation_outlined,
+            ),
+            TvLibraryFilterOption(
+              id: _KidsLibraryFilter.series.name,
+              label: 'Séries',
+              count: filteredSeriesItems.length,
+              subtitle: 'Conteúdo infantil',
+              icon: Icons.tv_rounded,
+            ),
+          ];
+
+          final posterItems = visibleCatalogItems
+              .map(
+                (item) => TvLibraryPosterCardData(
+                  id: '${item.type.name}-${item.title}',
+                  title: item.title,
+                  subtitle: item.subtitle,
+                  imageUrl: item.imageUrl,
+                  icon: item.icon,
+                  badge: item.badge,
+                  onPressed: item.onPressed,
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: SizedBox(height: layout.sectionSpacing),
-              ),
-              if (filteredVodItems.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: _KidsSectionHeader(
-                    layout: layout,
-                    title: 'Filmes Kids',
-                    subtitle:
-                        '${filteredVodItems.length} títulos infantis disponíveis agora.',
-                    buttonLabel: 'Ver catálogo',
-                    onPressed: () => context.push(
-                      VodStreamsScreen.buildLocation(
-                        'all',
-                        library: OnDemandLibraryKind.kids,
-                      ),
-                    ),
-                  ),
-                ),
-              if (filteredVodItems.isNotEmpty)
-                SliverPadding(
-                  padding: EdgeInsets.only(top: layout.cardSpacing),
-                  sliver: SliverGrid(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = filteredVodItems[index];
-                      return _KidsPosterCard(
-                        layout: layout,
-                        title: item.name,
-                        subtitle: item.rating?.trim().isNotEmpty == true
-                            ? 'Nota ${item.rating}'
-                            : 'Filme infantil',
-                        imageUrl: item.coverUrl,
-                        icon: Icons.movie_creation_outlined,
-                        badge: 'FILME',
-                        onPressed: () => context.push(
-                          VodDetailsScreen.buildLocation(item.id),
-                        ),
-                      );
-                    }, childCount: filteredVodItems.length.clamp(0, 6)),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: layout.deviceClass == DeviceClass.tablet
-                          ? 3
-                          : 2,
-                      mainAxisSpacing: layout.cardSpacing,
-                      crossAxisSpacing: layout.cardSpacing,
-                      childAspectRatio: 0.56,
-                    ),
-                  ),
-                ),
-              if (filteredSeriesItems.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: layout.sectionSpacing),
-                    child: _KidsSectionHeader(
-                      layout: layout,
-                      title: 'Séries Kids',
-                      subtitle:
-                          '${filteredSeriesItems.length} séries infantis para explorar.',
-                      buttonLabel: 'Ver séries',
-                      onPressed: () => context.push(
-                        SeriesItemsScreen.buildLocation(
-                          'all',
-                          library: OnDemandLibraryKind.kids,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              if (filteredSeriesItems.isNotEmpty)
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    top: layout.cardSpacing,
-                    bottom: layout.pageBottomPadding,
-                  ),
-                  sliver: SliverGrid(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = filteredSeriesItems[index];
-                      return _KidsPosterCard(
-                        layout: layout,
-                        title: item.name,
-                        subtitle: item.plot?.trim().isNotEmpty == true
-                            ? item.plot!
-                            : 'Série infantil',
-                        imageUrl: item.coverUrl,
-                        icon: Icons.tv_rounded,
-                        badge: 'SÉRIE',
-                        onPressed: () => context.push(
-                          SeriesDetailsScreen.buildLocation(item.id),
-                        ),
-                      );
-                    }, childCount: filteredSeriesItems.length.clamp(0, 6)),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: layout.deviceClass == DeviceClass.tablet
-                          ? 3
-                          : 2,
-                      mainAxisSpacing: layout.cardSpacing,
-                      crossAxisSpacing: layout.cardSpacing,
-                      childAspectRatio: 0.56,
-                    ),
-                  ),
-                )
-              else
-                SliverToBoxAdapter(
-                  child: SizedBox(height: layout.pageBottomPadding),
-                ),
-            ],
+              )
+              .toList(growable: false);
+
+          return TvLibraryShell(
+            layout: layout,
+            spec: spec,
+            description:
+                'Seletor direto no topo para alternar entre tudo, filmes e séries.',
+            filters: filters,
+            selectedFilterId: _selectedFilter.name,
+            onFilterSelected: (filterId) {
+              final filter = _parseKidsFilter(filterId);
+              if (_selectedFilter == filter) {
+                return;
+              }
+              setState(() => _selectedFilter = filter);
+            },
+            items: posterItems,
+            emptyTitle: 'Nenhum item apareceu neste recorte infantil.',
           );
         },
       ),
@@ -358,6 +288,14 @@ List<_KidsCatalogItem> _buildKidsCatalogItems({
       ),
     ),
   ];
+}
+
+_KidsLibraryFilter _parseKidsFilter(String value) {
+  return switch (value) {
+    'movies' => _KidsLibraryFilter.movies,
+    'series' => _KidsLibraryFilter.series,
+    _ => _KidsLibraryFilter.all,
+  };
 }
 
 List<_KidsCatalogItem> _filterKidsCatalogItems({
@@ -521,208 +459,6 @@ class _KidsMobileCatalogLead extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _KidsHero extends StatelessWidget {
-  const _KidsHero({
-    required this.layout,
-    required this.spec,
-    required this.featuredTitle,
-    required this.featuredImageUrl,
-    required this.movieCount,
-    required this.seriesCount,
-  });
-
-  final DeviceLayout layout;
-  final OnDemandLibrarySpec spec;
-  final String featuredTitle;
-  final String? featuredImageUrl;
-  final int movieCount;
-  final int seriesCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final image = BrandedArtwork.normalizeArtworkUrl(featuredImageUrl);
-
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 24 : 20),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.28)),
-      ),
-      child: AspectRatio(
-        aspectRatio: layout.isTv ? 16 / 5 : 16 / 9.4,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1B1638),
-                    Color(0xFF21304C),
-                    Color(0xFF342214),
-                  ],
-                ),
-              ),
-            ),
-            if (image != null)
-              Opacity(
-                opacity: 0.34,
-                child: Image.network(
-                  image,
-                  fit: BoxFit.cover,
-                  headers: const {'Accept-Encoding': 'identity'},
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox.shrink(),
-                ),
-              ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    const Color(0xF2111220),
-                    const Color(0xD9111220),
-                    const Color(0x55111220),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.all(layout.isTv ? 24 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      color: Colors.white.withValues(alpha: 0.12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                    ),
-                    child: Text(
-                      'BIBLIOTECA KIDS',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        letterSpacing: 0.9,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: layout.isTv ? 12 : 10),
-                  Text(
-                    spec.description,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.9),
-                      height: 1.35,
-                    ),
-                  ),
-                  SizedBox(height: layout.isTv ? 12 : 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _KidsHeroChip(label: '$movieCount filmes'),
-                      _KidsHeroChip(label: '$seriesCount séries'),
-                      if (featuredTitle.isNotEmpty)
-                        _KidsHeroChip(label: 'Destaque: $featuredTitle'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _KidsHeroChip extends StatelessWidget {
-  const _KidsHeroChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.black.withValues(alpha: 0.24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-}
-
-class _KidsSectionHeader extends StatelessWidget {
-  const _KidsSectionHeader({
-    required this.layout,
-    required this.title,
-    required this.subtitle,
-    required this.buttonLabel,
-    required this.onPressed,
-  });
-
-  final DeviceLayout layout;
-  final String title;
-  final String subtitle;
-  final String buttonLabel;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: layout.isTv ? 28 : 22,
-                ),
-              ),
-              SizedBox(height: layout.isTv ? 6 : 4),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.74),
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(width: layout.isTv ? 16 : 12),
-        OutlinedButton(onPressed: onPressed, child: Text(buttonLabel)),
-      ],
     );
   }
 }
@@ -1047,24 +783,4 @@ List<SeriesItem> _filterSeriesItems({
         return categoryMatch || spec.hasExplicitSignal(item.libraryKind);
       })
       .toList(growable: false);
-}
-
-String _featuredTitle(Object? featured) {
-  if (featured is VodStream) {
-    return featured.name;
-  }
-  if (featured is SeriesItem) {
-    return featured.name;
-  }
-  return '';
-}
-
-String? _featuredImageUrl(Object? featured) {
-  if (featured is VodStream) {
-    return featured.coverUrl;
-  }
-  if (featured is SeriesItem) {
-    return featured.coverUrl;
-  }
-  return null;
 }

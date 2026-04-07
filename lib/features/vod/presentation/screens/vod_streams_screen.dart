@@ -10,6 +10,7 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/async_state_builder.dart';
 import '../../../../shared/widgets/branded_artwork.dart';
 import '../../../../shared/widgets/mobile_primary_dock.dart';
+import '../../../../shared/widgets/tv_library_shell.dart';
 import '../../domain/entities/vod_category.dart';
 import '../../domain/entities/vod_stream.dart';
 import '../providers/vod_providers.dart';
@@ -69,7 +70,7 @@ class _VodStreamsScreenState extends ConsumerState<VodStreamsScreen> {
       subtitle: screenLayout.isTv ? spec.subtitle : null,
       showBack: true,
       showBrand: false,
-      decoratedHeader: screenLayout.isTv,
+      decoratedHeader: !screenLayout.isTv,
       mobileBottomBar: const MobilePrimaryDock(),
       child: AsyncStateBuilder(
         value: streamsAsync,
@@ -97,78 +98,79 @@ class _VodStreamsScreenState extends ConsumerState<VodStreamsScreen> {
           }
 
           final catalogGenres = _collectVodGenres(visibleItems);
+          final genreLabels = catalogGenres
+              .map((genre) => genre.label)
+              .toList(growable: false);
+          final effectiveSelectedGenre =
+              _selectedGenre != null && genreLabels.contains(_selectedGenre)
+              ? _selectedGenre
+              : null;
           final genreFilteredItems = _filterVodItemsByGenre(
             items: visibleItems,
-            selectedGenre: _selectedGenre,
+            selectedGenre: effectiveSelectedGenre,
           );
-
-          if (genreFilteredItems.isEmpty) {
-            return _VodLibraryEmptyState(spec: spec);
-          }
-
-          final featured = _resolveFeatured(genreFilteredItems);
 
           return LayoutBuilder(
             builder: (context, constraints) {
               final layout = DeviceLayout.of(context, constraints: constraints);
               if (layout.isTv) {
-                final spacing = layout.cardSpacing;
-                final columns = layout.columnsForWidth(
-                  constraints.maxWidth,
-                  minTileWidth: 220,
-                  maxColumns: 6,
-                );
-                final itemWidth = layout.itemWidth(
-                  constraints.maxWidth,
-                  columns: columns,
-                  spacing: spacing,
-                );
-
-                return SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: layout.pageBottomPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _VodHeroShelf(
-                        layout: layout,
-                        item: featured,
-                        totalItems: genreFilteredItems.length,
-                        spec: spec,
-                      ),
-                      SizedBox(height: layout.cardSpacing),
-                      _CatalogHeader(
-                        layout: layout,
-                        totalItems: genreFilteredItems.length,
-                        spec: spec,
-                      ),
-                      SizedBox(height: layout.cardSpacing),
-                      Wrap(
-                        spacing: spacing,
-                        runSpacing: spacing,
-                        children: [
-                          for (
-                            var index = 0;
-                            index < genreFilteredItems.length;
-                            index++
-                          )
-                            SizedBox(
-                              width: itemWidth,
-                              child: _VodPosterCard(
-                                layout: layout,
-                                item: genreFilteredItems[index],
-                                badge: spec.badge,
-                                autofocus: index == 0,
-                                onPressed: () => context.push(
-                                  VodDetailsScreen.buildLocation(
-                                    genreFilteredItems[index].id,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                final filters = <TvLibraryFilterOption>[
+                  TvLibraryFilterOption(
+                    id: 'all',
+                    label: 'Todos',
+                    count: visibleItems.length,
+                    subtitle: 'Catálogo completo',
+                    icon: Icons.grid_view_rounded,
+                    interactiveKey: AppTestKeys.vodCategoryAll,
+                    testId: AppTestKeys.vodCategoryAllId,
                   ),
+                  ...catalogGenres.map(
+                    (genre) => TvLibraryFilterOption(
+                      id: genre.label,
+                      label: genre.label,
+                      count: genre.count,
+                      subtitle: 'Gênero',
+                      icon: Icons.local_offer_outlined,
+                    ),
+                  ),
+                ];
+
+                final posterItems = genreFilteredItems
+                    .map(
+                      (item) => TvLibraryPosterCardData(
+                        id: item.id,
+                        title: item.name,
+                        subtitle: item.rating?.trim().isNotEmpty == true
+                            ? 'Nota ${item.rating}'
+                            : splitLibraryGenres(item.genre).firstOrNull ??
+                                  'Filme sob demanda',
+                        imageUrl: item.coverUrl,
+                        icon: Icons.movie_creation_outlined,
+                        onPressed: () => context.push(
+                          VodDetailsScreen.buildLocation(item.id),
+                        ),
+                        interactiveKey: AppTestKeys.vodItem(item.id),
+                        testId: AppTestKeys.vodItemId(item.id),
+                      ),
+                    )
+                    .toList(growable: false);
+
+                return TvLibraryShell(
+                  layout: layout,
+                  spec: spec,
+                  description:
+                      'Seletor direto no topo para escolher o recorte antes do grid.',
+                  filters: filters,
+                  selectedFilterId: effectiveSelectedGenre ?? 'all',
+                  onFilterSelected: (filterId) {
+                    final genre = filterId == 'all' ? null : filterId;
+                    if (_selectedGenre == genre) {
+                      return;
+                    }
+                    setState(() => _selectedGenre = genre);
+                  },
+                  items: posterItems,
+                  emptyTitle: 'Nenhum filme encontrado neste recorte.',
                 );
               }
 
@@ -177,12 +179,12 @@ class _VodStreamsScreenState extends ConsumerState<VodStreamsScreen> {
                   SliverToBoxAdapter(
                     child: _VodMobileCatalogLead(
                       spec: spec,
-                      showCategoriesAction: catalogGenres.isNotEmpty,
+                      showCategoriesAction: genreLabels.isNotEmpty,
                       currentCategoryLabel: _selectedGenre,
                       onOpenCategories: () => _showVodCategorySheet(
                         context,
                         selectedGenre: _selectedGenre,
-                        genres: catalogGenres,
+                        genres: genreLabels,
                         onSelected: (genre) {
                           if (_selectedGenre == genre) {
                             return;
@@ -204,7 +206,7 @@ class _VodStreamsScreenState extends ConsumerState<VodStreamsScreen> {
                           layout: layout,
                           item: item,
                           badge: spec.badge,
-                          autofocus: index == 0,
+                          autofocus: false,
                           onPressed: () => context.push(
                             VodDetailsScreen.buildLocation(item.id),
                           ),
@@ -238,14 +240,9 @@ class _VodStreamsScreenState extends ConsumerState<VodStreamsScreen> {
   }
 }
 
-VodStream _resolveFeatured(List<VodStream> items) {
-  return items.firstWhere(
-    (item) => BrandedArtwork.normalizeArtworkUrl(item.coverUrl) != null,
-    orElse: () => items.first,
-  );
-}
+typedef _VodGenreCount = ({int count, String label});
 
-List<String> _collectVodGenres(List<VodStream> items) {
+List<_VodGenreCount> _collectVodGenres(List<VodStream> items) {
   final counts = <String, int>{};
   final labels = <String, String>{};
 
@@ -270,7 +267,7 @@ List<String> _collectVodGenres(List<VodStream> items) {
     });
 
   return sortedEntries
-      .map((entry) => labels[entry.key]!)
+      .map((entry) => (label: labels[entry.key]!, count: entry.value))
       .toList(growable: false);
 }
 
@@ -324,237 +321,6 @@ List<VodStream> _filterVodItemsByGenre({
   return items
       .where((item) => matchesLibraryGenre(item.genre, selectedGenre))
       .toList(growable: false);
-}
-
-class _VodHeroShelf extends StatelessWidget {
-  const _VodHeroShelf({
-    required this.layout,
-    required this.item,
-    required this.totalItems,
-    required this.spec,
-  });
-
-  final DeviceLayout layout;
-  final VodStream item;
-  final int totalItems;
-  final OnDemandLibrarySpec spec;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final image = BrandedArtwork.normalizeArtworkUrl(item.coverUrl);
-
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 28 : 22),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.45)),
-      ),
-      child: AspectRatio(
-        aspectRatio: layout.isTv ? 16 / 5.6 : 16 / 10.2,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF090A10),
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.84),
-                    const Color(0xFF1A120A),
-                  ],
-                ),
-              ),
-            ),
-            if (image != null)
-              Opacity(
-                opacity: 0.82,
-                child: Image.network(
-                  image,
-                  fit: BoxFit.cover,
-                  headers: const {'Accept-Encoding': 'identity'},
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox.shrink(),
-                ),
-              ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    const Color(0xEF070A12),
-                    const Color(0xC8070A12),
-                    const Color(0x33070A12),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.all(layout.isTv ? 24 : 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Destaque de ${spec.title}',
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                letterSpacing: 1,
-                                color: colorScheme.secondary,
-                              ),
-                        ),
-                        SizedBox(height: layout.isTv ? 8 : 6),
-                        Text(
-                          item.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(
-                                fontSize: layout.isTv ? 34 : 22,
-                                height: 1,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                        SizedBox(height: layout.isTv ? 8 : 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _HeroChip(label: spec.countLabel(totalItems)),
-                            _HeroChip(label: spec.catalogLabel),
-                            if (item.rating?.trim().isNotEmpty == true)
-                              _HeroChip(label: 'Nota ${item.rating}'),
-                          ],
-                        ),
-                        SizedBox(height: layout.isTv ? 14 : 10),
-                        FilledButton.icon(
-                          onPressed: () => context.push(
-                            VodDetailsScreen.buildLocation(item.id),
-                          ),
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Abrir detalhes'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (layout.isTv) ...[
-                    const SizedBox(width: 20),
-                    SizedBox(
-                      width: 140,
-                      child: BrandedArtwork(
-                        imageUrl: item.coverUrl,
-                        icon: spec.icon,
-                        placeholderLabel: 'Poster indisponível',
-                        borderRadius: 16,
-                        chrome: BrandedArtworkChrome.subtle,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroChip extends StatelessWidget {
-  const _HeroChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.black.withValues(alpha: 0.4),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _CatalogHeader extends StatelessWidget {
-  const _CatalogHeader({
-    required this.layout,
-    required this.totalItems,
-    required this.spec,
-  });
-
-  final DeviceLayout layout;
-  final int totalItems;
-  final OnDemandLibrarySpec spec;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: EdgeInsets.all(layout.isTv ? 18 : 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(layout.isTv ? 20 : 16),
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.24)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: layout.isTv ? 44 : 36,
-            height: layout.isTv ? 44 : 36,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: colorScheme.primary.withValues(alpha: 0.16),
-            ),
-            child: Icon(
-              Icons.grid_view_rounded,
-              color: colorScheme.primary,
-              size: layout.isTv ? 24 : 20,
-            ),
-          ),
-          SizedBox(width: layout.isTv ? 12 : 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${spec.catalogLabel} • $totalItems',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: layout.isTv ? 21 : 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: layout.isTv ? 4 : 2),
-                Text(
-                  'Entrada direta no catálogo, com posters maiores e menos moldura visual.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.74),
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _VodMobileCatalogLead extends StatelessWidget {

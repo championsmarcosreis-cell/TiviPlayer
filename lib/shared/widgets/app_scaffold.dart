@@ -99,7 +99,7 @@ class AppScaffold extends StatelessWidget {
           ],
         );
 
-        final routeLocation = GoRouterState.of(context).matchedLocation;
+        final routeLocation = _resolveMatchedLocation(context);
 
         return Scaffold(
           body: ColoredBox(
@@ -131,6 +131,14 @@ class AppScaffold extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+String _resolveMatchedLocation(BuildContext context) {
+  try {
+    return GoRouterState.of(context).matchedLocation;
+  } on GoError {
+    return '';
   }
 }
 

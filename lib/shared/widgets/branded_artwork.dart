@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'brand_logo.dart';
 
-enum BrandedArtworkChrome { framed, subtle }
+enum BrandedArtworkChrome { framed, subtle, flat }
 
 class BrandedArtwork extends StatelessWidget {
   const BrandedArtwork({
@@ -51,6 +51,7 @@ class BrandedArtwork extends StatelessWidget {
         borderRadius: radius,
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
       ),
+      BrandedArtworkChrome.flat => BoxDecoration(borderRadius: radius),
     };
 
     return AspectRatio(

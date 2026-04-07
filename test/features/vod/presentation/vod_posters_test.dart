@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_credentials.dart';
 import 'package:tiviplayer/features/auth/domain/entities/xtream_session.dart';
 import 'package:tiviplayer/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:tiviplayer/features/vod/domain/entities/vod_category.dart';
 import 'package:tiviplayer/features/vod/domain/entities/vod_stream.dart';
 import 'package:tiviplayer/features/vod/presentation/providers/vod_providers.dart';
 import 'package:tiviplayer/features/vod/presentation/screens/vod_streams_screen.dart';
+import 'package:tiviplayer/shared/testing/app_test_keys.dart';
 import 'package:tiviplayer/shared/widgets/branded_artwork.dart';
 
 void main() {
@@ -98,4 +100,50 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(BrandedArtwork), findsOneWidget);
   });
+
+  testWidgets(
+    'tv inicia foco no seletor da biblioteca e nao no primeiro poster',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1280, 720);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentSessionProvider.overrideWith((ref) => session),
+            vodCategoriesProvider.overrideWith(
+              (ref) async => const <VodCategory>[],
+            ),
+            vodStreamsProvider.overrideWith(
+              (ref, categoryId) async => const [
+                VodStream(
+                  id: '10',
+                  name: 'Filme 1',
+                  coverUrl: null,
+                  containerExtension: 'mp4',
+                  rating: '8.5',
+                ),
+              ],
+            ),
+          ],
+          child: const MaterialApp(home: VodStreamsScreen(categoryId: 'all')),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(AppTestKeys.focusMarker(AppTestKeys.vodCategoryAllId)),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(AppTestKeys.focusMarker(AppTestKeys.vodItemId('10'))),
+        findsNothing,
+      );
+    },
+  );
 }
