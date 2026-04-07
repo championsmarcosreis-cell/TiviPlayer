@@ -3587,280 +3587,6 @@ class _TvHeroCarouselState extends State<_TvHeroCarousel> {
   }
 }
 
-// ignore: unused_element
-class _TvHeroStage extends StatelessWidget {
-  const _TvHeroStage({
-    required this.layout,
-    required this.hero,
-    required this.focusNode,
-    required this.autofocus,
-  });
-
-  final DeviceLayout layout;
-  final _HomeHeroChoice hero;
-  final FocusNode focusNode;
-  final bool autofocus;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final posterImageUrl = BrandedArtwork.normalizeArtworkUrl(hero.imageUrl);
-    final backdropImageUrl = BrandedArtwork.normalizeArtworkUrl(
-      hero.backdropImageUrl ?? hero.imageUrl,
-    );
-    final effectiveBackdropImageUrl = backdropImageUrl ?? posterImageUrl;
-    final effectivePosterImageUrl = posterImageUrl ?? effectiveBackdropImageUrl;
-    final titleSize = layout.isTvCompact ? 33.0 : 41.0;
-    final contentWidth = layout.isTvCompact ? 270.0 : 304.0;
-    final hasBackdropArtwork =
-        hero.hasBackdropArtwork && effectiveBackdropImageUrl != null;
-    final metadataText = hero.metadata
-        .where((value) => value.trim().isNotEmpty)
-        .join('  •  ');
-    final borderRadius = layout.isTvCompact ? 16.0 : 18.0;
-    final stageAspectRatio = layout.isTvCompact ? 16 / 5.75 : 16 / 5.45;
-    final backdropAlignment = layout.isTvCompact
-        ? const Alignment(0.18, -0.06)
-        : const Alignment(0.22, -0.04);
-    final artworkRightInset = layout.isTvCompact ? 4.0 : 8.0;
-    final artworkWidthFactor = layout.isTvCompact ? 0.60 : 0.64;
-    final artworkHeightFactor = layout.isTvCompact ? 0.86 : 0.90;
-
-    return AspectRatio(
-      aspectRatio: stageAspectRatio,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF04070C),
-                    Color(0xFF07111F),
-                    Color(0xFF04070C),
-                  ],
-                ),
-              ),
-            ),
-            if (effectiveBackdropImageUrl != null)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ImageFiltered(
-                        imageFilter: ui.ImageFilter.blur(
-                          sigmaX: hasBackdropArtwork ? 18 : 22,
-                          sigmaY: hasBackdropArtwork ? 18 : 22,
-                        ),
-                        child: Opacity(
-                          opacity: hasBackdropArtwork ? 0.28 : 0.34,
-                          child: Transform.scale(
-                            scale: hasBackdropArtwork ? 1.04 : 1.08,
-                            child: Image.network(
-                              effectiveBackdropImageUrl,
-                              fit: BoxFit.cover,
-                              alignment: hasBackdropArtwork
-                                  ? backdropAlignment
-                                  : const Alignment(0.3, -0.02),
-                              filterQuality: FilterQuality.low,
-                              headers: const {'Accept-Encoding': 'identity'},
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const SizedBox.shrink(),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: FractionallySizedBox(
-                          widthFactor: artworkWidthFactor,
-                          heightFactor: artworkHeightFactor,
-                          child: Padding(
-                            padding: EdgeInsets.only(right: artworkRightInset),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.24),
-                                    blurRadius: 24,
-                                    offset: const Offset(0, 12),
-                                  ),
-                                ],
-                              ),
-                              child: Image.network(
-                                effectivePosterImageUrl!,
-                                fit: BoxFit.contain,
-                                alignment: Alignment.center,
-                                filterQuality: FilterQuality.high,
-                                headers: const {'Accept-Encoding': 'identity'},
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const SizedBox.shrink(),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Color(0xA804070C),
-                    Color(0x6804070C),
-                    Color(0x2604070C),
-                    Color(0x0804070C),
-                    Color(0x0004070C),
-                  ],
-                  stops: [0.0, 0.14, 0.32, 0.62, 1.0],
-                ),
-              ),
-            ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x24000000), Color(0x00000000)],
-                  stops: [0.0, 0.28],
-                ),
-              ),
-            ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Color(0x34000000), Color(0x00000000)],
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: layout.isTvCompact ? 0.42 : 0.38,
-                    heightFactor: 0.92,
-                    alignment: Alignment.centerLeft,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: const Alignment(-0.6, -0.04),
-                          radius: 1.12,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.22),
-                            Colors.black.withValues(alpha: 0.10),
-                            const Color(0x00000000),
-                          ],
-                          stops: const [0.0, 0.58, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                layout.isTvCompact ? 20 : 22,
-                layout.isTvCompact ? 30 : 34,
-                22,
-                layout.isTvCompact ? 20 : 22,
-              ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: const Color(0xE9F0701E),
-                        ),
-                        child: Text(
-                          hero.kicker.toUpperCase(),
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: Colors.black,
-                                letterSpacing: 0.9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        hero.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.displaySmall
-                            ?.copyWith(
-                              fontSize: titleSize,
-                              height: 0.96,
-                              fontWeight: FontWeight.w800,
-                              shadows: const [
-                                Shadow(
-                                  color: Color(0xCC000000),
-                                  blurRadius: 18,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                      ),
-                      if (metadataText.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          metadataText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.86,
-                                ),
-                                fontWeight: FontWeight.w600,
-                                height: 1.18,
-                              ),
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      TvFocusable(
-                        autofocus: autofocus,
-                        focusNode: focusNode,
-                        onPressed: hero.onPrimary,
-                        builder: (context, focused) => _TvHeroActionPill(
-                          label: hero.primaryLabel,
-                          focused: focused,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _MobileHeroSlider extends StatefulWidget {
   const _MobileHeroSlider({
     required this.layout,
@@ -4093,8 +3819,10 @@ class _MobileHeroSlideCard extends StatelessWidget {
     final ambientImageUrl = backdropImageUrl ?? posterImageUrl;
     final showcaseImageUrl = backdropImageUrl ?? posterImageUrl;
     final borderRadius = BorderRadius.circular(26);
-    final titleSize = layout.isTvCompact ? 42.0 : 48.0;
-    final contentWidth = layout.isTvCompact ? 360.0 : 430.0;
+    final titleSize = layout.isTvCompact ? 34.0 : 38.0;
+    final metadataFontSize = layout.isTvCompact ? 13.0 : 13.5;
+    final kickerFontSize = layout.isTvCompact ? 11.0 : 11.5;
+    final contentWidth = layout.isTvCompact ? 332.0 : 388.0;
     final showcaseWidthFactor = layout.isTvCompact ? 0.42 : 0.46;
     final showcaseHeightFactor = layout.isTvCompact ? 0.84 : 0.9;
 
@@ -4229,8 +3957,8 @@ class _MobileHeroSlideCard extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                        horizontal: 12,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
@@ -4238,22 +3966,24 @@ class _MobileHeroSlideCard extends StatelessWidget {
                       ),
                       child: Text(
                         hero.kicker.toUpperCase(),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.black,
-                          letterSpacing: 0.9,
-                          fontWeight: FontWeight.w900,
-                        ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: Colors.black,
+                              letterSpacing: 0.6,
+                              fontWeight: FontWeight.w800,
+                              fontSize: kickerFontSize,
+                            ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     Text(
                       hero.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         fontSize: titleSize,
-                        height: 0.96,
-                        fontWeight: FontWeight.w800,
+                        height: 0.98,
+                        fontWeight: FontWeight.w700,
                         shadows: const [
                           Shadow(
                             color: Color(0xCC000000),
@@ -4264,7 +3994,7 @@ class _MobileHeroSlideCard extends StatelessWidget {
                       ),
                     ),
                     if (metadata.isNotEmpty) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         metadata,
                         maxLines: 1,
@@ -4274,11 +4004,12 @@ class _MobileHeroSlideCard extends StatelessWidget {
                               color: colorScheme.onSurface.withValues(
                                 alpha: 0.86,
                               ),
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
+                              fontSize: metadataFontSize,
                             ),
                       ),
                     ],
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
                     _TvHeroActionPill(
                       label: hero.primaryLabel,
                       focused: focused,
@@ -4480,13 +4211,13 @@ class _CinematicHeroCard extends StatelessWidget {
                   )
                   .toList();
               final titleFontSize = tvMode
-                  ? (layout.isTvCompact ? 34.0 : 38.0)
+                  ? (layout.isTvCompact ? 30.0 : 34.0)
                   : (compactMobile ? 27.0 : 32.0);
               final metadataFontSize = tvMode
-                  ? 14.0
+                  ? 12.5
                   : (compactMobile ? 13.0 : 14.0);
               final descriptionFontSize = tvMode
-                  ? 13.0
+                  ? 12.0
                   : (compactMobile ? 11.8 : 12.6);
               final actionStyle = tvMode
                   ? ButtonStyle(
@@ -4603,11 +4334,12 @@ class _CinematicHeroCard extends StatelessWidget {
                           ),
                           child: Text(
                             hero.kicker.toUpperCase(),
-                            style: Theme.of(context).textTheme.labelMedium
+                            style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   color: Colors.black,
-                                  letterSpacing: 0.9,
-                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.6,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: tvMode ? 11.5 : null,
                                 ),
                           ),
                         ),
@@ -5031,7 +4763,7 @@ class _ContinueWatchingRailSection extends StatelessWidget {
                   Text(
                     section.title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 21,
+                      fontSize: 18.5,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -5041,7 +4773,7 @@ class _ContinueWatchingRailSection extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.76),
-                      fontSize: 12.5,
+                      fontSize: 11.5,
                     ),
                   ),
                 ],
@@ -5599,7 +5331,7 @@ class _CategoryChipRailState extends State<_CategoryChipRail> {
         Text(
           'Categorias de filmes',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontSize: widget.layout.isTv ? 34 : 30,
+            fontSize: widget.layout.isTv ? 27 : 30,
           ),
         ),
         SizedBox(height: widget.layout.sectionSpacing - 2),
@@ -5651,6 +5383,7 @@ class _CategoryChipRailState extends State<_CategoryChipRail> {
                         widget.categories[index],
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
+                              fontSize: widget.layout.isTv ? 14.5 : null,
                               color: active
                                   ? colorScheme.onPrimary
                                   : colorScheme.onSurface.withValues(
@@ -6021,7 +5754,7 @@ class _HomeRailSection extends StatelessWidget {
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontSize: layout.isTv
-                          ? 27
+                          ? 23
                           : usePosterDominantMobileStyle
                           ? 21
                           : 23,
@@ -6032,7 +5765,7 @@ class _HomeRailSection extends StatelessWidget {
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.76),
-                      fontSize: layout.isTv ? 13.5 : 12,
+                      fontSize: layout.isTv ? 12 : 12,
                     ),
                   ),
                 ],
@@ -6111,24 +5844,28 @@ class _TvViewAllButton extends StatelessWidget {
                 width: focused ? 2.4 : 1,
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Ver tudo',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Ver tudo',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
+                      color: focused ? const Color(0xFF140B02) : null,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
                     color: focused ? const Color(0xFF140B02) : null,
                   ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 22,
-                  color: focused ? const Color(0xFF140B02) : null,
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -6274,7 +6011,7 @@ class _HomeRailCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                 ),
                           ),
                         ),
@@ -6410,8 +6147,9 @@ class _HomeRailCard extends StatelessWidget {
                                 : data.badge!,
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
-                                  letterSpacing: 0.7,
-                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.45,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: layout.isTv ? 9.5 : null,
                                 ),
                           ),
                         ),
@@ -6426,7 +6164,10 @@ class _HomeRailCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
                         ),
                       ),
                   ],
@@ -6438,7 +6179,7 @@ class _HomeRailCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: layout.isTv ? 20 : 15,
+                      fontSize: layout.isTv ? 18 : 15,
                       fontWeight: FontWeight.w700,
                       height: 1.12,
                     ),
@@ -6452,7 +6193,7 @@ class _HomeRailCard extends StatelessWidget {
                     defaultSubtitle: data.subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.74),
-                      fontSize: layout.isTv ? 13.5 : 11.5,
+                      fontSize: layout.isTv ? 12.5 : 11.5,
                       height: 1.3,
                     ),
                   )
@@ -6471,7 +6212,7 @@ class _HomeRailCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.74),
-                      fontSize: layout.isTv ? 13.5 : 11.5,
+                      fontSize: layout.isTv ? 12.5 : 11.5,
                       height: 1.3,
                     ),
                   ),

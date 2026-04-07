@@ -327,17 +327,11 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('Destaques de agora'), findsOneWidget);
-    expect(find.text('Jornal da Manha'), findsOneWidget);
-    expect(
-      find.text(_formatRange(current.startAt, current.endAt)),
-      findsOneWidget,
-    );
-    expect(
-      find.text('Depois ${_formatClock(next.startAt)} • Giro do Esporte'),
-      findsNothing,
-    );
+    expect(find.text('Canal Centro'), findsOneWidget);
+    expect(find.textContaining('Agora: Jornal da Manha'), findsOneWidget);
+    expect(find.textContaining('Giro do Esporte'), findsNothing);
   });
 
   testWidgets('home tv usa fallback limpo quando o canal nao tem EPG', (
@@ -350,9 +344,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('No ar agora'), findsOneWidget);
-    expect(find.text('Entre no canal para assistir agora'), findsOneWidget);
+    expect(find.text('Ao vivo agora'), findsOneWidget);
     expect(find.text('Canal Sul'), findsOneWidget);
   });
 

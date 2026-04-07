@@ -510,9 +510,10 @@ class _SeriesHeroContent extends StatelessWidget {
         Text(
           'SÉRIE',
           style: textTheme.labelLarge?.copyWith(
-            letterSpacing: 1.32,
+            letterSpacing: 0.96,
             color: colorScheme.secondary.withValues(alpha: 0.96),
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
+            fontSize: layout.isTv ? 12.5 : null,
           ),
         ),
         SizedBox(height: layout.isTv ? 8 : 6),
@@ -521,8 +522,8 @@ class _SeriesHeroContent extends StatelessWidget {
           maxLines: layout.isTv ? 2 : 3,
           overflow: TextOverflow.ellipsis,
           style: textTheme.headlineLarge?.copyWith(
-            fontSize: layout.isTv ? 46 : 31,
-            fontWeight: FontWeight.w800,
+            fontSize: layout.isTv ? 39 : 31,
+            fontWeight: FontWeight.w700,
             height: 1.02,
           ),
         ),
@@ -543,7 +544,7 @@ class _SeriesHeroContent extends StatelessWidget {
           maxLines: layout.isTv ? 4 : 7,
           overflow: TextOverflow.ellipsis,
           style: textTheme.bodyLarge?.copyWith(
-            fontSize: layout.isTv ? 17 : 14.8,
+            fontSize: layout.isTv ? 15.5 : 14.8,
             height: 1.55,
             color: colorScheme.onSurface.withValues(alpha: 0.9),
           ),
@@ -557,11 +558,11 @@ class _SeriesHeroContent extends StatelessWidget {
               autofocus: layout.isTv && onPlayPrimaryEpisode != null,
               onPressed: onPlayPrimaryEpisode,
               style: primaryStyle,
-              icon: Icon(Icons.play_arrow_rounded, size: layout.isTv ? 32 : 22),
+              icon: Icon(Icons.play_arrow_rounded, size: layout.isTv ? 28 : 22),
               label: Text(
                 playActionLabel,
                 style: textTheme.titleMedium?.copyWith(
-                  fontSize: layout.isTv ? 22 : 17,
+                  fontSize: layout.isTv ? 19 : 17,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -815,9 +816,10 @@ class _SeriesTvEpisodesHeader extends StatelessWidget {
         Text(
           'TEMPORADAS',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            letterSpacing: 1.18,
+            letterSpacing: 0.9,
             color: colorScheme.secondary.withValues(alpha: 0.92),
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
+            fontSize: layout.isTv ? 12.5 : null,
           ),
         ),
         SizedBox(height: layout.isTv ? 10 : 8),
@@ -831,8 +833,8 @@ class _SeriesTvEpisodesHeader extends StatelessWidget {
                   ? 'Episódios indisponíveis'
                   : 'Temporada ${selectedSeason.key}',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontSize: layout.isTv ? 32 : 24,
-                fontWeight: FontWeight.w800,
+                fontSize: layout.isTv ? 27 : 24,
+                fontWeight: FontWeight.w700,
                 height: 1.04,
               ),
             ),
@@ -842,6 +844,7 @@ class _SeriesTvEpisodesHeader extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: colorScheme.onSurface.withValues(alpha: 0.68),
                   fontWeight: FontWeight.w700,
+                  fontSize: layout.isTv ? 14.5 : null,
                 ),
               ),
             if (featuredEpisode != null)
@@ -1067,9 +1070,10 @@ class _SeriesTvSeasonMenuState extends State<_SeriesTvSeasonMenu> {
           child: Text(
             'ESCOLHA A TEMPORADA',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              letterSpacing: 1.12,
+              letterSpacing: 0.88,
               color: colorScheme.onSurface.withValues(alpha: 0.58),
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
+              fontSize: widget.layout.isTv ? 12 : null,
             ),
           ),
         ),
@@ -1186,7 +1190,8 @@ class _SeriesTvSeasonToggleButton extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15.5,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1197,6 +1202,7 @@ class _SeriesTvSeasonToggleButton extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurface.withValues(alpha: 0.64),
                         fontWeight: FontWeight.w600,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -1250,7 +1256,8 @@ class _SeriesTvJumpButton extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
               color: focused
                   ? colorScheme.primary
                   : colorScheme.onSurface.withValues(alpha: 0.76),
@@ -1438,6 +1445,7 @@ class _SeriesEpisodeRow extends StatelessWidget {
                           textAlign: TextAlign.right,
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
+                                fontSize: 22,
                                 fontWeight: FontWeight.w800,
                                 color: highlighted
                                     ? colorScheme.primary
@@ -1467,8 +1475,9 @@ class _SeriesEpisodeRow extends StatelessWidget {
                                   metadata[index],
                                   style: Theme.of(context).textTheme.labelMedium
                                       ?.copyWith(
-                                        letterSpacing: 0.9,
-                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.64,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11.5,
                                         color: metadata[index] == emphasisLabel
                                             ? colorScheme.primary
                                             : colorScheme.onSurface.withValues(
@@ -1485,7 +1494,7 @@ class _SeriesEpisodeRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(
-                                  fontSize: 25,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                   height: 1.12,
                                 ),
@@ -1498,6 +1507,7 @@ class _SeriesEpisodeRow extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
+                                    fontSize: 13.5,
                                     height: 1.5,
                                     color: colorScheme.onSurface.withValues(
                                       alpha: 0.76,
@@ -1581,6 +1591,7 @@ class _SeriesEpisodeRow extends StatelessWidget {
                           _episodeBadge(episode),
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
+                                fontSize: layout.isTv ? 17 : null,
                                 fontWeight: FontWeight.w800,
                                 height: 1,
                               ),
@@ -1590,8 +1601,9 @@ class _SeriesEpisodeRow extends StatelessWidget {
                           'EP',
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
-                                letterSpacing: 0.8,
-                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.64,
+                                fontWeight: FontWeight.w700,
+                                fontSize: layout.isTv ? 10 : null,
                                 color: colorScheme.onSurface.withValues(
                                   alpha: 0.62,
                                 ),
@@ -1614,8 +1626,9 @@ class _SeriesEpisodeRow extends StatelessWidget {
                               _episodeLabel(episode).toUpperCase(),
                               style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(
-                                    letterSpacing: 1,
-                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.76,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: layout.isTv ? 11.5 : null,
                                     color: colorScheme.secondary.withValues(
                                       alpha: 0.88,
                                     ),
@@ -1637,8 +1650,9 @@ class _SeriesEpisodeRow extends StatelessWidget {
                                   emphasisLabel!,
                                   style: Theme.of(context).textTheme.labelSmall
                                       ?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.4,
+                                        fontSize: layout.isTv ? 10 : null,
                                       ),
                                 ),
                               ),
@@ -1651,7 +1665,7 @@ class _SeriesEpisodeRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
-                                fontSize: layout.isTv ? 22 : 17,
+                                fontSize: layout.isTv ? 19 : 17,
                                 fontWeight: FontWeight.w700,
                                 height: 1.15,
                               ),
@@ -1666,6 +1680,7 @@ class _SeriesEpisodeRow extends StatelessWidget {
                                     alpha: 0.68,
                                   ),
                                   fontWeight: FontWeight.w600,
+                                  fontSize: layout.isTv ? 12.5 : null,
                                 ),
                           ),
                         ],
@@ -1677,6 +1692,7 @@ class _SeriesEpisodeRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
+                                  fontSize: layout.isTv ? 13.5 : null,
                                   height: 1.45,
                                   color: colorScheme.onSurface.withValues(
                                     alpha: 0.78,

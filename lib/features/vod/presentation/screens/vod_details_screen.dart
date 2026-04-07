@@ -391,9 +391,10 @@ class _VodHeroContent extends StatelessWidget {
         Text(
           'FILME',
           style: textTheme.labelLarge?.copyWith(
-            letterSpacing: 1.32,
+            letterSpacing: 0.96,
             color: colorScheme.secondary.withValues(alpha: 0.96),
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
+            fontSize: layout.isTv ? 12.5 : null,
           ),
         ),
         SizedBox(height: layout.isTv ? 8 : 6),
@@ -402,8 +403,8 @@ class _VodHeroContent extends StatelessWidget {
           maxLines: layout.isTv ? 2 : 3,
           overflow: TextOverflow.ellipsis,
           style: textTheme.headlineLarge?.copyWith(
-            fontSize: layout.isTv ? 46 : 31,
-            fontWeight: FontWeight.w800,
+            fontSize: layout.isTv ? 39 : 31,
+            fontWeight: FontWeight.w700,
             height: 1.02,
           ),
         ),
@@ -424,7 +425,7 @@ class _VodHeroContent extends StatelessWidget {
           maxLines: layout.isTv ? 4 : 7,
           overflow: TextOverflow.ellipsis,
           style: textTheme.bodyLarge?.copyWith(
-            fontSize: layout.isTv ? 17 : 14.8,
+            fontSize: layout.isTv ? 15.5 : 14.8,
             height: 1.55,
             color: colorScheme.onSurface.withValues(alpha: 0.9),
           ),
@@ -439,11 +440,11 @@ class _VodHeroContent extends StatelessWidget {
               autofocus: layout.isTv,
               onPressed: onPlay,
               style: primaryStyle,
-              icon: Icon(Icons.play_arrow_rounded, size: layout.isTv ? 32 : 22),
+              icon: Icon(Icons.play_arrow_rounded, size: layout.isTv ? 28 : 22),
               label: Text(
                 'Assistir',
                 style: textTheme.titleMedium?.copyWith(
-                  fontSize: layout.isTv ? 22 : 17,
+                  fontSize: layout.isTv ? 19 : 17,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -658,16 +659,17 @@ class _OpenTextBlock extends StatelessWidget {
           Text(
             title.toUpperCase(),
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              letterSpacing: 1.04,
+              letterSpacing: 0.84,
               color: colorScheme.secondary.withValues(alpha: 0.94),
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
+              fontSize: layout.isTv ? 12.5 : null,
             ),
           ),
           SizedBox(height: layout.isTv ? 8 : 7),
           Text(
             text,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontSize: layout.isTv ? 16.5 : 14.5,
+              fontSize: layout.isTv ? 15.2 : 14.5,
               height: 1.55,
               color: colorScheme.onSurface.withValues(alpha: 0.88),
             ),

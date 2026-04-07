@@ -102,8 +102,9 @@ class OnDemandRelatedPosterCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 height: 1.14,
+                fontSize: layout.isTv ? 15.5 : null,
               ),
             ),
             if (normalizedSubtitle != null) ...[
@@ -115,6 +116,7 @@ class OnDemandRelatedPosterCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurface.withValues(alpha: 0.68),
                   fontWeight: FontWeight.w600,
+                  fontSize: layout.isTv ? 12.5 : null,
                 ),
               ),
             ],
@@ -142,9 +144,9 @@ class _RelatedPosterBadge extends StatelessWidget {
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: Colors.white,
-          letterSpacing: 0.6,
-          fontWeight: FontWeight.w800,
-          fontSize: 10,
+          letterSpacing: 0.45,
+          fontWeight: FontWeight.w700,
+          fontSize: 9.5,
         ),
       ),
     );

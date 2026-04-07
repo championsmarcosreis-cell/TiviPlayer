@@ -115,6 +115,7 @@ class _TvLibraryShellState extends State<TvLibraryShell> {
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurface.withValues(alpha: 0.72),
             height: 1.35,
+            fontSize: widget.layout.isTvCompact ? 14 : 14.5,
           ),
         ),
         SizedBox(height: widget.layout.isTvCompact ? 14 : 16),
@@ -123,14 +124,15 @@ class _TvLibraryShellState extends State<TvLibraryShell> {
           children: [
             Text(
               'Filtro',
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: widget.layout.isTvCompact ? 14 : 14.5,
+              ),
             ),
             SizedBox(width: widget.layout.isTvCompact ? 12 : 14),
             Expanded(
               child: SizedBox(
-                height: widget.layout.isTvCompact ? 62 : 66,
+                height: widget.layout.isTvCompact ? 62 : 64,
                 child: Scrollbar(
                   controller: _filterController,
                   thumbVisibility: false,
@@ -164,6 +166,7 @@ class _TvLibraryShellState extends State<TvLibraryShell> {
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: colorScheme.onSurface.withValues(alpha: 0.82),
             fontWeight: FontWeight.w700,
+            fontSize: widget.layout.isTvCompact ? 14 : 14.5,
           ),
         ),
         SizedBox(height: widget.layout.sectionSpacing),
@@ -188,6 +191,7 @@ class _TvLibraryShellState extends State<TvLibraryShell> {
                         color: colorScheme.onSurface.withValues(alpha: 0.76),
                         fontWeight: FontWeight.w700,
                         height: 1.3,
+                        fontSize: widget.layout.isTvCompact ? 17 : 18,
                       ),
                     ),
                   ),
@@ -263,8 +267,8 @@ class _TvLibraryFilterChip extends StatelessWidget {
         final emphasized = focused || selected;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          constraints: const BoxConstraints(minWidth: 164, maxWidth: 220),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          constraints: const BoxConstraints(minWidth: 152, maxWidth: 212),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             color: emphasized
@@ -285,7 +289,7 @@ class _TvLibraryFilterChip extends StatelessWidget {
               if (option.icon != null) ...[
                 Icon(
                   option.icon,
-                  size: 18,
+                  size: 16,
                   color: emphasized
                       ? colorScheme.primary
                       : colorScheme.onSurface.withValues(alpha: 0.78),
@@ -302,18 +306,20 @@ class _TvLibraryFilterChip extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.5,
                       ),
                     ),
                     if (option.subtitle != null &&
                         option.subtitle!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         option.subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface.withValues(alpha: 0.64),
+                          fontSize: 11.5,
                         ),
                       ),
                     ],
@@ -324,7 +330,8 @@ class _TvLibraryFilterChip extends StatelessWidget {
               Text(
                 '${option.count}',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
                   color: emphasized
                       ? colorScheme.primary
                       : colorScheme.onSurface.withValues(alpha: 0.74),
@@ -408,15 +415,16 @@ class _TvLibraryPosterCard extends StatelessWidget {
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                                horizontal: 7,
+                                vertical: 3,
                               ),
                               child: Text(
                                 data.badge!,
                                 style: Theme.of(context).textTheme.labelSmall
                                     ?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.4,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.32,
+                                      fontSize: 10,
                                     ),
                               ),
                             ),
@@ -433,9 +441,9 @@ class _TvLibraryPosterCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 height: 1.1,
-                fontSize: layout.isTvCompact ? 17 : 18,
+                fontSize: layout.isTvCompact ? 15.5 : 16.5,
               ),
             ),
             const SizedBox(height: 4),
@@ -446,6 +454,7 @@ class _TvLibraryPosterCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.3,
+                fontSize: layout.isTvCompact ? 12 : 12.5,
               ),
             ),
           ],

@@ -214,8 +214,8 @@ class _AppScaffoldHeader extends StatelessWidget {
                                 DeviceClass.mobilePortrait => 30,
                                 DeviceClass.mobileLandscape => 34,
                                 DeviceClass.tablet => 36,
-                                DeviceClass.tvCompact => 40,
-                                DeviceClass.tvLarge => 44,
+                                DeviceClass.tvCompact => 35,
+                                DeviceClass.tvLarge => 38,
                               },
                               height: 1.02,
                             ),
@@ -232,8 +232,8 @@ class _AppScaffoldHeader extends StatelessWidget {
                           DeviceClass.mobilePortrait => 14,
                           DeviceClass.mobileLandscape => 15,
                           DeviceClass.tablet => 16,
-                          DeviceClass.tvCompact => 18,
-                          DeviceClass.tvLarge => 19,
+                          DeviceClass.tvCompact => 16,
+                          DeviceClass.tvLarge => 17,
                         },
                       ),
                     ),
@@ -249,8 +249,8 @@ class _AppScaffoldHeader extends StatelessWidget {
     final titleBlock = decoratedHeader
         ? Container(
             padding: EdgeInsets.symmetric(
-              horizontal: layout.isTv ? 18 : 14,
-              vertical: layout.isTv ? 14 : 12,
+              horizontal: layout.isTv ? 16 : 14,
+              vertical: layout.isTv ? 12 : 12,
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(layout.isTv ? 22 : 18),

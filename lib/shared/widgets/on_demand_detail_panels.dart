@@ -81,9 +81,10 @@ class OnDemandDetailSectionHeader extends StatelessWidget {
                 Text(
                   eyebrowText,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    letterSpacing: 1.18,
+                    letterSpacing: 0.92,
                     color: colorScheme.secondary.withValues(alpha: 0.94),
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
+                    fontSize: layout.isTv ? 12.5 : null,
                   ),
                 ),
                 SizedBox(height: layout.isTv ? 8 : 6),
@@ -91,8 +92,8 @@ class OnDemandDetailSectionHeader extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontSize: layout.isTv ? 30 : 22,
-                  fontWeight: FontWeight.w800,
+                  fontSize: layout.isTv ? 25 : 22,
+                  fontWeight: FontWeight.w700,
                   height: 1.04,
                 ),
               ),
@@ -103,6 +104,7 @@ class OnDemandDetailSectionHeader extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.7),
                     height: 1.45,
+                    fontSize: layout.isTv ? 14.5 : null,
                   ),
                 ),
               ],
@@ -164,6 +166,7 @@ class OnDemandDetailTag extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
+              fontSize: DeviceLayout.of(context).isTv ? 12.5 : null,
               color: emphasized
                   ? colorScheme.onSurface
                   : colorScheme.onSurface.withValues(alpha: 0.88),
@@ -275,16 +278,17 @@ class _OnDemandDetailFactLine extends StatelessWidget {
                 Text(
                   fact.label.toUpperCase(),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    letterSpacing: 1,
+                    letterSpacing: 0.8,
                     color: colorScheme.onSurface.withValues(alpha: 0.54),
                     fontWeight: FontWeight.w700,
+                    fontSize: layout.isTv ? 11.5 : null,
                   ),
                 ),
                 SizedBox(height: layout.isTv ? 7 : 6),
                 Text(
                   fact.value,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: layout.isTv ? 19 : 16,
+                    fontSize: layout.isTv ? 17 : 16,
                     fontWeight: FontWeight.w700,
                     height: 1.22,
                   ),
@@ -296,6 +300,7 @@ class _OnDemandDetailFactLine extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.66),
                       height: 1.35,
+                      fontSize: layout.isTv ? 12.5 : null,
                     ),
                   ),
                 ],
@@ -366,7 +371,8 @@ class OnDemandTvPillButton extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
+              fontSize: 14.5,
               color: active
                   ? colorScheme.onSurface
                   : colorScheme.onSurface.withValues(alpha: 0.84),
@@ -453,7 +459,8 @@ class OnDemandTvRailButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.5,
                   color: active
                       ? colorScheme.onSurface
                       : colorScheme.onSurface.withValues(alpha: 0.8),
@@ -470,6 +477,7 @@ class OnDemandTvRailButton extends StatelessWidget {
                         ? colorScheme.onSurface.withValues(alpha: 0.72)
                         : colorScheme.onSurface.withValues(alpha: 0.62),
                     fontWeight: FontWeight.w600,
+                    fontSize: 12,
                   ),
                 ),
               ],
