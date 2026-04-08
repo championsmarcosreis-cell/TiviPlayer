@@ -329,8 +329,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('Canal Centro'), findsOneWidget);
+    expect(find.text('Canal Centro'), findsAtLeastNWidgets(1));
     expect(find.textContaining('Agora: Jornal da Manha'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.textContaining('Giro do Esporte'), findsNothing);
   });
 
@@ -347,8 +348,185 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.text('Ao vivo agora'), findsOneWidget);
-    expect(find.text('Canal Sul'), findsOneWidget);
+    expect(find.text('Canal Sul'), findsAtLeastNWidgets(1));
+    expect(find.byType(LinearProgressIndicator), findsNothing);
   });
+
+  testWidgets(
+    'home tv preserva a backdrop do discovery ao promover destaque para o hero',
+    (tester) async {
+      const posterUrl = 'https://example.com/resgate-poster.jpg';
+      const backdropUrl = 'https://example.com/resgate-backdrop.jpg';
+
+      await _pumpHomeScreen(
+        tester,
+        interfaceMode: InterfaceMode.tv,
+        discoveryHome: HomeDiscoveryDto(
+          generatedAt: '2026-04-08T03:30:00Z',
+          heroSlider: null,
+          hero: null,
+          highlights: HomeDiscoveryRailDto(
+            slug: 'highlights',
+            title: 'Destaques',
+            description: 'Top vistos com arte limpa.',
+            layout: 'poster',
+            items: const <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'highlight-44',
+                title: 'Resgate Implacável',
+                subtitle: 'VOD',
+                description: 'Ação para abrir a sessão.',
+                image: posterUrl,
+                backdrop: backdropUrl,
+                mediaType: 'VOD',
+                contentId: '44',
+                tmdbId: null,
+                rating: 6.7,
+                year: 2025,
+                genres: <String>['Ação'],
+                runtime: 116,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>['TOP'],
+                genreIds: <int>[28],
+              ),
+            ],
+          ),
+          continueWatching: null,
+          hasContinueWatchingField: true,
+          moviesLibrary: null,
+          seriesLibrary: null,
+          animeLibrary: null,
+          liveLibrary: null,
+          libraries: const <HomeDiscoveryRailDto>[],
+          liveNow: null,
+          trendingNow: null,
+          moviesForToday: null,
+          seriesToBinge: null,
+          animeSpotlight: null,
+          rails: const <HomeDiscoveryRailDto>[],
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      final heroArtworkFinder = find.byKey(
+        const ValueKey<String>('home.tv.hero.artwork'),
+      );
+      expect(heroArtworkFinder, findsOneWidget);
+
+      final heroArtwork = tester.widget<Image>(heroArtworkFinder);
+      expect((heroArtwork.image as NetworkImage).url, backdropUrl);
+      expect(find.text('Resgate Implacável'), findsAtLeastNWidgets(1));
+      expect(find.text('TV ao vivo'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'home tv mantém a artwork do hero acima da paginação e do primeiro ver tudo',
+    (tester) async {
+      const firstBackdropUrl = 'https://example.com/zona-backdrop.jpg';
+      const secondBackdropUrl = 'https://example.com/solo-backdrop.jpg';
+
+      await _pumpHomeScreen(
+        tester,
+        interfaceMode: InterfaceMode.tv,
+        streams: _sampleStreams(),
+        discoveryHome: HomeDiscoveryDto(
+          generatedAt: '2026-04-08T03:30:00Z',
+          heroSlider: const HomeDiscoveryRailDto(
+            slug: 'hero-slider',
+            title: 'Hero slider',
+            description: 'Slides principais para a vitrine.',
+            layout: 'hero',
+            items: <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'hero-1',
+                title: 'Zona de Caça',
+                subtitle: 'VOD',
+                description: 'Filme para abrir a home.',
+                image: 'https://example.com/zona-poster.jpg',
+                backdrop: firstBackdropUrl,
+                mediaType: 'VOD',
+                contentId: '501',
+                tmdbId: null,
+                rating: 6.4,
+                year: 2025,
+                genres: <String>['Ação'],
+                runtime: 101,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>['NOVO'],
+                genreIds: <int>[28],
+              ),
+              HomeDiscoveryItemDto(
+                id: 'hero-2',
+                title: 'Solo Leveling',
+                subtitle: 'Anime',
+                description: 'Anime em destaque.',
+                image: 'https://example.com/solo-poster.jpg',
+                backdrop: secondBackdropUrl,
+                mediaType: 'SERIES',
+                contentId: '777',
+                tmdbId: null,
+                rating: 8.7,
+                year: 2024,
+                genres: <String>['Anime'],
+                runtime: 24,
+                provider: null,
+                channelNumber: null,
+                progress: null,
+                badges: <String>['TOP'],
+                genreIds: <int>[16],
+              ),
+            ],
+          ),
+          hero: null,
+          highlights: null,
+          continueWatching: null,
+          hasContinueWatchingField: true,
+          moviesLibrary: null,
+          seriesLibrary: null,
+          animeLibrary: null,
+          liveLibrary: null,
+          libraries: const <HomeDiscoveryRailDto>[],
+          liveNow: null,
+          trendingNow: null,
+          moviesForToday: null,
+          seriesToBinge: null,
+          animeSpotlight: null,
+          rails: const <HomeDiscoveryRailDto>[],
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      final heroArtworkFinder = find.byKey(
+        const ValueKey<String>('home.tv.hero.artwork'),
+      );
+      final paginationFinder = find.byKey(
+        const ValueKey<String>('home.tv.hero.pagination'),
+      );
+      final liveViewAllFinder = find.byKey(
+        const ValueKey<String>('home.tv.rail.viewAll.Canais ao vivo'),
+      );
+
+      expect(heroArtworkFinder, findsOneWidget);
+      expect(paginationFinder, findsOneWidget);
+      expect(liveViewAllFinder, findsOneWidget);
+
+      final heroArtworkRect = tester.getRect(heroArtworkFinder);
+      final paginationRect = tester.getRect(paginationFinder);
+      final liveViewAllRect = tester.getRect(liveViewAllFinder);
+
+      expect(heroArtworkRect.bottom, lessThan(paginationRect.top - 12));
+      expect(heroArtworkRect.bottom, lessThan(liveViewAllRect.top - 12));
+    },
+  );
 
   testWidgets(
     'home mobile mostra EPG compacto nos cards live quando houver grade',

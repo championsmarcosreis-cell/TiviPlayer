@@ -628,11 +628,12 @@ class _LiveTvGuideScreenState extends ConsumerState<LiveTvGuideScreen> {
                                                           onProgramFocused:
                                                               _onProgramFocused,
                                                           onOpenChannel:
-                                                              (stream) =>
-                                                                  _openLivePlayer(
-                                                                    visibleStreams,
-                                                                    stream,
-                                                                  ),
+                                                              (
+                                                                stream,
+                                                              ) => _openLivePlayer(
+                                                                visibleStreams,
+                                                                stream,
+                                                              ),
                                                         );
                                                       },
                                                     ),
@@ -702,6 +703,15 @@ class _LiveTvGuideScreenState extends ConsumerState<LiveTvGuideScreen> {
     }
 
     return TvStageScaffold(
+      backdrop: const TvStageBackdrop(
+        gradientColors: [
+          Color(0xFF020305),
+          Color(0xFF060A12),
+          Color(0xFF020305),
+        ],
+        topGlowColor: Color(0x2E355E9A),
+        bottomGlowColor: Color(0x223A2211),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

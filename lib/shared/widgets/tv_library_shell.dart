@@ -5,6 +5,8 @@ import '../presentation/layout/device_layout.dart';
 import '../presentation/support/on_demand_library.dart';
 import 'branded_artwork.dart';
 
+const _kTvLibraryFocusColor = Color(0xFFAF7BFF);
+
 class TvLibraryFilterOption {
   const TvLibraryFilterOption({
     required this.id,
@@ -173,12 +175,8 @@ class _TvLibraryShellState extends State<TvLibraryShell> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final columns = widget.layout.columnsForWidth(
-                constraints.maxWidth,
-                minTileWidth: widget.layout.isTvCompact ? 176 : 188,
-                maxColumns: widget.layout.isTvCompact ? 5 : 6,
-              );
-              final childAspectRatio = widget.layout.isTvCompact ? 0.63 : 0.61;
+              final columns = _resolveGridColumns(constraints.maxWidth);
+              final childAspectRatio = widget.layout.isTvCompact ? 0.72 : 0.66;
 
               if (widget.items.isEmpty) {
                 return Center(
@@ -205,7 +203,7 @@ class _TvLibraryShellState extends State<TvLibraryShell> {
                   controller: _gridController,
                   padding: EdgeInsets.fromLTRB(
                     6,
-                    2,
+                    widget.layout.isTvCompact ? 12 : 8,
                     6,
                     widget.layout.pageBottomPadding,
                   ),
@@ -238,6 +236,40 @@ class _TvLibraryShellState extends State<TvLibraryShell> {
       }
     }
     return widget.filters.first;
+  }
+
+  int _resolveGridColumns(double availableWidth) {
+    if (!widget.layout.isTv) {
+      return widget.layout.columnsForWidth(
+        availableWidth,
+        minTileWidth: 188,
+        maxColumns: 6,
+      );
+    }
+
+    final safeWidth = availableWidth.isFinite
+        ? availableWidth
+        : widget.layout.width;
+    if (widget.layout.isTvCompact) {
+      if (safeWidth >= 760) {
+        return 4;
+      }
+      if (safeWidth >= 540) {
+        return 3;
+      }
+      return 2;
+    }
+
+    if (safeWidth >= 1500) {
+      return 6;
+    }
+    if (safeWidth >= 1180) {
+      return 5;
+    }
+    if (safeWidth >= 900) {
+      return 4;
+    }
+    return 3;
   }
 }
 
@@ -370,14 +402,16 @@ class _TvLibraryPosterCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: focused
-                        ? colorScheme.primary.withValues(alpha: 0.78)
+                        ? _kTvLibraryFocusColor
                         : colorScheme.outline.withValues(alpha: 0.08),
                     width: focused ? 2.2 : 0.8,
                   ),
                   boxShadow: focused
                       ? [
                           BoxShadow(
-                            color: colorScheme.primary.withValues(alpha: 0.18),
+                            color: _kTvLibraryFocusColor.withValues(
+                              alpha: 0.22,
+                            ),
                             blurRadius: 18,
                             offset: const Offset(0, 8),
                           ),

@@ -15,6 +15,8 @@ class AppConfig {
 
   static const _xtreamBaseUrl = String.fromEnvironment('XTREAM_BASE_URL');
   static const _legacyBaseUrl = String.fromEnvironment('TIVIPLAYER_BASE_URL');
+  static const _embeddedBaseUrlFallback =
+      'https://api-tiviplayer.vorbio.me:443';
   static const _defaultUsername = String.fromEnvironment(
     'XTREAM_DEFAULT_USERNAME',
   );
@@ -28,19 +30,32 @@ class AppConfig {
 
   factory AppConfig.fromEnvironment() {
     return AppConfig(
-      defaultBaseUrl: _firstNonEmpty(_xtreamBaseUrl, _legacyBaseUrl),
+      defaultBaseUrl: _firstNonEmpty(
+        _xtreamBaseUrl,
+        _legacyBaseUrl,
+        _embeddedBaseUrlFallback,
+      ),
       defaultUsername: _defaultUsername.trim(),
       defaultPassword: _defaultPassword.trim(),
       allowAdvancedServer: _allowAdvancedServer,
     );
   }
 
-  static String _firstNonEmpty(String primary, String fallback) {
+  static String _firstNonEmpty(
+    String primary,
+    String fallback,
+    String fallbackDefault,
+  ) {
     final normalizedPrimary = primary.trim();
     if (normalizedPrimary.isNotEmpty) {
       return normalizedPrimary;
     }
 
-    return fallback.trim();
+    final normalizedFallback = fallback.trim();
+    if (normalizedFallback.isNotEmpty) {
+      return normalizedFallback;
+    }
+
+    return fallbackDefault.trim();
   }
 }

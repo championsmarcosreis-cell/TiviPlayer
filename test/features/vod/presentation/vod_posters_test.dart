@@ -146,4 +146,74 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'tv compacta distribui quatro posters na primeira linha da biblioteca',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(960, 540);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentSessionProvider.overrideWith((ref) => session),
+            vodCategoriesProvider.overrideWith(
+              (ref) async => const <VodCategory>[],
+            ),
+            vodStreamsProvider.overrideWith(
+              (ref, categoryId) async => const [
+                VodStream(
+                  id: '10',
+                  name: 'Filme 1',
+                  coverUrl: null,
+                  containerExtension: 'mp4',
+                  rating: '8.5',
+                ),
+                VodStream(
+                  id: '11',
+                  name: 'Filme 2',
+                  coverUrl: null,
+                  containerExtension: 'mp4',
+                  rating: '7.2',
+                ),
+                VodStream(
+                  id: '12',
+                  name: 'Filme 3',
+                  coverUrl: null,
+                  containerExtension: 'mp4',
+                  rating: '6.9',
+                ),
+                VodStream(
+                  id: '13',
+                  name: 'Filme 4',
+                  coverUrl: null,
+                  containerExtension: 'mp4',
+                  rating: '8.1',
+                ),
+              ],
+            ),
+          ],
+          child: const MaterialApp(home: VodStreamsScreen(categoryId: 'all')),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final firstCard = find.byKey(AppTestKeys.vodItem('10'));
+      final fourthCard = find.byKey(AppTestKeys.vodItem('13'));
+
+      expect(firstCard, findsOneWidget);
+      expect(fourthCard, findsOneWidget);
+
+      final firstRect = tester.getRect(firstCard);
+      final fourthRect = tester.getRect(fourthCard);
+
+      expect((firstRect.top - fourthRect.top).abs(), lessThan(1));
+      expect(firstRect.width, lessThan(220));
+    },
+  );
 }
