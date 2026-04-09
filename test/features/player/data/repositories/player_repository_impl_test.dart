@@ -63,6 +63,7 @@ void main() {
       itemId: '2002',
       title: 'Movie',
       containerExtension: '.mp4',
+      capabilities: PlaybackSessionCapabilities.onDemand(),
     );
 
     final resolved = repository.resolvePlayback(session, context);
@@ -81,6 +82,7 @@ void main() {
       itemId: '3003',
       title: 'Episode',
       containerExtension: 'mkv',
+      capabilities: PlaybackSessionCapabilities.onDemand(),
     );
 
     final resolved = repository.resolvePlayback(session, context);

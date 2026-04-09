@@ -19,8 +19,8 @@ import org.videolan.libvlc.interfaces.IMedia;
 import org.videolan.libvlc.interfaces.IVLCVout;
 
 /**
- * Xiaomi-only playback fallback that swaps ExoPlayer AAC decoding for LibVLC on problematic live
- * progressive Xtream URLs.
+ * LibVLC playback fallback used by the Android live-stream quirks layer for problematic Xtream
+ * progressive URLs.
  */
 public final class XiaomiVlcVideoPlayer
     implements ManagedVideoPlayer,
@@ -30,7 +30,6 @@ public final class XiaomiVlcVideoPlayer
   private static final String TAG = "TiviXiaomiVlc";
   private static final int FALLBACK_VIDEO_WIDTH = 1280;
   private static final int FALLBACK_VIDEO_HEIGHT = 720;
-  private static final int LIVE_CACHE_MS = 1200;
   private static final int MIN_USABLE_SURFACE_DIMENSION = 16;
 
   @NonNull private final VideoPlayerCallbacks videoPlayerEvents;
@@ -38,6 +37,7 @@ public final class XiaomiVlcVideoPlayer
   @NonNull private final Uri uri;
   @NonNull private final LibVLC libVlc;
   @NonNull private final MediaPlayer mediaPlayer;
+  @NonNull private final XiaomiDeviceQuirks.VlcPlaybackProfile vlcPlaybackProfile;
 
   @Nullable private DisposeHandler disposeHandler;
   @Nullable private Surface attachedSurface;
@@ -79,8 +79,11 @@ public final class XiaomiVlcVideoPlayer
       throw new IllegalArgumentException("Xiaomi VLC fallback requires a network media item.");
     }
     this.uri = localConfiguration.uri;
+    this.vlcPlaybackProfile =
+        XiaomiDeviceQuirks.resolveVlcPlaybackProfile(
+            asset.getAssetUrl(), asset.getHttpHeaders(), asset.getUserAgent());
     preloadVlcClasses();
-    this.libVlc = new LibVLC(context, XiaomiDeviceQuirks.createVlcOptions());
+    this.libVlc = new LibVLC(context, vlcPlaybackProfile.createLibVlcOptions());
     String userAgent = asset.getUserAgent();
     if (userAgent != null && !userAgent.isEmpty()) {
       libVlc.setUserAgent(userAgent, userAgent);
@@ -158,10 +161,7 @@ public final class XiaomiVlcVideoPlayer
     XiaomiDeviceQuirks.VlcHardwareDecodingDecision hardwareDecodingDecision =
         XiaomiDeviceQuirks.getSamsungVlcHardwareDecodingDecision(uri);
     media.setHWDecoderEnabled(!hardwareDecodingDecision.shouldDisableHardwareDecoding(), false);
-    media.addOption(":network-caching=" + LIVE_CACHE_MS);
-    media.addOption(":live-caching=" + LIVE_CACHE_MS);
-    media.addOption(":clock-jitter=0");
-    media.addOption(":clock-synchro=0");
+    vlcPlaybackProfile.applyToMedia(media);
     String userAgent = asset.getUserAgent();
     if (userAgent != null && !userAgent.isEmpty()) {
       media.addOption(":http-user-agent=" + userAgent);
@@ -177,23 +177,40 @@ public final class XiaomiVlcVideoPlayer
     if (hardwareDecodingDecision.shouldDisableHardwareDecoding()) {
       Log.w(
           TAG,
-          "Samsung LibVLC mode: HW decode OFF for streamId="
+          "LibVLC mode: HW decode OFF for streamId="
               + XiaomiDeviceQuirks.getXtreamStreamId(uri)
               + " reason="
               + hardwareDecodingDecision.getReason()
+              + " vlcProfile="
+              + vlcPlaybackProfile.getReason()
+              + " cacheMs="
+              + vlcPlaybackProfile.getNetworkCachingMs()
               + " uri="
               + uri);
     } else {
       Log.i(
           TAG,
-          "Samsung LibVLC mode: HW decode ON for streamId="
+          "LibVLC mode: HW decode ON for streamId="
               + XiaomiDeviceQuirks.getXtreamStreamId(uri)
               + " reason="
               + hardwareDecodingDecision.getReason()
+              + " vlcProfile="
+              + vlcPlaybackProfile.getReason()
+              + " cacheMs="
+              + vlcPlaybackProfile.getNetworkCachingMs()
               + " uri="
               + uri);
     }
-    Log.i(TAG, "Started LibVLC fallback for Xiaomi URL " + uri);
+    Log.i(
+        TAG,
+        "Started LibVLC fallback for live URL "
+            + uri
+            + " profile="
+            + vlcPlaybackProfile.getReason()
+            + " networkCacheMs="
+            + vlcPlaybackProfile.getNetworkCachingMs()
+            + " liveCacheMs="
+            + vlcPlaybackProfile.getLiveCachingMs());
   }
 
   private void onPlayerEvent(@NonNull MediaPlayer.Event event) {

@@ -353,6 +353,101 @@ void main() {
   });
 
   testWidgets(
+    'home tv padroniza continuar assistindo em rail com multiplos cards',
+    (tester) async {
+      await _pumpHomeScreen(
+        tester,
+        interfaceMode: InterfaceMode.tv,
+        discoveryHome: HomeDiscoveryDto(
+          generatedAt: '2026-04-08T03:30:00Z',
+          heroSlider: null,
+          hero: null,
+          highlights: null,
+          continueWatching: const HomeDiscoveryRailDto(
+            slug: 'continue-watching',
+            title: 'Continuar assistindo',
+            description: 'Retome filmes e episódios recentes.',
+            layout: 'continue-watching',
+            items: <HomeDiscoveryItemDto>[
+              HomeDiscoveryItemDto(
+                id: 'continue-vod-44',
+                title: 'Missão Final',
+                subtitle: 'VOD',
+                description: 'Filme em andamento.',
+                image: 'https://example.com/missao-poster.jpg',
+                backdrop: 'https://example.com/missao-backdrop.jpg',
+                mediaType: 'VOD',
+                contentId: '44',
+                tmdbId: null,
+                rating: 7.1,
+                year: 2025,
+                genres: <String>['Ação'],
+                runtime: 112,
+                provider: null,
+                channelNumber: null,
+                progress: 0.42,
+                badges: <String>[],
+                genreIds: <int>[28],
+              ),
+              HomeDiscoveryItemDto(
+                id: 'continue-series-201',
+                seriesId: '201',
+                title: 'Nebula 9',
+                subtitle: 'TV Series',
+                description: 'Série em andamento.',
+                image: 'https://example.com/nebula-poster.jpg',
+                backdrop: 'https://example.com/nebula-backdrop.jpg',
+                mediaType: 'Series',
+                contentId: '201',
+                tmdbId: null,
+                rating: null,
+                year: 2026,
+                genres: <String>['Drama'],
+                runtime: null,
+                provider: null,
+                channelNumber: null,
+                progress: 0.68,
+                badges: <String>[],
+                genreIds: <int>[18],
+              ),
+            ],
+          ),
+          hasContinueWatchingField: true,
+          moviesLibrary: null,
+          seriesLibrary: null,
+          animeLibrary: null,
+          liveLibrary: null,
+          libraries: const <HomeDiscoveryRailDto>[],
+          liveNow: null,
+          trendingNow: null,
+          moviesForToday: null,
+          seriesToBinge: null,
+          animeSpotlight: null,
+          rails: const <HomeDiscoveryRailDto>[],
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(
+        find.byKey(const ValueKey<String>('home.continue.section')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('home.continue.card.vod:44')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('home.continue.card.series:201')),
+        findsOneWidget,
+      );
+      expect(find.text('Missão Final'), findsOneWidget);
+      expect(find.text('Nebula 9'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'home tv preserva a backdrop do discovery ao promover destaque para o hero',
     (tester) async {
       const posterUrl = 'https://example.com/resgate-poster.jpg';

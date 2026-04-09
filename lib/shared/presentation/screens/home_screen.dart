@@ -365,7 +365,7 @@ class HomeScreen extends ConsumerWidget {
       additionalRails: discoveryAdditionalRails,
       fallbackHero: effectiveHero,
     );
-    final effectiveTvContinueItem = _resolveTvContinueItem(
+    final effectiveTvContinueSection = _resolveTvContinueSection(
       continueSection: effectiveContinueSection,
       fallback: continueItem,
     );
@@ -416,7 +416,7 @@ class HomeScreen extends ConsumerWidget {
           utilityNavItems: tvSidebarItems,
           hero: effectiveTvHero,
           heroSlider: effectiveTvHeroSlider,
-          continueItem: effectiveTvContinueItem,
+          continueSection: effectiveTvContinueSection,
           highlightsHeading: _resolveMobileRailTitle(
             slug: discoveryHighlightsRail?.slug,
             rawTitle: discoveryHighlightsRail?.title,
@@ -990,7 +990,7 @@ class _TvHomeSurface extends StatefulWidget {
     required this.utilityNavItems,
     required this.hero,
     required this.heroSlider,
-    required this.continueItem,
+    required this.continueSection,
     required this.highlightsHeading,
     required this.highlightsSubtitle,
     required this.highlightsCards,
@@ -1018,7 +1018,7 @@ class _TvHomeSurface extends StatefulWidget {
   final List<_TvNavigationItem> utilityNavItems;
   final _HomeHeroChoice hero;
   final List<_HomeHeroChoice> heroSlider;
-  final _ContinueWatchingData? continueItem;
+  final _ContinueWatchingSectionData? continueSection;
   final String highlightsHeading;
   final String highlightsSubtitle;
   final List<_HomeRailCardData> highlightsCards;
@@ -1124,7 +1124,7 @@ class _TvHomeSurfaceState extends State<_TvHomeSurface> {
                         heroFocusNode: _heroEntryFocusNode,
                         primaryNavEntryFocusNode: _primaryNavEntryFocusNode,
                         primaryNavItems: widget.primaryNavItems,
-                        continueItem: widget.continueItem,
+                        continueSection: widget.continueSection,
                         highlightsHeading: widget.highlightsHeading,
                         highlightsSubtitle: widget.highlightsSubtitle,
                         highlightsCards: widget.highlightsCards,
@@ -1392,7 +1392,7 @@ class _TvHomeExperience extends StatelessWidget {
     required this.heroFocusNode,
     required this.primaryNavEntryFocusNode,
     required this.primaryNavItems,
-    required this.continueItem,
+    required this.continueSection,
     required this.highlightsHeading,
     required this.highlightsSubtitle,
     required this.highlightsCards,
@@ -1423,7 +1423,7 @@ class _TvHomeExperience extends StatelessWidget {
   final FocusNode heroFocusNode;
   final FocusNode primaryNavEntryFocusNode;
   final List<_TvNavigationItem> primaryNavItems;
-  final _ContinueWatchingData? continueItem;
+  final _ContinueWatchingSectionData? continueSection;
   final String highlightsHeading;
   final String highlightsSubtitle;
   final List<_HomeRailCardData> highlightsCards;
@@ -1448,7 +1448,7 @@ class _TvHomeExperience extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasContinue = continueItem != null;
+    final hasContinue = continueSection?.items.isNotEmpty == true;
     final showHighlights = _shouldShowMobileRail(
       cards: highlightsCards,
       state: highlightsState,
@@ -1503,11 +1503,9 @@ class _TvHomeExperience extends StatelessWidget {
                     children: [
                       if (hasContinue) ...[
                         SizedBox(height: layout.sectionSpacing),
-                        _ContinueWatchingCard(
+                        _ContinueWatchingRailSection(
                           layout: layout,
-                          item: continueItem,
-                          compactTvCard: true,
-                          heading: 'Continuar assistindo',
+                          section: continueSection!,
                         ),
                       ],
                       if (showHighlights) ...[
@@ -1698,15 +1696,22 @@ AsyncValue<void> _combineRailStates(List<AsyncValue<dynamic>> states) {
   return const AsyncValue.data(null);
 }
 
-_ContinueWatchingData? _resolveTvContinueItem({
+_ContinueWatchingSectionData? _resolveTvContinueSection({
   required _ContinueWatchingSectionData? continueSection,
   required _ContinueWatchingData? fallback,
 }) {
   final items = continueSection?.items;
   if (items != null && items.isNotEmpty) {
-    return items.first;
+    return continueSection;
   }
-  return fallback;
+  if (fallback == null) {
+    return null;
+  }
+  return _ContinueWatchingSectionData(
+    title: 'Continuar assistindo',
+    subtitle: 'Retome filmes e episódios recentes.',
+    items: [fallback],
+  );
 }
 
 List<_HomeRailCardData> _filterNonLiveHomeCards(List<_HomeRailCardData> cards) {
@@ -4890,42 +4895,53 @@ class _ContinueWatchingRailSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final sectionGap = switch (layout.deviceClass) {
-      DeviceClass.mobilePortrait => 8.0,
-      DeviceClass.mobileLandscape => 10.0,
-      DeviceClass.tablet => 12.0,
-      _ => layout.sectionSpacing,
-    };
-    final railHeight = switch (layout.deviceClass) {
-      DeviceClass.mobilePortrait => 224.0,
-      DeviceClass.mobileLandscape => 232.0,
-      DeviceClass.tablet => 246.0,
-      _ => 224.0,
-    };
-    final railSpacing = switch (layout.deviceClass) {
-      DeviceClass.mobilePortrait => 12.0,
-      DeviceClass.mobileLandscape => 14.0,
-      DeviceClass.tablet => 14.0,
-      _ => layout.cardSpacing,
-    };
+    final sectionGap = layout.isTv
+        ? (layout.isTvCompact ? 12.0 : 14.0)
+        : switch (layout.deviceClass) {
+            DeviceClass.mobilePortrait => 8.0,
+            DeviceClass.mobileLandscape => 10.0,
+            DeviceClass.tablet => 12.0,
+            _ => layout.sectionSpacing,
+          };
+    final railHeight = layout.isTv
+        ? (layout.isTvCompact ? 258.0 : 272.0)
+        : switch (layout.deviceClass) {
+            DeviceClass.mobilePortrait => 224.0,
+            DeviceClass.mobileLandscape => 232.0,
+            DeviceClass.tablet => 246.0,
+            _ => 224.0,
+          };
+    final railSpacing = layout.isTv
+        ? (layout.isTvCompact ? 14.0 : 16.0)
+        : switch (layout.deviceClass) {
+            DeviceClass.mobilePortrait => 12.0,
+            DeviceClass.mobileLandscape => 14.0,
+            DeviceClass.tablet => 14.0,
+            _ => layout.cardSpacing,
+          };
+    final iconSize = layout.isTv ? 40.0 : 36.0;
+    final iconRadius = layout.isTv ? 14.0 : 12.0;
+    final titleSize = layout.isTv ? 21.0 : 18.5;
+    final subtitleSize = layout.isTv ? 12.8 : 11.5;
 
     return Column(
+      key: const ValueKey<String>('home.continue.section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(iconRadius),
                 color: colorScheme.primary.withValues(alpha: 0.16),
               ),
               child: Icon(
                 Icons.play_circle_fill_rounded,
                 color: colorScheme.primary,
-                size: 20,
+                size: layout.isTv ? 22 : 20,
               ),
             ),
             const SizedBox(width: 10),
@@ -4936,7 +4952,7 @@ class _ContinueWatchingRailSection extends StatelessWidget {
                   Text(
                     section.title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 18.5,
+                      fontSize: titleSize,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -4946,7 +4962,7 @@ class _ContinueWatchingRailSection extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.76),
-                      fontSize: 11.5,
+                      fontSize: subtitleSize,
                     ),
                   ),
                 ],
@@ -4969,6 +4985,9 @@ class _ContinueWatchingRailSection extends StatelessWidget {
                     SizedBox(width: railSpacing),
                 itemBuilder: (context, index) {
                   return _ContinueWatchingRailCard(
+                    key: ValueKey<String>(
+                      'home.continue.card.${section.items[index].dedupeKey}',
+                    ),
                     layout: layout,
                     item: section.items[index],
                     viewportWidth: viewportWidth,
@@ -4985,6 +5004,7 @@ class _ContinueWatchingRailSection extends StatelessWidget {
 
 class _ContinueWatchingRailCard extends ConsumerWidget {
   const _ContinueWatchingRailCard({
+    super.key,
     required this.layout,
     required this.item,
     required this.viewportWidth,
@@ -5000,23 +5020,36 @@ class _ContinueWatchingRailCard extends ConsumerWidget {
     final playbackHistoryController = ref.read(
       playbackHistoryControllerProvider.notifier,
     );
-    final cardWidth = switch (layout.deviceClass) {
-      DeviceClass.mobilePortrait => (viewportWidth - 54).clamp(248.0, 320.0),
-      DeviceClass.mobileLandscape => (viewportWidth * 0.42).clamp(260.0, 340.0),
-      DeviceClass.tablet => (viewportWidth * 0.38).clamp(300.0, 380.0),
-      _ => (viewportWidth - 54).clamp(248.0, 320.0),
-    };
+    final isTv = layout.isTv;
+    final cardWidth = isTv
+        ? (layout.isTvCompact ? 288.0 : 314.0)
+        : switch (layout.deviceClass) {
+            DeviceClass.mobilePortrait => (viewportWidth - 54).clamp(
+              248.0,
+              320.0,
+            ),
+            DeviceClass.mobileLandscape => (viewportWidth * 0.42).clamp(
+              260.0,
+              340.0,
+            ),
+            DeviceClass.tablet => (viewportWidth * 0.38).clamp(300.0, 380.0),
+            _ => (viewportWidth - 54).clamp(248.0, 320.0),
+          };
     final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-      fontSize: layout.deviceClass == DeviceClass.tablet ? 15.5 : 14.5,
+      fontSize: isTv
+          ? 17.0
+          : (layout.deviceClass == DeviceClass.tablet ? 15.5 : 14.5),
       fontWeight: FontWeight.w700,
-      height: 1.2,
+      height: isTv ? 1.15 : 1.2,
     );
     final remainingStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
       color: colorScheme.onSurface.withValues(alpha: 0.76),
       fontWeight: FontWeight.w700,
       letterSpacing: 0.1,
+      fontSize: isTv ? 12.3 : null,
     );
     final remainingText = _formatContinueRemainingText(item.remainingLabel);
+    final metaText = remainingText.isNotEmpty ? remainingText : item.subtitle;
     final normalizedCurrentImage = BrandedArtwork.normalizeArtworkUrl(
       item.imageUrl,
     );
@@ -5048,122 +5081,164 @@ class _ContinueWatchingRailCard extends ConsumerWidget {
         );
       }
     }
-    final menuButton = SizedBox(
-      width: 30,
-      height: 30,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.54),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-        ),
-        child: PopupMenuButton<_ContinueWatchingMenuAction>(
-          padding: EdgeInsets.zero,
-          tooltip: 'Mais opções',
-          position: PopupMenuPosition.under,
-          color: colorScheme.surfaceContainerHighest,
-          iconSize: 17,
-          splashRadius: 18,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          icon: Icon(
-            Icons.more_vert_rounded,
-            color: Colors.white.withValues(alpha: 0.92),
-          ),
-          onSelected: (action) async {
-            switch (action) {
-              case _ContinueWatchingMenuAction.open:
-                item.onPressed();
-                return;
-              case _ContinueWatchingMenuAction.remove:
-                final contentType = item.removableContentType;
-                final itemId = item.removableItemId?.trim();
-                if (contentType == null || itemId == null || itemId.isEmpty) {
-                  return;
-                }
-                await playbackHistoryController.remove(contentType, itemId);
-                if (!context.mounted) {
-                  return;
-                }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '"${item.title}" removido de Continuar assistindo.',
-                    ),
-                  ),
-                );
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: _ContinueWatchingMenuAction.open,
-              child: Text('Abrir'),
-            ),
-            if (item.removableContentType != null &&
-                item.removableItemId?.trim().isNotEmpty == true)
-              const PopupMenuItem(
-                value: _ContinueWatchingMenuAction.remove,
-                child: Text('Remover da lista'),
+    final menuButton = isTv
+        ? null
+        : SizedBox(
+            width: 30,
+            height: 30,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.54),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
               ),
+              child: PopupMenuButton<_ContinueWatchingMenuAction>(
+                padding: EdgeInsets.zero,
+                tooltip: 'Mais opções',
+                position: PopupMenuPosition.under,
+                color: colorScheme.surfaceContainerHighest,
+                iconSize: 17,
+                splashRadius: 18,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  color: Colors.white.withValues(alpha: 0.92),
+                ),
+                onSelected: (action) async {
+                  switch (action) {
+                    case _ContinueWatchingMenuAction.open:
+                      item.onPressed();
+                      return;
+                    case _ContinueWatchingMenuAction.remove:
+                      final contentType = item.removableContentType;
+                      final itemId = item.removableItemId?.trim();
+                      if (contentType == null ||
+                          itemId == null ||
+                          itemId.isEmpty) {
+                        return;
+                      }
+                      await playbackHistoryController.remove(
+                        contentType,
+                        itemId,
+                      );
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '"${item.title}" removido de Continuar assistindo.',
+                          ),
+                        ),
+                      );
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: _ContinueWatchingMenuAction.open,
+                    child: Text('Abrir'),
+                  ),
+                  if (item.removableContentType != null &&
+                      item.removableItemId?.trim().isNotEmpty == true)
+                    const PopupMenuItem(
+                      value: _ContinueWatchingMenuAction.remove,
+                      child: Text('Remover da lista'),
+                    ),
+                ],
+              ),
+            ),
+          );
+    final artworkRadius = isTv ? 18.0 : 16.0;
+    final focusedArtworkRadius = artworkRadius + 4;
+
+    Widget buildContent(bool focused) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: isTv ? const EdgeInsets.all(3) : EdgeInsets.zero,
+            decoration: isTv
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(focusedArtworkRadius),
+                    border: Border.all(
+                      color: focused ? _kHomeTvFocusColor : Colors.transparent,
+                      width: 2.4,
+                    ),
+                    boxShadow: focused
+                        ? [
+                            BoxShadow(
+                              color: _kHomeTvFocusGlow,
+                              blurRadius: 18,
+                              spreadRadius: 1.5,
+                            ),
+                          ]
+                        : const [],
+                  )
+                : null,
+            child: Stack(
+              children: [
+                _ContinueWatchingThumbnail(
+                  imageUrl: resolvedThumbnailImageUrl,
+                  posterImageUrl: item.posterImageUrl,
+                  icon: item.icon,
+                  borderRadius: artworkRadius,
+                  aspectRatio: 16 / 9,
+                ),
+                if (menuButton != null)
+                  Positioned(top: 8, right: 8, child: menuButton),
+              ],
+            ),
+          ),
+          SizedBox(height: isTv ? 10 : 8),
+          Text(
+            item.title,
+            maxLines: isTv ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          ),
+          if (metaText.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              metaText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: remainingStyle,
+            ),
           ],
-        ),
-      ),
-    );
+          SizedBox(height: isTv ? 8 : 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: item.progress.clamp(0.0, 1.0),
+              minHeight: isTv ? 5 : 4,
+              backgroundColor: colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.3,
+              ),
+              color: colorScheme.primary,
+            ),
+          ),
+        ],
+      );
+    }
 
     return SizedBox(
       width: cardWidth,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: item.onPressed,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  _ContinueWatchingThumbnail(
-                    imageUrl: resolvedThumbnailImageUrl,
-                    posterImageUrl: item.posterImageUrl,
-                    icon: item.icon,
-                    borderRadius: 16,
-                    aspectRatio: 16 / 9,
-                  ),
-                  Positioned(top: 8, right: 8, child: menuButton),
-                ],
+      child: isTv
+          ? TvFocusable(
+              onPressed: item.onPressed,
+              builder: (context, focused) => buildContent(focused),
+            )
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: item.onPressed,
+                child: buildContent(false),
               ),
-              const SizedBox(height: 8),
-              Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: titleStyle,
-              ),
-              if (remainingText.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  remainingText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: remainingStyle,
-                ),
-              ],
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: item.progress.clamp(0.0, 1.0),
-                  minHeight: 4,
-                  backgroundColor: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.3),
-                  color: colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

@@ -4,8 +4,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.net.Uri;
 import java.io.ByteArrayOutputStream;
 import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -88,10 +90,53 @@ public final class TransportStreamProbeTest {
     assertTrue(asset.shouldUseVlcFallback());
   }
 
+  @Test
+  public void whitelistedStreamUsesTolerantVlcPlaybackProfile() {
+    XiaomiDeviceQuirks.VlcPlaybackProfile profile =
+        XiaomiDeviceQuirks.resolveVlcPlaybackProfile(
+            Uri.parse("http://177.104.161.199:8080/marcos/123456/96"), null);
+
+    assertEquals(2500, profile.getNetworkCachingMs());
+    assertEquals(2500, profile.getLiveCachingMs());
+    List<String> options = profile.createLibVlcOptions();
+    assertTrue(options.contains("--network-caching=2500"));
+    assertTrue(options.contains("--live-caching=2500"));
+    assertFalse(options.contains("--clock-jitter=0"));
+    assertFalse(options.contains("--clock-synchro=0"));
+  }
+
+  @Test
+  public void aacAdtsTransportStreamUsesTolerantVlcPlaybackProfile() {
+    XiaomiDeviceQuirks.VlcPlaybackProfile profile =
+        XiaomiDeviceQuirks.resolveVlcPlaybackProfile(
+            Uri.parse("http://177.104.161.199:8080/marcos/123456/120"),
+            createStreamInfo(TransportStreamProbe.AudioProfile.AAC_ADTS));
+
+    assertEquals(2500, profile.getNetworkCachingMs());
+    assertEquals(2500, profile.getLiveCachingMs());
+  }
+
+  @Test
+  public void nonAdtsTransportStreamKeepsDefaultVlcPlaybackProfile() {
+    XiaomiDeviceQuirks.VlcPlaybackProfile profile =
+        XiaomiDeviceQuirks.resolveVlcPlaybackProfile(
+            Uri.parse("http://177.104.161.199:8080/marcos/123456/120"),
+            createStreamInfo(TransportStreamProbe.AudioProfile.OTHER_AUDIO));
+
+    assertEquals(1500, profile.getNetworkCachingMs());
+    assertEquals(1500, profile.getLiveCachingMs());
+  }
+
   private static byte[] withNoisePrefix(byte[] sample, int prefixLength) {
     byte[] prefixed = new byte[prefixLength + sample.length];
     System.arraycopy(sample, 0, prefixed, prefixLength, sample.length);
     return prefixed;
+  }
+
+  private static TransportStreamProbe.StreamInfo createStreamInfo(
+      TransportStreamProbe.AudioProfile audioProfile) {
+    return new TransportStreamProbe.StreamInfo(
+        audioProfile, TransportStreamProbe.VideoFrameRateProfile.OTHER, Float.NaN, -1, -1);
   }
 
   private static byte[] createTransportStreamSample(int audioStreamType) {

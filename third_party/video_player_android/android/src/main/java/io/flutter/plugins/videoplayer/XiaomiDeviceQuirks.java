@@ -29,11 +29,15 @@ final class XiaomiDeviceQuirks {
   private static final int XIAOMI_MIN_PCM_BUFFER_DURATION_US = 100_000;
   private static final int XIAOMI_MAX_PCM_BUFFER_DURATION_US = 150_000;
   private static final int XIAOMI_PCM_BUFFER_MULTIPLICATION_FACTOR = 2;
+  private static final int VLC_DEFAULT_NETWORK_CACHE_MS = 1500;
+  private static final int VLC_DEFAULT_LIVE_CACHE_MS = 1500;
+  private static final int VLC_TOLERANT_NETWORK_CACHE_MS = 2500;
+  private static final int VLC_TOLERANT_LIVE_CACHE_MS = 2500;
   // Streams that consistently hit AudioTrack timestamp discontinuities in ExoPlayer but are
   // stable in VLC. Keep this list intentionally small and evidence-based.
   private static final Set<String> STREAM_IDS_REQUIRING_VLC_FALLBACK =
       new HashSet<>(Arrays.asList("95", "96", "119"));
-  private static final Map<String, TransportStreamProbe.StreamInfo> SAMSUNG_STREAM_INFO_CACHE =
+  private static final Map<String, TransportStreamProbe.StreamInfo> STREAM_INFO_CACHE =
       new ConcurrentHashMap<>();
 
   private XiaomiDeviceQuirks() {}
@@ -54,6 +58,44 @@ final class XiaomiDeviceQuirks {
     @NonNull
     String getReason() {
       return reason;
+    }
+  }
+
+  static final class VlcPlaybackProfile {
+    private final int networkCachingMs;
+    private final int liveCachingMs;
+    @NonNull private final String reason;
+
+    VlcPlaybackProfile(int networkCachingMs, int liveCachingMs, @NonNull String reason) {
+      this.networkCachingMs = networkCachingMs;
+      this.liveCachingMs = liveCachingMs;
+      this.reason = reason;
+    }
+
+    int getNetworkCachingMs() {
+      return networkCachingMs;
+    }
+
+    int getLiveCachingMs() {
+      return liveCachingMs;
+    }
+
+    @NonNull
+    String getReason() {
+      return reason;
+    }
+
+    @NonNull
+    List<String> createLibVlcOptions() {
+      List<String> options = new ArrayList<>();
+      options.add("--network-caching=" + networkCachingMs);
+      options.add("--live-caching=" + liveCachingMs);
+      return options;
+    }
+
+    void applyToMedia(@NonNull org.videolan.libvlc.Media media) {
+      media.addOption(":network-caching=" + networkCachingMs);
+      media.addOption(":live-caching=" + liveCachingMs);
     }
   }
 
@@ -96,7 +138,7 @@ final class XiaomiDeviceQuirks {
     TransportStreamProbe.StreamInfo samsungStreamInfo = null;
     if (shouldApplySamsungAdtsFallback()) {
       samsungStreamInfo =
-          getSamsungStreamInfo(
+          getStreamInfo(
               assetUrl, httpHeaders != null ? httpHeaders : Collections.emptyMap(), userAgent);
     }
 
@@ -153,7 +195,7 @@ final class XiaomiDeviceQuirks {
       return new VlcHardwareDecodingDecision(false, "missing_uri");
     }
 
-    TransportStreamProbe.StreamInfo streamInfo = SAMSUNG_STREAM_INFO_CACHE.get(uri.toString());
+    TransportStreamProbe.StreamInfo streamInfo = STREAM_INFO_CACHE.get(uri.toString());
     if (streamInfo == null) {
       return new VlcHardwareDecodingDecision(false, "missing_cached_probe");
     }
@@ -182,13 +224,38 @@ final class XiaomiDeviceQuirks {
   }
 
   @NonNull
-  static List<String> createVlcOptions() {
-    List<String> options = new ArrayList<>();
-    options.add("--network-caching=400");
-    options.add("--live-caching=400");
-    options.add("--clock-jitter=0");
-    options.add("--clock-synchro=0");
-    return options;
+  static VlcPlaybackProfile resolveVlcPlaybackProfile(
+      @Nullable String assetUrl,
+      @NonNull Map<String, String> httpHeaders,
+      @Nullable String userAgent) {
+    if (assetUrl == null || assetUrl.isEmpty()) {
+      return defaultVlcPlaybackProfile("missing_asset_url");
+    }
+
+    Uri uri = Uri.parse(assetUrl);
+    TransportStreamProbe.StreamInfo streamInfo = null;
+    if (isSupportedXtreamLiveUrl(uri)) {
+      streamInfo = getStreamInfo(assetUrl, httpHeaders, userAgent);
+    }
+
+    return resolveVlcPlaybackProfile(uri, streamInfo);
+  }
+
+  @NonNull
+  static VlcPlaybackProfile resolveVlcPlaybackProfile(
+      @Nullable Uri uri, @Nullable TransportStreamProbe.StreamInfo streamInfo) {
+    String streamId = getXtreamStreamId(uri);
+    if (streamId != null && STREAM_IDS_REQUIRING_VLC_FALLBACK.contains(streamId)) {
+      return tolerantVlcPlaybackProfile("whitelisted_stream_id_" + streamId);
+    }
+
+    if (streamInfo != null
+        && streamInfo.getAudioProfile() == TransportStreamProbe.AudioProfile.AAC_ADTS) {
+      return tolerantVlcPlaybackProfile(
+          "aac_adts_transport_stream(" + streamInfo.toSummaryString() + ")");
+    }
+
+    return defaultVlcPlaybackProfile("generic_live_fallback");
   }
 
   private static boolean matchesXiaomiBrand(String value) {
@@ -250,11 +317,11 @@ final class XiaomiDeviceQuirks {
   }
 
   @NonNull
-  private static TransportStreamProbe.StreamInfo getSamsungStreamInfo(
+  private static TransportStreamProbe.StreamInfo getStreamInfo(
       @NonNull String assetUrl,
       @NonNull Map<String, String> httpHeaders,
       @Nullable String userAgent) {
-    TransportStreamProbe.StreamInfo cachedStreamInfo = SAMSUNG_STREAM_INFO_CACHE.get(assetUrl);
+    TransportStreamProbe.StreamInfo cachedStreamInfo = STREAM_INFO_CACHE.get(assetUrl);
     if (cachedStreamInfo != null) {
       return cachedStreamInfo;
     }
@@ -262,8 +329,20 @@ final class XiaomiDeviceQuirks {
     TransportStreamProbe.StreamInfo detectedStreamInfo =
         TransportStreamProbe.probeStreamInfo(assetUrl, httpHeaders, userAgent);
     if (detectedStreamInfo.isCacheable()) {
-      SAMSUNG_STREAM_INFO_CACHE.put(assetUrl, detectedStreamInfo);
+      STREAM_INFO_CACHE.put(assetUrl, detectedStreamInfo);
     }
     return detectedStreamInfo;
+  }
+
+  @NonNull
+  private static VlcPlaybackProfile defaultVlcPlaybackProfile(@NonNull String reason) {
+    return new VlcPlaybackProfile(
+        VLC_DEFAULT_NETWORK_CACHE_MS, VLC_DEFAULT_LIVE_CACHE_MS, reason);
+  }
+
+  @NonNull
+  private static VlcPlaybackProfile tolerantVlcPlaybackProfile(@NonNull String reason) {
+    return new VlcPlaybackProfile(
+        VLC_TOLERANT_NETWORK_CACHE_MS, VLC_TOLERANT_LIVE_CACHE_MS, reason);
   }
 }

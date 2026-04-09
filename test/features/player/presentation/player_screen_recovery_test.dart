@@ -17,6 +17,7 @@ import 'package:tiviplayer/features/player/domain/repositories/player_repository
 import 'package:tiviplayer/features/player/domain/usecases/resolve_playback_use_case.dart';
 import 'package:tiviplayer/features/player/presentation/providers/player_providers.dart';
 import 'package:tiviplayer/features/player/presentation/screens/player_screen.dart';
+import 'package:tiviplayer/shared/presentation/layout/interface_mode_scope.dart';
 import 'package:tiviplayer/shared/testing/app_test_keys.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -44,6 +45,40 @@ void main() {
     expect(controller.value.isInitialized, isTrue);
     await controller.dispose();
   });
+
+  test(
+    'next episode overlay appears before end and autoplays only at finale',
+    () {
+      final promptState = deriveOnDemandAutoAdvanceState(
+        hasNextItem: true,
+        contentType: PlaybackContentType.seriesEpisode,
+        remaining: const Duration(seconds: 18),
+        dismissed: false,
+      );
+      expect(promptState, isNotNull);
+      expect(promptState!.countdownSeconds, isNull);
+      expect(promptState.shouldAutoAdvance, isFalse);
+
+      final countdownState = deriveOnDemandAutoAdvanceState(
+        hasNextItem: true,
+        contentType: PlaybackContentType.seriesEpisode,
+        remaining: const Duration(seconds: 9),
+        dismissed: false,
+      );
+      expect(countdownState, isNotNull);
+      expect(countdownState!.countdownSeconds, 9);
+      expect(countdownState.shouldAutoAdvance, isFalse);
+
+      final autoPlayState = deriveOnDemandAutoAdvanceState(
+        hasNextItem: true,
+        contentType: PlaybackContentType.seriesEpisode,
+        remaining: const Duration(milliseconds: 1200),
+        dismissed: false,
+      );
+      expect(autoPlayState, isNotNull);
+      expect(autoPlayState!.shouldAutoAdvance, isTrue);
+    },
+  );
 
   testWidgets(
     'retries initialization after play failure and disposes failed controller',
@@ -173,6 +208,11 @@ void main() {
         initializationBaseDelay: Duration(milliseconds: 1),
         initializationStepDelay: Duration.zero,
       ),
+      interfaceMode: InterfaceMode.mobile,
+      mediaQueryData: const MediaQueryData(
+        size: Size(430, 932),
+        navigationMode: NavigationMode.traditional,
+      ),
     );
 
     final loaded = await _waitForPlayerLoaded(tester);
@@ -187,7 +227,7 @@ void main() {
     expect(fakePlatform.seekRequests, isNotEmpty);
     expect(fakePlatform.seekRequests.last, const Duration(seconds: 10));
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause);
     await _waitFor(
       tester,
       condition: () => fakePlatform.pauseCalls >= 1,
@@ -196,7 +236,7 @@ void main() {
     );
     expect(fakePlatform.pauseCalls, greaterThanOrEqualTo(1));
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause);
     await _waitFor(
       tester,
       condition: () => fakePlatform.playCalls > playCallsAfterInit,
@@ -223,11 +263,85 @@ void main() {
     );
     expect(fakePlatform.volumeRequests.last, greaterThan(0));
   });
+
+  testWidgets('mobile overlay keeps volume and brilho on edge gestures only', (
+    tester,
+  ) async {
+    final fakePlatform = _FakeVideoPlayerPlatform(
+      initializationOutcomes: [_InitOutcome.success],
+    );
+    VideoPlayerPlatform.instance = fakePlatform;
+
+    await _pumpPlayer(
+      tester,
+      recoveryPolicy: const PlayerRecoveryPolicy(
+        maxInitializationRetries: 0,
+        maxRuntimeRecoveries: 0,
+        initializationBaseDelay: Duration(milliseconds: 1),
+        initializationStepDelay: Duration.zero,
+      ),
+      interfaceMode: InterfaceMode.mobile,
+      mediaQueryData: const MediaQueryData(
+        size: Size(430, 932),
+        navigationMode: NavigationMode.traditional,
+      ),
+    );
+
+    final loaded = await _waitForPlayerLoaded(tester);
+    expect(loaded, isTrue, reason: 'player mobile não carregou');
+
+    expect(find.text('Volume'), findsNothing);
+    expect(find.text('Brilho'), findsNothing);
+    expect(find.text('Midia'), findsNothing);
+    expect(find.text('Ajustes'), findsNothing);
+    expect(find.text('Episodios'), findsNothing);
+    expect(find.text('Opcoes'), findsNothing);
+  });
+
+  testWidgets('tv overlay keeps directional keys for focus instead of seek', (
+    tester,
+  ) async {
+    final fakePlatform = _FakeVideoPlayerPlatform(
+      initializationOutcomes: [_InitOutcome.success],
+    );
+    VideoPlayerPlatform.instance = fakePlatform;
+
+    await _pumpPlayer(
+      tester,
+      recoveryPolicy: const PlayerRecoveryPolicy(
+        maxInitializationRetries: 0,
+        maxRuntimeRecoveries: 0,
+        initializationBaseDelay: Duration(milliseconds: 1),
+        initializationStepDelay: Duration.zero,
+      ),
+      interfaceMode: InterfaceMode.tv,
+      mediaQueryData: const MediaQueryData(
+        size: Size(1920, 1080),
+        navigationMode: NavigationMode.directional,
+      ),
+    );
+
+    final loaded = await _waitForPlayerLoaded(tester);
+    expect(loaded, isTrue, reason: 'player tv não carregou');
+
+    expect(find.text('Midia'), findsNothing);
+    expect(find.text('Ajustes'), findsNothing);
+    expect(find.text('Episodios'), findsNothing);
+    expect(find.text('Opcoes'), findsNothing);
+    expect(find.text('Pause'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(fakePlatform.seekRequests, isEmpty);
+  });
 }
 
 Future<void> _pumpPlayer(
   WidgetTester tester, {
   required PlayerRecoveryPolicy recoveryPolicy,
+  InterfaceMode interfaceMode = InterfaceMode.mobile,
+  MediaQueryData mediaQueryData = const MediaQueryData(size: Size(430, 932)),
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -242,9 +356,15 @@ Future<void> _pumpPlayer(
         ),
       ],
       child: MaterialApp(
-        home: PlayerScreen(
-          playbackContext: _playbackContext,
-          recoveryPolicy: recoveryPolicy,
+        home: MediaQuery(
+          data: mediaQueryData,
+          child: InterfaceModeScope(
+            mode: interfaceMode,
+            child: PlayerScreen(
+              playbackContext: _playbackContext,
+              recoveryPolicy: recoveryPolicy,
+            ),
+          ),
         ),
       ),
     ),
@@ -310,6 +430,7 @@ const _playbackContext = PlaybackContext(
   itemId: 'vod-1',
   title: 'Teste VOD',
   containerExtension: 'mp4',
+  capabilities: PlaybackSessionCapabilities.onDemand(),
 );
 
 const _session = XtreamSession(

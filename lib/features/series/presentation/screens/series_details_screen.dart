@@ -8,6 +8,7 @@ import '../../../../features/favorites/presentation/controllers/favorites_contro
 import '../../../../features/player/domain/entities/playback_context.dart';
 import '../../../../features/player/presentation/controllers/playback_history_controller.dart';
 import '../../../../features/player/presentation/screens/player_screen.dart';
+import '../../../../features/player/presentation/support/player_screen_arguments.dart';
 import '../../../../shared/presentation/layout/device_layout.dart';
 import '../../../../shared/presentation/support/on_demand_library.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
@@ -196,19 +197,7 @@ SeriesEpisode? _resolveInitialEpisode(List<SeriesEpisode> episodes) {
     return null;
   }
 
-  final ordered = [...episodes]
-    ..sort((a, b) {
-      final seasonCompare = a.seasonNumber.compareTo(b.seasonNumber);
-      if (seasonCompare != 0) {
-        return seasonCompare;
-      }
-
-      final aEpisode = a.episodeNumber ?? 0;
-      final bEpisode = b.episodeNumber ?? 0;
-      return aEpisode.compareTo(bEpisode);
-    });
-
-  return ordered.first;
+  return _orderEpisodes(episodes).first;
 }
 
 SeriesEpisode? _resolveResumeEpisode({
@@ -240,12 +229,58 @@ SeriesEpisode? _resolveResumeEpisode({
   return null;
 }
 
+List<SeriesEpisode> _orderEpisodes(List<SeriesEpisode> episodes) {
+  return [...episodes]..sort((a, b) {
+    final seasonCompare = a.seasonNumber.compareTo(b.seasonNumber);
+    if (seasonCompare != 0) {
+      return seasonCompare;
+    }
+
+    final aEpisode = a.episodeNumber ?? 0;
+    final bEpisode = b.episodeNumber ?? 0;
+    return aEpisode.compareTo(bEpisode);
+  });
+}
+
 void _openEpisode(
   BuildContext context,
   SeriesInfo item,
   SeriesEpisode episode,
   PlaybackHistoryController playbackHistoryController,
 ) {
+  final orderedEpisodes = _orderEpisodes(item.episodes);
+  final currentIndex = orderedEpisodes.indexWhere(
+    (candidate) => candidate.id == episode.id,
+  );
+
+  if (currentIndex >= 0) {
+    final navigation = PlayerOnDemandNavigation(
+      items: [
+        for (final candidate in orderedEpisodes)
+          PlayerOnDemandNavigationItem(
+            contentType: PlaybackContentType.seriesEpisode,
+            itemId: candidate.id,
+            title: '${item.name} • ${candidate.title}',
+            containerExtension: candidate.containerExtension,
+            artworkUrl: item.coverUrl,
+            backdropUrl: item.backdropUrl,
+            seriesId: item.id,
+            resumePosition: playbackHistoryController.resolveResumePosition(
+              PlaybackContentType.seriesEpisode,
+              candidate.id,
+            ),
+          ),
+      ],
+      currentIndex: currentIndex,
+    );
+
+    context.push(
+      PlayerScreen.routePath,
+      extra: PlayerScreenArguments.onDemand(navigation),
+    );
+    return;
+  }
+
   context.push(
     PlayerScreen.routePath,
     extra: PlaybackContext(
